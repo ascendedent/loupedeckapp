@@ -45,6 +45,10 @@ WHEEL_SIZE = (240, 240)
 # Round dial unique to the CT. Reported as button/knob id 0x00 -> "knobCT".
 DIAL_ID = "knobCT"
 
+# Physical buttons bound to workspaces on the CT/Live: 'circle' + '1'..'7'.
+# Shared constant so the (Qt-free) config model doesn't depend on the UI layer.
+WS_KEYS = ["circle"] + [str(i) for i in range(1, 8)]
+
 # Extra hardware buttons the CT has and the Live lacks (foxxyz BUTTONS 0x0f-0x1a).
 CT_EXTRA_BUTTONS = [
     "home", "undo", "keyboard", "enter", "save",
@@ -104,7 +108,7 @@ class DeviceProfile:
     @property
     def workspace_keys(self):
         """Physical buttons bound to workspaces: 'circle' + '1'..'7'."""
-        return ["circle"] + [str(i) for i in range(1, 8)]
+        return list(WS_KEYS)
 
     # -- side-display geometry ---------------------------------------------
     def side_display_draw_x(self, side):

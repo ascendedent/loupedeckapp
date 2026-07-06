@@ -1,9 +1,6 @@
 import json, os
-from PyQt5.QtWidgets import QApplication
-from PyQt5.QtGui import QKeySequence
-from PyQt5.QtCore import QObject, pyqtSignal
 import input_backend
-from DeviceProfile import CT_EXTRA_BUTTONS, WHEEL_DISPLAY
+from DeviceProfile import CT_EXTRA_BUTTONS, WHEEL_DISPLAY, WS_KEYS
 
 SCHEMA_VERSION = 2
 
@@ -14,14 +11,16 @@ DIAL_KEY_L = "dial-l"
 DIAL_KEY_R = "dial-r"
 
 
-class LdConfiguration(QObject):
-
-  config_loaded = pyqtSignal()
+class LdConfiguration:
+  """Profile data model. Qt-free so both the PyQt5 (`app.py`) and PySide6
+  (`qml_app.py`) front-ends can share it."""
 
   def __init__(self, profile="default"):
-    super().__init__()
     self.profile = profile
     self.workspaces = [LdWorkspace() for i in range(8)]
+    # Optional callback invoked after a successful load() (set by the UI if it
+    # wants to refresh); replaces the old Qt `config_loaded` signal.
+    self.on_loaded = None
 
   def save(self, profile_name):
     if profile_name:
@@ -34,21 +33,20 @@ class LdConfiguration(QObject):
       with open("./Profiles/" + json_file + ".json", "r") as file:
         data = json.load(file)
         self.from_JSON(data)
-        self.config_loaded.emit()
+        if self.on_loaded:
+          self.on_loaded()
     except FileNotFoundError:
       print("File %s not found" % json_file)
     except json.decoder.JSONDecodeError:
       print("Can't read JSON in file %s" % json_file)
 
   def to_JSON(self):
-    ldApp = QApplication.instance()
     s = {"schema_version": SCHEMA_VERSION,
          "profile": self.profile,
-         "workspaces": {i: ws.to_JSON() for i, ws in zip(ldApp.ws_keys, self.workspaces)}}
+         "workspaces": {i: ws.to_JSON() for i, ws in zip(WS_KEYS, self.workspaces)}}
     return s
 
   def from_JSON(self, json_str):
-    ldApp = QApplication.instance()
     # v1 profiles have no "schema_version". Migration is automatic: LdWorkspace's
     # constructor seeds every current key (incl. the v2 dial/wheel/CT-button
     # slots), and from_JSON only overlays the keys the file actually contains, so
@@ -58,14 +56,13 @@ class LdConfiguration(QObject):
       print("warning: profile schema_version %s is newer than supported %s; "
             "loading best-effort" % (version, SCHEMA_VERSION))
     self.profile = json_str["profile"]
-    for i, ws_key in enumerate(ldApp.ws_keys):
+    for i, ws_key in enumerate(WS_KEYS):
       self.workspaces[i] = LdWorkspace.from_JSON(json_str["workspaces"][ws_key])
 
 
-class LdWorkspace(QObject):
+class LdWorkspace:
 
   def __init__(self, ws_profile="default"):
-    super().__init__()
     self.profile = ws_profile
     action_keys = ["enc1L" , "enc1L-l", "enc1L-r",
                    "enc2L", "enc2L-l", "enc2L-r",
@@ -119,7 +116,7 @@ class LdWorkspace(QObject):
     return ldw
 
 
-class LdAction (QObject):
+class LdAction:
   # Executable action types are routed through input_backend (Wayland-capable).
   # "command"/"launch" run a shell command (detached); "hotkey" sends a key
   # combo; "text" types a string; "media" controls playback. "submenu"/"back"
@@ -129,7 +126,6 @@ class LdAction (QObject):
   EXECUTABLE = ("command", "launch", "hotkey", "text", "media", "back")
 
   def __init__(self, action_type: ActionType ="none", action="", summary=""):
-    super().__init__()
     self.a_type = action_type
     self.action = action
     if summary:
