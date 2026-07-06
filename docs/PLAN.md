@@ -201,7 +201,7 @@ Provide a **v1→v2 migration** so existing `Profiles/*.json` load cleanly.
 | **M0 — Baseline** *(done)* | Fork runs on CT | Fork, deps, permissions, app launches & connects | App drives the CT without sudo |
 | **M1 — CT correctness** *(done)* | The current UI is *correct* for the CT | Workstream A (partial) + B; PID-based model detect; wheel/dial events read; geometry fixed | ✅ Every CT key/encoder/side-display/dial/wheel decodes; wheel renders; right-display placement fixed |
 | **M2 — Input that works** *(done)* | Actions actually fire on Wayland | Workstream C (ydotool + KDE dbus); media/launch actions | ✅ `input_backend` (ydotool→xdotool→pyautogui); hotkey/text/launch/media; verified typing into native Wayland windows |
-| **M3 — Profiles & dynamic mode** | Per-app profiles | Workstreams D + E; schema v2 + migration; FocusWatcher via KWin | Focused-app switching works; import/export |
+| **M3 — Profiles & dynamic mode** *(done)* | Per-app profiles | Workstreams D + E; schema v2 + migration; FocusWatcher via KWin | ✅ schema v2 + migration; WindowWatcher (kdotool); ProfileManager + dynamic-mode toggle; **verified live on-device** (focus Chrome→blue / other→red profile switch). Action *library* UI deferred to M4. |
 | **M4 — UI overhaul** | Looks/feels close to official | Workstream F (PySide6+QML), action library, pages tree, theming | Three-column dark UI; drag-drop; CT device view w/ wheel |
 | **M5 — Ship it** | Installable by non-devs | Workstream G; docs; starter profiles | Flatpak/AppImage installs & runs on a clean KDE machine |
 
@@ -233,8 +233,18 @@ Milestones are independently valuable; M1–M3 don't depend on the UI-stack deci
 4. ~~Probe + wire the CT **wheel screen** and **dial** events.~~ ✅ `ct_support.py` (wheel renders
    big-endian; dial/wheel-touch/CT-buttons decode — verified live via `scratch/ct_capture.py`)
 
-**M2 kickoff (next):**
-5. Stand up the `InputBackend` interface with a `ydotool` implementation and verify one hotkey on
-   Wayland.
-6. (Carried from M1/M3) Add config-schema slots so actions can be *bound* to the dial, wheel, and CT
-   extra buttons (events are already routed and currently no-op until bound).
+**M2 — done:** ✅ `input_backend` (ydotool→xdotool→pyautogui); verified typing/hotkeys into native
+Wayland windows via `ydotoold`.
+
+**M3 — mostly done:**
+- ✅ Schema v2 + v1→v2 migration; dial/wheel/CT-button action slots + wheel image slot (bindable and
+  persisted; events already routed in `LdApp`).
+- ✅ `WindowWatcher` (kdotool, KWin scripting) + `ProfileManager` (app→profile bindings, default
+  profile, dynamic-mode flag in `dynamic_profiles.json`) + a dynamic-mode toggle & "bind app" button
+  wired into `LdApp`.
+- ✅ **Live on-device test passed**: with dynamic mode on, focusing Chrome switched the CT to the
+  bound profile (blue) and focusing another app returned it to the default (red).
+- Deferred to M4: a proper action-config UI for the new action types + the action *library*.
+
+**M4 kickoff (next):** PySide6 + QML UI overhaul (three-column shell, CT-accurate device view incl.
+wheel, action library, pages/profiles tree, theming).

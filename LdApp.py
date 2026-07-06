@@ -3,12 +3,14 @@ from LdConfiguration import LdAction
 from LdDialog import ConfigImgDialog
 from DeviceProfile import DeviceProfile, DIAL_ID, WHEEL_DISPLAY
 import ct_support
+import window_watcher
+from profile_manager import ProfileManager
 
 from Loupedeck import DeviceManager
 from Loupedeck.Devices import LoupedeckLive
 from Loupedeck.Devices.LoupedeckLive import CALLBACK_KEYWORD as CBC
 
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QLabel, QPushButton, QLineEdit, QHBoxLayout, QVBoxLayout, QGridLayout, QCommonStyle
+from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QLabel, QPushButton, QLineEdit, QCheckBox, QHBoxLayout, QVBoxLayout, QGridLayout, QCommonStyle
 from PyQt5.QtCore import pyqtSignal
 from PIL import Image, ImageColor
 from math import floor
@@ -21,6 +23,10 @@ class LdApp(QApplication):
 
   submenu_opened = pyqtSignal(str)
   submenu_closed = pyqtSignal(str)
+
+  # Emitted from the WindowWatcher background thread; the queued connection
+  # marshals the profile switch onto the Qt main thread. (wm_class, title)
+  active_window_changed = pyqtSignal(str, str)
 
   back_but_path = "Images/submenu_back_button.png"
 
@@ -48,10 +54,27 @@ class LdApp(QApplication):
     hlayout.addWidget(self.load_but)
     profile_widget = QWidget(self.main_window)
     profile_widget.setLayout(hlayout)
+
+    # Dynamic mode (M3): switch profile automatically on focused-app change.
+    self.profile_manager = ProfileManager()
+    self.window_watcher = window_watcher.get_watcher(
+      on_change=lambda c, t: self.active_window_changed.emit(c, t))
+    self.dynamic_checkbox = QCheckBox("Dynamic mode (auto-switch by focused app)")
+    self.dynamic_checkbox.setChecked(self.profile_manager.dynamic_mode)
+    self.bind_but = QPushButton("Bind focused app → current profile", self.main_window)
+    dyn_layout = QHBoxLayout()
+    dyn_layout.addWidget(self.dynamic_checkbox)
+    dyn_layout.addWidget(self.bind_but)
+    dynamic_widget = QWidget(self.main_window)
+    dynamic_widget.setLayout(dyn_layout)
+    self.dynamic_checkbox.toggled.connect(self.on_dynamic_toggled)
+    self.bind_but.clicked.connect(self.on_bind_focused_app)
+    self.active_window_changed.connect(self.on_active_window_changed)
     vlayout = QVBoxLayout()
     vlayout.addWidget(self.location)
     vlayout.addWidget(self.ld_widget)
     vlayout.addWidget(profile_widget)
+    vlayout.addWidget(dynamic_widget)
     vwidget = QWidget(self.main_window)
     vwidget.setLayout(vlayout)
     self.main_window.setCentralWidget(vwidget)
@@ -91,6 +114,9 @@ class LdApp(QApplication):
         self.ld_device.set_callback(self.device_callback)
         self.init_ld_device()
         self.on_workspace_press(self.ws_keys[0])
+        if self.profile_manager.dynamic_mode:
+          self.window_watcher.start()
+          print("dynamic mode ON (watcher: %s)" % self.window_watcher.name)
       elif try_cpt < 10:
         print(try_cpt)
         try_cpt +=1
@@ -120,6 +146,50 @@ class LdApp(QApplication):
     self.ld_widget.reset_images()
     self.load_from.emit(self.profile.text())
     self.on_workspace_press(self.ws_keys[0])
+
+  # -- dynamic mode (M3) ----------------------------------------------------
+  def switch_to_profile(self, name):
+    """Load a profile by name (reuses the manual load path)."""
+    if not name or name == self.config.profile:
+      return
+    self.profile.setText(name)
+    self.load_profile()
+
+  def on_active_window_changed(self, wm_class, title):
+    # Runs on the Qt main thread (queued from the watcher thread).
+    if not self.profile_manager.dynamic_mode:
+      return
+    name = self.profile_manager.resolve(wm_class)
+    if name and name != self.config.profile:
+      print("dynamic: %s -> profile '%s'" % (wm_class, name))
+      self.switch_to_profile(name)
+
+  def on_dynamic_toggled(self, enabled):
+    self.profile_manager.set_dynamic_mode(enabled)
+    self.profile_manager.save()
+    if enabled:
+      if not self.profile_manager.default_profile and self.config.profile:
+        self.profile_manager.default_profile = self.config.profile
+        self.profile_manager.save()
+      self.window_watcher.start()
+      # switch immediately to match the currently focused app
+      cls, ttl = self.window_watcher.poll_once()
+      self.on_active_window_changed(cls, ttl)
+    else:
+      self.window_watcher.stop()
+
+  def on_bind_focused_app(self):
+    """Bind the currently focused app's wm_class to the loaded profile."""
+    cls, ttl = self.window_watcher.poll_once()
+    if not cls:
+      print("bind: could not read the focused window class (is kdotool available?)")
+      return
+    if not self.config.profile:
+      print("bind: no profile loaded to bind to")
+      return
+    self.profile_manager.set_binding(cls, self.config.profile)
+    self.profile_manager.save()
+    print("bind: %s -> profile '%s'" % (cls, self.config.profile))
 
   def device_callback(self, ld, message:dict):
     # touch event
@@ -210,6 +280,15 @@ class LdApp(QApplication):
     finally:
       self.ld_device.draw_image(image, display=display, width=cw, height=ch, x=x, y=(row-1)*ch, auto_refresh=auto_refresh)
 
+  def set_img_to_wheel(self, image_path):
+    wsize = self.device_profile.wheel_size
+    try:
+      with open(image_path, "rb") as infile:
+        image = Image.open(infile).convert("RGBA").resize(wsize)
+    except:
+      image = Image.new("RGBA", wsize, "black")
+    ct_support.draw_wheel(self.ld_device, image)
+
   def current_ws(self):
     return self.config.workspaces[self.ws_keys.index(self.selected_ws)]
 
@@ -253,7 +332,7 @@ class LdApp(QApplication):
     self.ld_device.reset()
 
     for key, path in ws.images.items():
-      widget = self.ld_widget.elements["root_" + key]
+      widget = self.ld_widget.elements.get("root_" + key)
       if widget and path:
         widget.set_image(path)
         if "tb" in widget.objectName() :
@@ -262,11 +341,15 @@ class LdApp(QApplication):
           self.set_img_to_touchdisplay(path, key[4], int(key[3]))
         else:
           print("load_ws: unknown image key, please report the bug to the developer %s" % widget.objectName())
+      elif key == WHEEL_DISPLAY and path and self.device_profile.has_wheel:
+        self.set_img_to_wheel(path)  # CT wheel has no on-screen widget yet (M4)
 
     for key, action in ws.actions.items():
-      widget = self.ld_widget.elements["root_" + key.strip("lr-")]
+      widget = self.ld_widget.elements.get("root_" + key.strip("lr-"))
       if widget and action:
         widget.set_action(action, key)
+      # CT-only controls (dial/wheel/CT buttons) have no on-screen widget yet;
+      # they still execute on the device via current_menu().actions.
 
     location = self.selected_ws
     if self.submenu_stack:
@@ -370,6 +453,8 @@ class LdApp(QApplication):
     mb.style().polish(mb)
 
   def close(self, event):
+    if hasattr(self, "window_watcher") and self.window_watcher:
+      self.window_watcher.stop()
     if hasattr(self, "ld_device") and self.ld_device:
       self.ld_device.stop()
     sys.exit(0)

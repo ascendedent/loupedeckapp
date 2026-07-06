@@ -3,6 +3,15 @@ from PyQt5.QtWidgets import QApplication
 from PyQt5.QtGui import QKeySequence
 from PyQt5.QtCore import QObject, pyqtSignal
 import input_backend
+from DeviceProfile import CT_EXTRA_BUTTONS, WHEEL_DISPLAY
+
+SCHEMA_VERSION = 2
+
+# Config action-key names for the CT dial (decoupled from the device id
+# "knobCT"); these must match the lookups in LdApp (on_dial_press/rotate).
+DIAL_KEY = "dial"
+DIAL_KEY_L = "dial-l"
+DIAL_KEY_R = "dial-r"
 
 
 class LdConfiguration(QObject):
@@ -33,12 +42,21 @@ class LdConfiguration(QObject):
 
   def to_JSON(self):
     ldApp = QApplication.instance()
-    s = {"profile": self.profile, 
-           "workspaces": {i: ws.to_JSON() for i, ws in zip(ldApp.ws_keys, self.workspaces)}}
+    s = {"schema_version": SCHEMA_VERSION,
+         "profile": self.profile,
+         "workspaces": {i: ws.to_JSON() for i, ws in zip(ldApp.ws_keys, self.workspaces)}}
     return s
-    
+
   def from_JSON(self, json_str):
     ldApp = QApplication.instance()
+    # v1 profiles have no "schema_version". Migration is automatic: LdWorkspace's
+    # constructor seeds every current key (incl. the v2 dial/wheel/CT-button
+    # slots), and from_JSON only overlays the keys the file actually contains, so
+    # missing controls default to "none".
+    version = json_str.get("schema_version", 1)
+    if version > SCHEMA_VERSION:
+      print("warning: profile schema_version %s is newer than supported %s; "
+            "loading best-effort" % (version, SCHEMA_VERSION))
     self.profile = json_str["profile"]
     for i, ws_key in enumerate(ldApp.ws_keys):
       self.workspaces[i] = LdWorkspace.from_JSON(json_str["workspaces"][ws_key])
@@ -60,13 +78,19 @@ class LdWorkspace(QObject):
                    "tb11", "tb12", "tb13", "tb14",
                    "tb21", "tb22", "tb23", "tb24",
                    "tb31", "tb32", "tb33", "tb34"]
-    self.actions = {key: LdAction() for key in action_keys}
-                    
+    # schema v2 — CT-only controls (harmless/unbound on the Live): the round
+    # dial (press + rotate) and the CT's extra hardware buttons. Keys here match
+    # what LdApp.device_callback looks up (see on_dial_*, on_wheel_press,
+    # on_ct_button). Old (v1) profiles simply lack these and load as "none".
+    ct_action_keys = [DIAL_KEY, DIAL_KEY_L, DIAL_KEY_R, WHEEL_DISPLAY] + list(CT_EXTRA_BUTTONS)
+    self.actions = {key: LdAction() for key in action_keys + ct_action_keys}
+
     self.images =  {"dis1L": "", "dis2L": "", "dis3L": "",
                     "dis1R": "", "dis2R": "", "dis3R": "",
                     "tb11": "", "tb12": "", "tb13": "", "tb14": "",
                     "tb21": "", "tb22": "", "tb23": "", "tb24": "",
-                    "tb31": "", "tb32": "", "tb33": "", "tb34": ""}
+                    "tb31": "", "tb32": "", "tb33": "", "tb34": "",
+                    WHEEL_DISPLAY: ""}  # CT round wheel screen image (v2)
 
   def save(self, profile_name):
     self.profile = profile_name
