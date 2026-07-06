@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Hard rule for this repo: no AI attribution in commit metadata, ever.
+# Rejects any commit message containing Claude / AI co-author or "generated with" trailers.
+# Enable with:  git config core.hooksPath .githooks
+set -euo pipefail
+
+msg_file="$1"
+
+# Case-insensitive patterns that must never appear in a commit message.
+patterns=(
+    'co-authored-by:.*claude'
+    'co-authored-by:.*anthropic'
+    'co-authored-by:.*\[bot\]'
+    'generated with .*claude'
+    'generated with .*claude code'
+    '🤖 generated with'
+)
+
+for p in "${patterns[@]}"; do
+    if grep -qiE "$p" "$msg_file"; then
+        echo "commit-msg hook: BLOCKED — commit message contains forbidden AI-attribution text matching /$p/." >&2
+        echo "This repo forbids listing Claude/AI as a contributor. Remove the offending line and retry." >&2
+        exit 1
+    fi
+done
+
+exit 0
