@@ -1,6 +1,8 @@
 import LdWidget as ldw
 from LdConfiguration import LdAction
 from LdDialog import ConfigImgDialog
+from DeviceProfile import DeviceProfile, DIAL_ID, WHEEL_DISPLAY
+import ct_support
 
 from Loupedeck import DeviceManager
 from Loupedeck.Devices import LoupedeckLive
@@ -30,6 +32,8 @@ class LdApp(QApplication):
   def __init__(self, argv):
     QApplication.__init__(self, argv)
     QApplication.qApp = self
+    # Sensible default until detect() identifies the real model via USB PID.
+    self.device_profile = DeviceProfile.for_model("LoupedeckLive")
     self.main_window = QMainWindow()
     self.main_window.setWindowTitle("Loupedeck Live control")
     self.ld_widget = ldw.LoupedeckWidget(self.main_window)
@@ -73,8 +77,17 @@ class LdApp(QApplication):
     while not ld:
       ld = DeviceManager().enumerate()
       if len(ld) >= 1:
-        print("detected %s" % ld[0].DECK_TYPE)
         self.ld_device = ld[0]
+        # The devleaks lib reports both CT and Live as DECK_TYPE 'LoupedeckLive';
+        # use the USB PID to pick the correct geometry/capabilities.
+        self.device_profile, pid = DeviceProfile.detect(self.ld_device)
+        print("detected %s (PID %s) -> %s" % (
+          self.ld_device.DECK_TYPE,
+          ("0x%04x" % pid) if pid is not None else "unknown",
+          self.device_profile.describe()))
+        if self.device_profile.has_wheel or self.device_profile.has_dial:
+          ct_support.install_ct_handlers(self.ld_device)  # wheel screen + dial + CT buttons
+        self.main_window.setWindowTitle("%s control" % self.device_profile.display_name)
         self.ld_device.set_callback(self.device_callback)
         self.init_ld_device()
         self.on_workspace_press(self.ws_keys[0])
@@ -112,12 +125,22 @@ class LdApp(QApplication):
     # touch event
     if CBC.SCREEN.value in message:
       if "touchstart" in message[CBC.ACTION.value]:  # to avoid double activation
+        # CT round wheel screen
+        if message[CBC.SCREEN.value] == WHEEL_DISPLAY:
+          self.on_wheel_press(message[CBC.X.value], message[CBC.Y.value])
         # touch key pressed
-        if message[CBC.KEY.value] is not None:
+        elif message[CBC.KEY.value] is not None:
           self.on_touchkey_press(message[CBC.KEY.value])
         # left or right screen press
         else:
           self.on_touchdisplay_press(message[CBC.X.value], message[CBC.Y.value])
+
+    # CT round dial (id contains "knob", so match it before the encoders)
+    elif message[CBC.IDENTIFIER.value] == DIAL_ID:
+      if message[CBC.ACTION.value] is CBC.ROTATE.value:
+        self.on_dial_rotate(message[CBC.STATE.value])
+      elif message[CBC.ACTION.value] is CBC.PUSH.value and message[CBC.STATE.value] == "down":
+        self.on_dial_press()
 
     # encoder event
     elif "knob" in message[CBC.IDENTIFIER.value]:
@@ -130,6 +153,11 @@ class LdApp(QApplication):
     elif message[CBC.IDENTIFIER.value] in self.ws_keys:
       if message[CBC.STATE.value] == "down" and message[CBC.IDENTIFIER.value] != self.selected_ws:
         self.on_workspace_press(message[CBC.IDENTIFIER.value])
+
+    # CT extra hardware buttons (home/undo/enter/save/fnL/fnR/a..e)
+    elif message[CBC.IDENTIFIER.value] in self.device_profile.extra_buttons:
+      if message.get(CBC.STATE.value) == "down":
+        self.on_ct_button(message[CBC.IDENTIFIER.value])
 
     # catch other untreated yet cases
     else:
@@ -157,29 +185,30 @@ class LdApp(QApplication):
       self.current_menu().actions[sender_id] = LdAction()
 
   def set_img_to_touchbutton(self, image_path, keycode):
+    ksize = self.device_profile.key_size
     try:
       with open(image_path, "rb") as infile:
-        image = Image.open(infile).convert("RGBA").resize((90, 90))
+        image = Image.open(infile).convert("RGBA").resize(ksize)
     except:
-      image = Image.new("RGBA", (90, 90), "black")
+      image = Image.new("RGBA", ksize, "black")
     finally:
       self.ld_device.set_key_image(keycode, image)
 
   def set_img_to_touchdisplay(self, image_path, side, row, auto_refresh=True):
-    if side == "L":
-      x = 0
-      display = "left"
-    else:
-      x = 480
-      display = "right"
+    display = self.device_profile.side_display_name(side)
+    # The vendored lib adds the display's framebuffer offset itself, so we pass
+    # a display-relative x (0). Passing an absolute 480 for the right display
+    # lands it off-screen at x=900 (the old Live-era bug).
+    x = self.device_profile.side_display_draw_x(side)
+    cw, ch = self.device_profile.side_cell_size
 
     try:
       with open(image_path, "rb") as infile:
-        image = Image.open(infile).convert("RGBA").resize((60,60)).crop((0,-15,60,75))
+        image = Image.open(infile).convert("RGBA").resize((cw, cw)).crop((0, -15, cw, cw + 15))
     except:
-      image = Image.new("RGBA", (60, 60), "black")
+      image = Image.new("RGBA", (cw, cw), "black")
     finally:
-      self.ld_device.draw_image(image, display=display, width=60, height=90, x=x, y=(row-1)*90, auto_refresh=auto_refresh)
+      self.ld_device.draw_image(image, display=display, width=cw, height=ch, x=x, y=(row-1)*ch, auto_refresh=auto_refresh)
 
   def current_ws(self):
     return self.config.workspaces[self.ws_keys.index(self.selected_ws)]
@@ -197,22 +226,14 @@ class LdApp(QApplication):
     if "tb" in name and len(name) == 4:
       row = int(name[2])
       col = int(name[3])
-      tb_id = (row-1)*4 + col-1
+      tb_id = (row-1)*self.device_profile.columns + col-1
       return tb_id
-
-  def td_name_to_xy_pos(td_name):
-    if td_name[4] == "L":
-      x = 0
-    else:
-      x = 480
-    y = (int(td_name[3])-1)*90
-    return x, y
 
   def td_pos_to_display_name(self, x, y):
     s = "dis"
-    row = str(floor(y/90)+1)
-    s += row
-    if x < 60:
+    ch = self.device_profile.side_cell_size[1]
+    s += str(floor(y/ch)+1)
+    if x < self.device_profile.side_width:
       s +="L"
     else:
       s +="R"
@@ -305,6 +326,27 @@ class LdApp(QApplication):
   def on_encoder_rotate(self, encoder, direction):
     str_key = self.knob_to_enc_name(encoder) + "-" + direction[0]
     self.current_menu().actions[str_key].execute()
+
+  # -- CT-only controls -----------------------------------------------------
+  # These map to config keys that the v1 schema does not yet define, so we look
+  # them up defensively; binding actions to them is scheduled with schema v2
+  # (see docs/PLAN.md M3). Until then a press/turn simply no-ops.
+  def run_bound_action(self, str_key):
+    action = self.current_menu().actions.get(str_key)
+    if action is not None:
+      action.execute()
+
+  def on_wheel_press(self, x, y):
+    self.run_bound_action("wheel")
+
+  def on_dial_rotate(self, direction):
+    self.run_bound_action("dial-" + direction[0])
+
+  def on_dial_press(self):
+    self.run_bound_action("dial")
+
+  def on_ct_button(self, name):
+    self.run_bound_action(name)
 
   def on_workspace_press(self, ws_key):
     current_ws = self.selected_ws
