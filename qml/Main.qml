@@ -128,8 +128,11 @@ ApplicationWindow {
                     model: backend.profiles
                     delegate: Rectangle {
                         width: ListView.view.width; height: 38; radius: theme.radius
-                        color: modelData === backend.activeProfile ? theme.accent : theme.panel2
+                        color: modelData === backend.activeProfile ? theme.accent
+                               : (hover.hovered ? theme.cell : theme.panel2)
                         opacity: modelData === backend.activeProfile ? 0.9 : 1.0
+                        HoverHandler { id: hover }
+                        TapHandler { onTapped: backend.loadProfile(modelData) }
                         RowLayout {
                             anchors.fill: parent; anchors.leftMargin: 10; spacing: 8
                             Text { text: "▦"; color: theme.muted; font.pixelSize: 14 }
