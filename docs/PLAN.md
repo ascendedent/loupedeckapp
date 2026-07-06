@@ -202,7 +202,7 @@ Provide a **v1→v2 migration** so existing `Profiles/*.json` load cleanly.
 | **M1 — CT correctness** *(done)* | The current UI is *correct* for the CT | Workstream A (partial) + B; PID-based model detect; wheel/dial events read; geometry fixed | ✅ Every CT key/encoder/side-display/dial/wheel decodes; wheel renders; right-display placement fixed |
 | **M2 — Input that works** *(done)* | Actions actually fire on Wayland | Workstream C (ydotool + KDE dbus); media/launch actions | ✅ `input_backend` (ydotool→xdotool→pyautogui); hotkey/text/launch/media; verified typing into native Wayland windows |
 | **M3 — Profiles & dynamic mode** *(done)* | Per-app profiles | Workstreams D + E; schema v2 + migration; FocusWatcher via KWin | ✅ schema v2 + migration; WindowWatcher (kdotool); ProfileManager + dynamic-mode toggle; **verified live on-device** (focus Chrome→blue / other→red profile switch). Action *library* UI deferred to M4. |
-| **M4 — UI overhaul** | Looks/feels close to official | Workstream F (PySide6+QML), action library, pages tree, theming | Three-column dark UI; drag-drop; CT device view w/ wheel |
+| **M4 — UI overhaul** *(in progress)* | Looks/feels close to official | Workstream F (PySide6+QML), action library, pages tree, theming | Slice 1 ✅: PySide6+QML stack verified on Py3.14; three-column dark shell + CT-accurate device view (`qml_app.py`, `qml/`). Next: live device mirror, profile/page wiring, action drag-drop, editing. |
 | **M5 — Ship it** | Installable by non-devs | Workstream G; docs; starter profiles | Flatpak/AppImage installs & runs on a clean KDE machine |
 
 Milestones are independently valuable; M1–M3 don't depend on the UI-stack decision.
