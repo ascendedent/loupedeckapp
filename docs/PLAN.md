@@ -199,8 +199,8 @@ Provide a **v1→v2 migration** so existing `Profiles/*.json` load cleanly.
 | Milestone | Goal | Contains | Exit criteria |
 |-----------|------|----------|---------------|
 | **M0 — Baseline** *(done)* | Fork runs on CT | Fork, deps, permissions, app launches & connects | App drives the CT without sudo |
-| **M1 — CT correctness** | The current UI is *correct* for the CT | Workstream A (partial) + B; PID-based model detect; wheel/dial events read; geometry fixed | Every CT key/encoder/side-display maps correctly; wheel renders |
-| **M2 — Input that works** | Actions actually fire on Wayland | Workstream C (ydotool + KDE dbus); media/launch actions | `hotkey`, media, launch actions work on KDE Wayland |
+| **M1 — CT correctness** *(done)* | The current UI is *correct* for the CT | Workstream A (partial) + B; PID-based model detect; wheel/dial events read; geometry fixed | ✅ Every CT key/encoder/side-display/dial/wheel decodes; wheel renders; right-display placement fixed |
+| **M2 — Input that works** *(done)* | Actions actually fire on Wayland | Workstream C (ydotool + KDE dbus); media/launch actions | ✅ `input_backend` (ydotool→xdotool→pyautogui); hotkey/text/launch/media; verified typing into native Wayland windows |
 | **M3 — Profiles & dynamic mode** | Per-app profiles | Workstreams D + E; schema v2 + migration; FocusWatcher via KWin | Focused-app switching works; import/export |
 | **M4 — UI overhaul** | Looks/feels close to official | Workstream F (PySide6+QML), action library, pages tree, theming | Three-column dark UI; drag-drop; CT device view w/ wheel |
 | **M5 — Ship it** | Installable by non-devs | Workstream G; docs; starter profiles | Flatpak/AppImage installs & runs on a clean KDE machine |
@@ -223,11 +223,18 @@ Milestones are independently valuable; M1–M3 don't depend on the UI-stack deci
 
 ---
 
-## 8. Immediate next actions (M1 kickoff)
+## 8. Status & next actions
 
-1. Commit the scaffolding baseline (CLAUDE.md, hooks, .gitignore, this plan).
-2. Add PID-based model detection (CT vs Live) and a `DeviceProfile` for the CT.
-3. Replace hardcoded Live geometry in `LdApp.py` with `DeviceProfile` lookups.
-4. Probe + wire the CT **wheel screen** and **dial** events (extend `scratch/render_test.py` first).
+**M1 — done** (commits pending):
+1. ~~Commit the scaffolding baseline (CLAUDE.md, hooks, .gitignore, this plan).~~ ✅
+2. ~~PID-based model detection (CT vs Live) + a `DeviceProfile`.~~ ✅ `DeviceProfile.py`
+3. ~~Replace hardcoded Live geometry in `LdApp.py` with `DeviceProfile` lookups.~~ ✅ (right-display
+   x=480→relative-0 bug fixed; key/side/grid geometry all profile-driven)
+4. ~~Probe + wire the CT **wheel screen** and **dial** events.~~ ✅ `ct_support.py` (wheel renders
+   big-endian; dial/wheel-touch/CT-buttons decode — verified live via `scratch/ct_capture.py`)
+
+**M2 kickoff (next):**
 5. Stand up the `InputBackend` interface with a `ydotool` implementation and verify one hotkey on
    Wayland.
+6. (Carried from M1/M3) Add config-schema slots so actions can be *bound* to the dial, wheel, and CT
+   extra buttons (events are already routed and currently no-op until bound).

@@ -2,7 +2,7 @@ import json, os
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtGui import QKeySequence
 from PyQt5.QtCore import QObject, pyqtSignal
-import pyautogui
+import input_backend
 
 
 class LdConfiguration(QObject):
@@ -96,7 +96,13 @@ class LdWorkspace(QObject):
 
 
 class LdAction (QObject):
-  type ActionType = Literal["command", "hotkey", "submenu", "back", "none"]
+  # Executable action types are routed through input_backend (Wayland-capable).
+  # "command"/"launch" run a shell command (detached); "hotkey" sends a key
+  # combo; "text" types a string; "media" controls playback. "submenu"/"back"
+  # are navigation (handled in LdApp, not here); "none" is unbound.
+  type ActionType = Literal["command", "launch", "hotkey", "text", "media", "submenu", "back", "none"]
+
+  EXECUTABLE = ("command", "launch", "hotkey", "text", "media", "back")
 
   def __init__(self, action_type: ActionType ="none", action="", summary=""):
     super().__init__()
@@ -104,19 +110,27 @@ class LdAction (QObject):
     self.action = action
     if summary:
       self.summary = summary
-    elif action_type == "command" or action_type == "hotkey" or action_type == "back":
+    elif action_type in self.EXECUTABLE:
       self.summary = self.action
     else:
       self.summary = "none"
 
   def execute(self):
-    if self.a_type == "command":
-      os.system(self.action)
-    elif self.a_type == "hotkey":
-      hotkey = self.action.lower().split("+")
-      pyautogui.hotkey(hotkey)
-    else:
-      print("no action to execute for action type %s" % self.a_type)
+    try:
+      if self.a_type in ("command", "launch"):
+        input_backend.launch_app(self.action)
+      elif self.a_type == "hotkey":
+        input_backend.send_hotkey(self.action)
+      elif self.a_type == "text":
+        input_backend.type_text(self.action)
+      elif self.a_type == "media":
+        input_backend.media(self.action)
+      else:
+        print("no action to execute for action type %s" % self.a_type)
+    except Exception as e:
+      # Never let a failing action (e.g. ydotoold not running) crash the
+      # device callback thread.
+      print("action %r (%r) failed: %s: %s" % (self.a_type, self.action, type(e).__name__, e))
 
   def to_JSON(self):
     if isinstance(self.action, str):
