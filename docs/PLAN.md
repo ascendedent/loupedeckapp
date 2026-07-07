@@ -206,6 +206,33 @@ Provide a **v1→v2 migration** so existing `Profiles/*.json` load cleanly.
 - Bundle: **Flatpak** (preferred for KDE) and/or **AppImage**; document `ydotoold` requirement.
 - Pin Python deps; handle new-Python wheel gaps (e.g. PyQt/PySide, `canvas`-style native builds).
 
+### H. Project independence & platforms
+- **Detach the fork → standalone repo.** This fork has diverged substantially from
+  `flowernert/loupedeckapp` (CT support, Wayland input, PySide6/QML UI, per-control labels/LEDs/
+  backgrounds). Make `ascendedent/loupedeckapp` a standalone project and **remove the "forked from…"
+  note while keeping the same URL**. GitHub has no API/CLI to convert a fork in place; the two
+  routes (0 stars / 0 downstream forks, so either is safe):
+  1. **GitHub Support "detach fork"** — official, keeps URL + stars + history; needs a support ticket.
+  2. **Rename → recreate → repush** (self-serve): rename the fork, create a fresh non-fork repo of the
+     same name, push all branches/tags, delete the temp. Keeps the URL; drops the fork relationship.
+  Keep `upstream` as a remote either way so we can still cherry-pick from flowernert if useful.
+- **README update (after defork).** Rewrite `README.md` (and adjust `CLAUDE.md`'s "fork"/"upstream"
+  wording) to describe this as a standalone Linux Loupedeck-CT configuration app — credit
+  flowernert's original as *inspiration/origin* rather than as the upstream of a fork. Gate this on
+  the detach landing so the docs and the repo's GitHub state agree.
+- **Eventual macOS version.** The core is already Qt-free and layered (DeviceProfile, LdConfiguration,
+  DeviceController, input/window adapters), so a Mac port is mostly platform adapters + packaging:
+  - Input adapter: replace `ydotool` (Linux/uinput) with a macOS backend — CoreGraphics event taps
+    (`Quartz.CGEventCreateKeyboardEvent`) or an AppleScript/`osascript` shim; media via MPRIS →
+    `MediaRemote`/AppleScript.
+  - Window watcher: replace the KWin/`kdotool` poller with the macOS Accessibility API
+    (`NSWorkspace.frontmostApplication` / AX) for dynamic mode.
+  - Device I/O: the devleaks serial lib is cross-platform (pyserial); verify the CT enumerates on
+    macOS and that permissions differ (no udev — likely works unprivileged).
+  - Packaging: `.app` bundle via py2app/PyInstaller; PySide6 ships mac wheels.
+  - Note: the official Loupedeck app already covers macOS, so this is lower priority than Linux — a
+    "nice to have" once the Linux app is solid.
+
 ---
 
 ## 6. Phased roadmap
@@ -217,7 +244,8 @@ Provide a **v1→v2 migration** so existing `Profiles/*.json` load cleanly.
 | **M2 — Input that works** *(done)* | Actions actually fire on Wayland | Workstream C (ydotool + KDE dbus); media/launch actions | ✅ `input_backend` (ydotool→xdotool→pyautogui); hotkey/text/launch/media; verified typing into native Wayland windows |
 | **M3 — Profiles & dynamic mode** *(done)* | Per-app profiles | Workstreams D + E; schema v2 + migration; FocusWatcher via KWin | ✅ schema v2 + migration; WindowWatcher (kdotool); ProfileManager + dynamic-mode toggle; **verified live on-device** (focus Chrome→blue / other→red profile switch). Action *library* UI deferred to M4. |
 | **M4 — UI overhaul** *(in progress)* | Looks/feels close to official | Workstream F (PySide6+QML), action library, pages tree, theming | Slice 1 ✅ shell + CT device view. Slice 2 ✅ **live**: `LdConfiguration` decoupled from Qt; `DeviceController` drives the CT from the QML app; profile clicks + dynamic mode verified on-device. Slice 3 ✅ **live**: on-screen device mirror of the loaded profile (images + bound-action highlights + submenu breadcrumb; ws buttons labelled 1..8). Slice 4 ✅ **live**: control inspector — tap a control → edit action(s) + image, persists to profile JSON. **Next:** explicit staging + **Save/Apply** button (draft model, dirty indicator, Revert); **copy/paste a control's function** onto other compatible controls (type-checked knob↔knob, button↔button); submenu/back creation; drag-drop from the action library; theming polish. |
-| **M5 — Ship it** | Installable by non-devs | Workstream G; docs; starter profiles | Flatpak/AppImage installs & runs on a clean KDE machine |
+| **M5 — Ship it** | Installable by non-devs | Workstream G; docs; starter profiles; **detach fork → standalone repo + README rewrite** (Workstream H) | Flatpak/AppImage installs & runs on a clean KDE machine; repo shows as standalone (no fork note) with updated README |
+| **M6 — macOS** *(eventual, low priority)* | Runs on macOS | Workstream H: macOS input/window adapters, `.app` packaging | CT configures from a native macOS build |
 
 Milestones are independently valuable; M1–M3 don't depend on the UI-stack decision.
 

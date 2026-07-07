@@ -2,7 +2,7 @@ import json, os
 import input_backend
 from DeviceProfile import CT_EXTRA_BUTTONS, WHEEL_DISPLAY, WS_KEYS
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 4
 
 # Config action-key names for the CT dial (decoupled from the device id
 # "knobCT"); these must match the lookups in LdApp (on_dial_press/rotate).
@@ -89,6 +89,26 @@ class LdWorkspace:
                     "tb31": "", "tb32": "", "tb33": "", "tb34": "",
                     WHEEL_DISPLAY: ""}  # CT round wheel screen image (v2)
 
+    # schema v3 — per-control text labels for image-bearing controls, keyed the
+    # same as images. Each value is {"text", "pos": top|middle|bottom, "mode":
+    # over|bar|shrink, "bar_color"?: "#rrggbb"}. In "shrink" mode the image is
+    # resized so the label sits in a band above/below it (no overlap); "bar" and
+    # "shrink" draw a band whose colour is bar_color (default translucent black).
+    # Absent key = no explicit label (an auto-label may still be derived from the
+    # bound action when there is no image). Old profiles lack this and load empty.
+    self.labels = {}
+
+    # schema v3 — RGB LED colours for physical buttons (workspace buttons
+    # 'circle'+'1'..'7' and the CT's extra buttons), keyed by button name to a
+    # "#rrggbb" string. Absent = default (grey / selected-workspace green).
+    self.led_colors = {}
+
+    # schema v4 — background fill colour ("#rrggbb") for image-bearing controls,
+    # keyed the same as images. Drawn beneath the image (visible in shrink mode
+    # or when there is no image), letting a control show a colour + an image
+    # together. Absent = no background (black fallback).
+    self.bg_colors = {}
+
   def save(self, profile_name):
     self.profile = profile_name
     with open("./Profiles/" + profile_name + ".json", "w") as file:
@@ -104,7 +124,10 @@ class LdWorkspace:
   def to_JSON(self):
     s = {"profile": self.profile,
           "actions": {key: action.to_JSON() for key, action in self.actions.items()},
-          "images": {key: image for key, image in self.images.items()}}
+          "images": {key: image for key, image in self.images.items()},
+          "labels": {key: dict(v) for key, v in self.labels.items()},
+          "led_colors": dict(self.led_colors),
+          "bg_colors": dict(self.bg_colors)}
     return s
 
   def from_JSON(json_data):
@@ -113,6 +136,9 @@ class LdWorkspace:
       ldw.actions[key] = LdAction.from_JSON(action)
     for key, image in json_data["images"].items():
       ldw.images[key] = image
+    ldw.labels = dict(json_data.get("labels", {}))          # v3; absent in older profiles
+    ldw.led_colors = dict(json_data.get("led_colors", {}))  # v3
+    ldw.bg_colors = dict(json_data.get("bg_colors", {}))    # v4
     return ldw
 
 

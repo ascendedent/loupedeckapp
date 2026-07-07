@@ -18,6 +18,7 @@ from math import floor
 from PIL import Image
 
 import ct_support
+import label_render
 from DeviceProfile import DeviceProfile, DIAL_ID, WHEEL_DISPLAY, WS_KEYS
 from LdConfiguration import LdConfiguration, LdAction, LdSubmenu
 
@@ -116,54 +117,147 @@ class DeviceController:
         row = {"T": 1, "C": 2}.get(knob[4], 3)
         return "enc" + str(row) + knob[5]
 
+    # -- labels ------------------------------------------------------------
+    def _auto_label_text(self, action):
+        """Friendly text for the auto-label: the action's summary (e.g. the
+        library name 'Copy'), falling back to the raw action string."""
+        t = getattr(action, "a_type", "none")
+        if t == "submenu":
+            return getattr(action, "name", "") or "menu"
+        if t == "back":
+            return "Back"
+        summary = (getattr(action, "summary", "") or "").strip()
+        if summary and summary != "none":
+            return summary
+        s = str(getattr(action, "action", "") or "")
+        if t in ("command", "launch") and s:
+            return s.split()[0].rsplit("/", 1)[-1]
+        return s or t
+
+    def effective_label(self, menu, key):
+        """The label to render for a control. An explicit entry's position/mode
+        always apply; its text falls back to an auto-label derived from the
+        bound action when there's no explicit text and no image."""
+        entry = menu.labels.get(key) or {}
+        if entry.get("off"):
+            return None             # label explicitly turned off for this control
+        text = (entry.get("text") or "").strip()
+        pos = entry.get("pos", "bottom")
+        mode = entry.get("mode", "over")
+        if mode == "shrink" and pos == "middle":
+            mode = "over"           # shrink needs a top/bottom band
+        if not text:
+            # labels are ON by default: derive from the bound action, shown even
+            # over an image (the user turns it off per-control via set_label_enabled)
+            act = menu.actions.get(key)
+            if act is not None and getattr(act, "a_type", "none") != "none":
+                text = self._auto_label_text(act)
+        if not text:
+            return None
+        result = {"text": text, "pos": pos, "mode": mode}
+        bc = entry.get("bar_color")
+        if not bc and mode == "shrink":
+            bc = self.effective_bg(menu, key)   # shrink band defaults to the bg colour
+        if bc:
+            result["bar_color"] = bc
+        return result
+
+    def effective_bg(self, menu, key):
+        """The background fill colour ('#rrggbb') for a control, or None."""
+        return (getattr(menu, "bg_colors", {}) or {}).get(key, "") or None
+
     # -- rendering ---------------------------------------------------------
-    def set_img_to_touchbutton(self, image_path, keycode):
-        ksize = self.profile.key_size
+    @staticmethod
+    def _load_fit(path, size, bg_color=None):
+        """Load ``path`` and FIT it (preserve aspect, no crop/spill) centred on a
+        ``bg_color`` (or black) canvas of ``size``. Returns a bg-only canvas when
+        there is no image. Resizing to the exact size is left to the user (the UI
+        shows the target dimensions); we never crop or distort."""
+        base = label_render._rgb(bg_color) if bg_color else (0, 0, 0)
+        canvas = Image.new("RGBA", size, base + (255,))
+        if not path:
+            return canvas
         try:
-            with open(image_path, "rb") as f:
-                image = Image.open(f).convert("RGBA").resize(ksize)
+            with open(path, "rb") as f:
+                im = Image.open(f).convert("RGBA")
         except Exception:
-            image = Image.new("RGBA", ksize, "black")
+            return canvas
+        sc = min(size[0] / im.width, size[1] / im.height)
+        nw, nh = max(1, round(im.width * sc)), max(1, round(im.height * sc))
+        im = im.resize((nw, nh), Image.LANCZOS)
+        canvas.paste(im, ((size[0] - nw) // 2, (size[1] - nh) // 2), im)
+        return canvas
+
+    def set_img_to_touchbutton(self, image_path, keycode, label=None, bg_color=None):
+        image = self._load_fit(image_path, self.profile.key_size, bg_color)
+        label_render.draw_label(image, label, bg_color)
         self.device.set_key_image(keycode, image)
 
-    def set_img_to_touchdisplay(self, image_path, side, row, auto_refresh=True):
+    def set_img_to_touchdisplay(self, image_path, side, row, label=None, bg_color=None, auto_refresh=True):
         display = self.profile.side_display_name(side)
         x = self.profile.side_display_draw_x(side)
         cw, ch = self.profile.side_cell_size
-        try:
-            with open(image_path, "rb") as f:
-                image = Image.open(f).convert("RGBA").resize((cw, cw)).crop((0, -15, cw, cw + 15))
-        except Exception:
-            image = Image.new("RGBA", (cw, cw), "black")
+        image = self._load_fit(image_path, (cw, ch), bg_color)
+        label_render.draw_label(image, label, bg_color)
         self.device.draw_image(image, display=display, width=cw, height=ch,
                                x=x, y=(row - 1) * ch, auto_refresh=auto_refresh)
 
-    def set_img_to_wheel(self, image_path):
-        wsize = self.profile.wheel_size
-        try:
-            with open(image_path, "rb") as f:
-                image = Image.open(f).convert("RGBA").resize(wsize)
-        except Exception:
-            image = Image.new("RGBA", wsize, "black")
+    def set_img_to_wheel(self, image_path, label=None, bg_color=None):
+        image = self._load_fit(image_path, self.profile.wheel_size, bg_color)
+        label_render.draw_label(image, label, bg_color)
         ct_support.draw_wheel(self.device, image)
 
     def render_workspace(self, ws):
         self.device.reset()
-        for key, path in ws.images.items():
-            if not path:
+        for key in ws.images.keys():   # every image-bearing control (tb/dis/wheel)
+            path = ws.images.get(key, "")
+            label = self.effective_label(ws, key)
+            bg = self.effective_bg(ws, key)
+            if not path and not label and not bg:
                 continue
             if key.startswith("tb"):
-                self.set_img_to_touchbutton(path, self.tb_name_to_keycode(key))
+                self.set_img_to_touchbutton(path, self.tb_name_to_keycode(key), label, bg)
             elif key.startswith("dis"):
-                self.set_img_to_touchdisplay(path, key[4], int(key[3]))
+                self.set_img_to_touchdisplay(path, key[4], int(key[3]), label=label, bg_color=bg)
             elif key == WHEEL_DISPLAY and self.profile.has_wheel:
-                self.set_img_to_wheel(path)
+                self.set_img_to_wheel(path, label, bg)
+        self.apply_leds(ws)
+
+    # -- physical-button RGB LEDs ------------------------------------------
+    @staticmethod
+    def _hex_rgb(s):
+        s = str(s).lstrip("#")
+        if len(s) == 8:      # #aarrggbb -> drop alpha
+            s = s[2:]
+        try:
+            return (int(s[0:2], 16), int(s[2:4], 16), int(s[4:6], 16))
+        except Exception:
+            return (63, 63, 63)
+
+    def apply_leds(self, ws):
+        """Colour the physical button LEDs: custom colours from the workspace,
+        with the CT extra buttons taking their colour directly and the workspace
+        buttons showing green for the selected page / their colour (or grey)
+        otherwise."""
+        colors = getattr(ws, "led_colors", {}) or {}
+        for key in self.profile.extra_buttons:
+            c = colors.get(key)
+            if c:
+                self.device.set_button_color(key, self._hex_rgb(c))
+        for key in WS_KEYS:
+            if key == self.selected_ws:
+                self.device.set_button_color(key, "green")
+            else:
+                c = colors.get(key)
+                self.device.set_button_color(key, self._hex_rgb(c) if c else (63, 63, 63))
 
     # -- editing (draft; mutates the in-memory menu, staged until save) -----
-    def set_action(self, slot_key, a_type, value):
+    def set_action(self, slot_key, a_type, value, summary=None):
         """Bind (or clear, when a_type=='none') an action on the currently
         displayed menu. Staged only: not written to disk until save().
 
+        ``summary`` is an optional friendly name (e.g. a library action's
+        'Copy') used for the auto-label; falls back to the value otherwise.
         'submenu' creates/renames a nested page (an LdSubmenu whose contents are
         edited by navigating into it); 'back' returns to the parent menu."""
         menu = self.current_menu()
@@ -180,7 +274,8 @@ class DeviceController:
         elif a_type == "none":
             menu.actions[slot_key] = LdAction()
         else:
-            menu.actions[slot_key] = LdAction(action_type=a_type, action=value)
+            menu.actions[slot_key] = LdAction(action_type=a_type, action=value,
+                                              summary=summary or "")
         self.dirty = True
 
     # -- UI-side submenu navigation (mirrors device press handling) --------
@@ -216,6 +311,83 @@ class DeviceController:
         menu.images[key] = path or ""
         self.dirty = True
 
+    def set_label(self, key, text, pos="bottom", mode="over", bar_color=""):
+        """Set (or clear, when text is blank) an explicit text label on an
+        image-bearing control. ``bar_color`` ('#rrggbb') tints the band in
+        bar/shrink modes. Staged until save()."""
+        menu = self.current_menu()
+        if key not in menu.images:
+            return
+        off = bool((menu.labels.get(key) or {}).get("off"))   # preserve on/off state
+        text = (text or "").strip()
+        pos = pos or "bottom"
+        mode = mode or "over"
+        if mode == "shrink" and pos == "middle":
+            mode = "over"           # shrink needs a top/bottom band
+        bar_color = self._norm_hex(bar_color) if bar_color else ""
+        # keep the entry whenever text OR a non-default position/mode/bar-colour
+        # or the off flag is set; only drop it when everything is default (fall
+        # back to pure auto-label, which is on).
+        if not off and not text and pos == "bottom" and mode == "over" and not bar_color:
+            menu.labels.pop(key, None)
+        else:
+            entry = {"text": text, "pos": pos, "mode": mode}
+            if bar_color:
+                entry["bar_color"] = bar_color
+            if off:
+                entry["off"] = True
+            menu.labels[key] = entry
+        self.dirty = True
+
+    def set_label_enabled(self, key, enabled):
+        """Show/hide a control's label. Labels are ON by default (auto text from
+        the bound action, shown even over an image); this only stores an explicit
+        off flag and never discards typed text/placement."""
+        menu = self.current_menu()
+        if key not in menu.images:
+            return
+        entry = dict(menu.labels.get(key) or {})
+        if enabled:
+            entry.pop("off", None)
+        else:
+            entry["off"] = True
+        if entry:
+            menu.labels[key] = entry
+        else:
+            menu.labels.pop(key, None)
+        self.dirty = True
+
+    def set_bg(self, key, color):
+        """Set (or clear, when color is blank) a background fill colour
+        ('#rrggbb') for an image-bearing control. Staged until save()."""
+        menu = self.current_menu()
+        if key not in menu.images:
+            return
+        if color:
+            menu.bg_colors[key] = self._norm_hex(color)
+        else:
+            menu.bg_colors.pop(key, None)
+        self.dirty = True
+
+    @staticmethod
+    def _norm_hex(s):
+        """Normalise any colour string (#rgb variants / Qt's #aarrggbb) to
+        #rrggbb so both PIL and QML read it consistently."""
+        return "#%02x%02x%02x" % DeviceController._hex_rgb(s)
+
+    def set_led(self, key, color):
+        """Set (or clear, when color is blank) a physical button's RGB LED
+        colour ('#rrggbb'). Staged until save()."""
+        if key not in WS_KEYS and key not in self.profile.extra_buttons:
+            return
+        menu = self.current_menu()
+        if color:
+            c = str(color)
+            menu.led_colors[key] = c if c.startswith("#") else "#" + c
+        else:
+            menu.led_colors.pop(key, None)
+        self.dirty = True
+
     def save(self):
         """Commit staged edits: write the profile file and repaint the device
         with the current menu's images."""
@@ -249,9 +421,8 @@ class DeviceController:
     def on_workspace_press(self, ws_key):
         if self.submenu_stack:
             self.submenu_stack.clear()
-        self.device.set_button_color(self.selected_ws, (63, 63, 63))
         self.selected_ws = ws_key
-        self.device.set_button_color(ws_key, "green")
+        # render_workspace applies images + LED colours (incl. selected=green)
         self.render_workspace(self.get_ws(ws_key))
         self._emit("workspace")
 

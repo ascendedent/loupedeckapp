@@ -17,9 +17,10 @@ from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
 import window_watcher
+import system_shortcuts
 from profile_manager import ProfileManager
 from device_controller import DeviceController
-from DeviceProfile import WHEEL_DISPLAY
+from DeviceProfile import WHEEL_DISPLAY, WS_KEYS
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -35,6 +36,7 @@ class Backend(QObject):
         super().__init__(parent)
         self._selected = ""
         self._clipboard = None   # copied control function (see copyControl)
+        self._sys_shortcuts = None   # lazily-read KDE shortcuts (cached)
         self._ctl = DeviceController(on_state=lambda kind: self._marshal.emit(kind))
         self._pm = ProfileManager(os.path.join(APP_DIR, "dynamic_profiles.json"))
         self._watcher = window_watcher.get_watcher(
@@ -107,17 +109,19 @@ class Backend(QObject):
         return [{"category": c, "label": l, "type": t, "value": v}
                 for (c, l, t, v) in self.ACTION_LIBRARY]
 
-    @Slot(str, str, str)
-    def applyLibraryAction(self, key, a_type, value):
+    @Slot(str, str, str, str)
+    def applyLibraryAction(self, key, a_type, value, label=""):
         """Bind a library action onto a control (drag-drop target). Nav actions
         (submenu/back) only apply to single-action 'key' controls; a plain
-        action dropped on an encoder/dial binds its press slot."""
+        action dropped on an encoder/dial/knob binds its press slot. ``label`` is
+        the library's friendly name, used for the auto-label."""
         if not key:
             return
         if a_type in ("submenu", "back") and self._kind(key) != "key":
             return
-        self._ctl.set_action(key, a_type, value)
-        self._selected = key
+        self._ctl.set_action(key, a_type, value, summary=label)
+        # select the base control (encoders/dial expose all their slots there)
+        self._selected = key[:-2] if key.endswith(("-l", "-r")) else key
         self.selectionChanged.emit()
         self.stateChanged.emit()
 
@@ -239,6 +243,185 @@ class Backend(QObject):
             return ""
         return self.keyImages.get(self._selected, "")
 
+    @Property(str, notify=selectionChanged)
+    def selectedImageDims(self):
+        """The device pixel size of the selected image control, e.g. '90 × 90
+        px', shown as a hint (images are fit, not cropped, so this is the size to
+        make a source image for a pixel-perfect fill)."""
+        k = self._selected
+        p = self._ctl.profile
+        if not k:
+            return ""
+        if k.startswith("tb"):
+            w, h = p.key_size
+        elif k.startswith("dis"):
+            w, h = p.side_cell_size
+        elif k == WHEEL_DISPLAY:
+            w, h = p.wheel_size or (0, 0)
+        else:
+            return ""
+        return "%d × %d px" % (w, h) if w and h else ""
+
+    @Property("QVariantMap", notify=stateChanged)
+    def controlLabels(self):
+        """Effective label per image-bearing control (explicit or auto-derived),
+        for the on-screen mirror overlay."""
+        menu = self._menu()
+        out = {}
+        if not menu:
+            return out
+        for key in menu.images.keys():
+            lbl = self._ctl.effective_label(menu, key)
+            if lbl:
+                out[key] = lbl
+        return out
+
+    def _effective_label(self):
+        """Label fields for the inspector — ignores the on/off toggle and image
+        so the text/placement controls always show the effective values (the
+        text never blanks when you hide the label or add an image)."""
+        menu = self._menu()
+        if not menu or not self._selected:
+            return {}
+        entry = dict(menu.labels.get(self._selected) or {})
+        text = (entry.get("text") or "").strip()
+        if not text:
+            act = menu.actions.get(self._selected)
+            if act is not None and getattr(act, "a_type", "none") != "none":
+                text = self._ctl._auto_label_text(act)
+        pos = entry.get("pos", "bottom")
+        mode = entry.get("mode", "over")
+        if mode == "shrink" and pos == "middle":
+            mode = "over"
+        out = {"text": text, "pos": pos, "mode": mode}
+        bc = entry.get("bar_color")
+        if not bc and mode == "shrink":
+            bc = self._ctl.effective_bg(menu, self._selected)
+        if bc:
+            out["bar_color"] = bc
+        return out
+
+    @Property(bool, notify=stateChanged)
+    def selectedLabelEnabled(self):
+        menu = self._menu()
+        if not menu or not self._selected:
+            return True
+        return not (menu.labels.get(self._selected) or {}).get("off")
+
+    @Slot(str, bool)
+    def setLabelEnabled(self, key, enabled):
+        self._ctl.set_label_enabled(key, enabled)
+        self.stateChanged.emit()
+
+    @Property(str, notify=stateChanged)
+    def selectedLabelText(self):
+        # effective text (explicit, else the friendly auto-label) so the field
+        # is pre-filled with e.g. "Copy" rather than blank
+        return self._effective_label().get("text", "")
+
+    @Property(str, notify=stateChanged)
+    def selectedLabelPos(self):
+        return self._effective_label().get("pos", "bottom")
+
+    @Property(str, notify=stateChanged)
+    def selectedLabelMode(self):
+        return self._effective_label().get("mode", "over")
+
+    @Property(str, notify=stateChanged)
+    def selectedLabelBarColor(self):
+        return self._effective_label().get("bar_color", "")
+
+    @Property("QStringList", constant=True)
+    def labelPositions(self):
+        return ["top", "middle", "bottom"]
+
+    @Property("QStringList", constant=True)
+    def labelModes(self):
+        # over = text on top of the image; bar = text on a band over the image;
+        # shrink = image resized so the text sits in a band beside it
+        return ["over", "bar", "shrink"]
+
+    @Slot(str, str, str, str, str)
+    def setLabel(self, key, text, pos, mode, bar_color=""):
+        self._ctl.set_label(key, text, pos, mode, bar_color)
+        self.stateChanged.emit()
+
+    # -- per-control background fill colour --------------------------------
+    @Property(bool, notify=selectionChanged)
+    def selectedHasBg(self):
+        # any control that can hold an image can hold a background colour
+        return self.selectedHasImage
+
+    @Property(str, notify=stateChanged)
+    def selectedBg(self):
+        menu = self._menu()
+        if menu and self._selected:
+            return (getattr(menu, "bg_colors", {}) or {}).get(self._selected, "")
+        return ""
+
+    @Property("QVariantMap", notify=stateChanged)
+    def controlBgs(self):
+        """control-key -> #rrggbb background fill, for the on-screen mirror."""
+        menu = self._menu()
+        return dict(getattr(menu, "bg_colors", {}) or {}) if menu else {}
+
+    @Slot(str, str)
+    def setBg(self, key, color):
+        self._ctl.set_bg(key, color)
+        self.stateChanged.emit()
+
+    # -- hotkey helpers (recorder + pick-lists) ----------------------------
+    # Common editing/window shortcuts offered as a quick pick-list.
+    COMMON_HOTKEYS = [
+        ("Copy", "ctrl+c"), ("Paste", "ctrl+v"), ("Cut", "ctrl+x"),
+        ("Undo", "ctrl+z"), ("Redo", "ctrl+shift+z"), ("Select all", "ctrl+a"),
+        ("Save", "ctrl+s"), ("Save as", "ctrl+shift+s"), ("Find", "ctrl+f"),
+        ("New", "ctrl+n"), ("Open", "ctrl+o"), ("Print", "ctrl+p"),
+        ("Close tab", "ctrl+w"), ("Quit", "ctrl+q"), ("Switch app", "alt+tab"),
+        ("Show desktop", "super+d"), ("Lock screen", "super+l"),
+        ("Screenshot region", "shift+printscreen"), ("Terminal", "ctrl+alt+t"),
+    ]
+
+    @Property("QVariantList", constant=True)
+    def commonHotkeys(self):
+        return [{"label": l, "value": v} for (l, v) in self.COMMON_HOTKEYS]
+
+    @Property("QVariantList", constant=True)
+    def systemShortcuts(self):
+        """The user's configured KDE global shortcuts (best-effort), so they can
+        bind an existing machine shortcut without retyping it."""
+        if self._sys_shortcuts is None:
+            try:
+                self._sys_shortcuts = [{"label": l, "value": v}
+                                       for (l, v) in system_shortcuts.read_shortcuts()]
+            except Exception:
+                self._sys_shortcuts = []
+        return self._sys_shortcuts
+
+    # -- physical button RGB LEDs ------------------------------------------
+    @Property(bool, notify=selectionChanged)
+    def selectedHasLed(self):
+        k = self._selected
+        return bool(k) and (k in WS_KEYS or k in self._ctl.profile.extra_buttons)
+
+    @Property(str, notify=stateChanged)
+    def selectedLed(self):
+        menu = self._menu()
+        if menu and self._selected:
+            return menu.led_colors.get(self._selected, "")
+        return ""
+
+    @Property("QVariantMap", notify=stateChanged)
+    def controlLeds(self):
+        """Button-name -> #rrggbb for the on-screen mirror to tint buttons."""
+        menu = self._menu()
+        return dict(menu.led_colors) if menu else {}
+
+    @Slot(str, str)
+    def setLed(self, key, color):
+        self._ctl.set_led(key, color)
+        self.stateChanged.emit()
+
     @Property("QVariantList", notify=stateChanged)
     def selectedSlots(self):
         """Editor rows for the selected control: slot key, label, current
@@ -246,6 +429,8 @@ class Backend(QObject):
         out = []
         if not self._selected:
             return out
+        if self._selected in WS_KEYS:
+            return out   # workspace buttons switch pages; they have no action, only an LED
         menu = self._menu()
         for slot, label in self._slot_defs(self._selected):
             act = menu.actions.get(slot) if menu else None
