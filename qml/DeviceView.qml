@@ -33,14 +33,20 @@ Item {
         property bool sel: dv.isSel(ctlKey)
         width: 54; height: 54; radius: 27
         color: sel ? Qt.rgba(theme.ok.r, theme.ok.g, theme.ok.b, 0.18) : theme.cell
-        border.color: sel ? theme.ok : (active ? theme.accent : theme.line)
-        border.width: 3
+        border.color: encDrop.containsDrag ? theme.accent
+                    : (sel ? theme.ok : (active ? theme.accent : theme.line))
+        border.width: encDrop.containsDrag ? 4 : 3
         Rectangle {  // knob indicator notch
             width: 4; height: 12; radius: 2
             color: (active || sel) ? theme.text : theme.muted
             anchors.horizontalCenter: parent.horizontalCenter; anchors.top: parent.top; anchors.topMargin: 6
         }
         TapHandler { enabled: ctlKey !== ""; onTapped: backend.selectControl(ctlKey) }
+        DropArea {
+            id: encDrop; anchors.fill: parent
+            onDropped: (drop) => { if (ctlKey !== "" && drop.source)
+                backend.applyLibraryAction(ctlKey, drop.source.aType, drop.source.aValue) }
+        }
     }
 
     component RoundBtn: Rectangle {
@@ -52,11 +58,16 @@ Item {
         width: 40; height: 40; radius: 20
         color: sel ? Qt.rgba(theme.ok.r, theme.ok.g, theme.ok.b, 0.22)
              : (active ? Qt.rgba(activeColor.r, activeColor.g, activeColor.b, 0.22) : theme.cell)
-        border.color: sel ? theme.ok : (active ? activeColor : theme.line)
-        border.width: 2
+        border.color: rbDrop.containsDrag ? theme.accent : (sel ? theme.ok : (active ? activeColor : theme.line))
+        border.width: rbDrop.containsDrag ? 3 : 2
         Text { anchors.centerIn: parent; text: label
             color: (active || sel) ? theme.text : theme.muted; font.pixelSize: 11 }
         TapHandler { enabled: ctlKey !== ""; onTapped: backend.selectControl(ctlKey) }
+        DropArea {
+            id: rbDrop; anchors.fill: parent
+            onDropped: (drop) => { if (ctlKey !== "" && drop.source)
+                backend.applyLibraryAction(ctlKey, drop.source.aType, drop.source.aValue) }
+        }
     }
 
     component SideCell: Rectangle {
@@ -64,8 +75,9 @@ Item {
         property bool sel: dv.isSel(ctlKey)
         width: 30; height: dv.keySize; radius: 6
         color: theme.cell
-        border.color: sel ? theme.ok : (dv.bound(ctlKey) ? theme.accent : theme.line)
-        border.width: sel ? 2 : 1
+        border.color: scDrop.containsDrag ? theme.accent
+                    : (sel ? theme.ok : (dv.bound(ctlKey) ? theme.accent : theme.line))
+        border.width: (sel || scDrop.containsDrag) ? 2 : 1
         clip: true
         Image {
             anchors.fill: parent; anchors.margins: 1
@@ -73,6 +85,11 @@ Item {
             fillMode: Image.PreserveAspectCrop; asynchronous: true
         }
         TapHandler { onTapped: backend.selectControl(ctlKey) }
+        DropArea {
+            id: scDrop; anchors.fill: parent
+            onDropped: (drop) => { if (drop.source)
+                backend.applyLibraryAction(ctlKey, drop.source.aType, drop.source.aValue) }
+        }
     }
 
     Rectangle {
@@ -148,9 +165,10 @@ Item {
                                 Rectangle {  // outline
                                     anchors.fill: parent; anchors.margins: 1; radius: 7
                                     color: "transparent"
-                                    border.color: parent.sel ? theme.ok
-                                                : (dv.bound(parent.key) ? theme.accent : theme.line)
-                                    border.width: parent.sel ? 2 : 1
+                                    border.color: tbDrop.containsDrag ? theme.accent
+                                                : (parent.sel ? theme.ok
+                                                : (dv.bound(parent.key) ? theme.accent : theme.line))
+                                    border.width: (parent.sel || tbDrop.containsDrag) ? 2 : 1
                                 }
                                 Rectangle {  // bound-but-no-image dot
                                     visible: parent.src == "" && dv.bound(parent.key)
@@ -158,6 +176,11 @@ Item {
                                     width: 8; height: 8; radius: 4; color: theme.accent
                                 }
                                 TapHandler { onTapped: backend.selectControl(parent.key) }
+                                DropArea {
+                                    id: tbDrop; anchors.fill: parent
+                                    onDropped: (drop) => { if (drop.source)
+                                        backend.applyLibraryAction(parent.key, drop.source.aType, drop.source.aValue) }
+                                }
                             }
                         }
                     }
@@ -224,17 +247,29 @@ Item {
                 Rectangle {
                     width: 180; height: 180; radius: 90
                     color: theme.cell
-                    border.color: dv.isSel("dial") ? theme.ok
-                                : ((dv.bound("dial") || dv.bound("dial-l") || dv.bound("dial-r")) ? theme.accent : theme.line)
+                    border.color: dialDrop.containsDrag ? theme.accent
+                                : (dv.isSel("dial") ? theme.ok
+                                : ((dv.bound("dial") || dv.bound("dial-l") || dv.bound("dial-r")) ? theme.accent : theme.line))
                     border.width: 3
                     TapHandler { onTapped: backend.selectControl("dial") }   // ring
+                    DropArea {
+                        id: dialDrop; anchors.fill: parent
+                        onDropped: (drop) => { if (drop.source)
+                            backend.applyLibraryAction("dial", drop.source.aType, drop.source.aValue) }
+                    }
                     Rectangle {  // round screen (wheel)
                         anchors.centerIn: parent; width: 150; height: 150; radius: 75
                         color: "#07070a"
-                        border.color: dv.isSel("wheel") ? theme.ok
-                                    : (dv.bound("wheel") ? theme.accent : theme.line)
-                        border.width: dv.isSel("wheel") ? 2 : 1
+                        border.color: wheelDrop.containsDrag ? theme.accent
+                                    : (dv.isSel("wheel") ? theme.ok
+                                    : (dv.bound("wheel") ? theme.accent : theme.line))
+                        border.width: (dv.isSel("wheel") || wheelDrop.containsDrag) ? 2 : 1
                         TapHandler { onTapped: backend.selectControl("wheel") }
+                        DropArea {
+                            id: wheelDrop; anchors.fill: parent
+                            onDropped: (drop) => { if (drop.source)
+                                backend.applyLibraryAction("wheel", drop.source.aType, drop.source.aValue) }
+                        }
                         Image {
                             anchors.centerIn: parent; width: 106; height: 106
                             source: dv.img("wheel"); visible: source != ""

@@ -102,6 +102,25 @@ class Backend(QObject):
     def actionCategories(self):
         return ["General", "Adjustments", "Navigation", "Media", "System", "Applications"]
 
+    @Property("QVariantList", constant=True)
+    def actionLibrary(self):
+        return [{"category": c, "label": l, "type": t, "value": v}
+                for (c, l, t, v) in self.ACTION_LIBRARY]
+
+    @Slot(str, str, str)
+    def applyLibraryAction(self, key, a_type, value):
+        """Bind a library action onto a control (drag-drop target). Nav actions
+        (submenu/back) only apply to single-action 'key' controls; a plain
+        action dropped on an encoder/dial binds its press slot."""
+        if not key:
+            return
+        if a_type in ("submenu", "back") and self._kind(key) != "key":
+            return
+        self._ctl.set_action(key, a_type, value)
+        self._selected = key
+        self.selectionChanged.emit()
+        self.stateChanged.emit()
+
     @Property("QStringList", constant=True)
     def ctExtraButtons(self):
         return list(self._ctl.profile.extra_buttons)
@@ -153,6 +172,31 @@ class Backend(QObject):
 
     # -- control selection + action editing (inspector) --------------------
     ACTION_TYPES = ["none", "command", "hotkey", "text", "media"]
+
+    # Ready-to-use actions for the left-panel library (category, label, type,
+    # value). Dragged onto a control to bind it; templates (empty value) are
+    # filled in via the inspector afterwards.
+    ACTION_LIBRARY = [
+        ("General", "Type text…", "text", ""),
+        ("General", "Run command…", "command", ""),
+        ("System", "Copy", "hotkey", "ctrl+c"),
+        ("System", "Paste", "hotkey", "ctrl+v"),
+        ("System", "Cut", "hotkey", "ctrl+x"),
+        ("System", "Undo", "hotkey", "ctrl+z"),
+        ("System", "Redo", "hotkey", "ctrl+shift+z"),
+        ("System", "Select all", "hotkey", "ctrl+a"),
+        ("System", "Save", "hotkey", "ctrl+s"),
+        ("System", "Screenshot", "command", "spectacle"),
+        ("Media", "Play / Pause", "media", "play-pause"),
+        ("Media", "Next track", "media", "next"),
+        ("Media", "Previous track", "media", "previous"),
+        ("Media", "Stop", "media", "stop"),
+        ("Navigation", "Submenu", "submenu", "submenu"),
+        ("Navigation", "Back", "back", ""),
+        ("Applications", "Terminal", "command", "konsole"),
+        ("Applications", "Files", "command", "dolphin"),
+        ("Applications", "Browser", "command", "xdg-open https://"),
+    ]
 
     def _slot_defs(self, key):
         """(slot-key, label) pairs a control exposes. Encoders and the dial

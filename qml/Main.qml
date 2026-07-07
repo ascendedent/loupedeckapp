@@ -132,17 +132,55 @@ ApplicationWindow {
                     Text { anchors.verticalCenter: parent.verticalCenter; anchors.left: parent.left
                         anchors.leftMargin: 10; text: "Search actions…"; color: theme.muted; font.pixelSize: 13 }
                 }
+                Text {
+                    text: "Drag an action onto a control"; color: theme.muted; font.pixelSize: 11
+                }
                 ListView {
+                    id: libList
                     Layout.fillWidth: true; Layout.fillHeight: true; clip: true; spacing: 4
-                    model: backend.actionCategories
+                    model: backend.actionLibrary
+                    section.property: "category"
+                    section.delegate: Text {
+                        width: libList.width; topPadding: 8; bottomPadding: 2
+                        text: section.toUpperCase(); color: theme.muted
+                        font.pixelSize: 10; font.bold: true; font.letterSpacing: 1
+                    }
                     delegate: Rectangle {
-                        width: ListView.view.width; height: 40; radius: theme.radius
-                        color: theme.panel2
+                        id: tile
+                        required property var modelData
+                        width: libList.width; height: 38; radius: theme.radius
+                        color: dragMa.drag.active ? theme.accent : (tileHover.hovered ? theme.cell : theme.panel2)
+                        border.color: dragMa.drag.active ? theme.accent : theme.line
+
+                        // drag payload read by the DropArea on each control
+                        property string aType: modelData.type
+                        property string aValue: modelData.value
+
+                        Drag.active: dragMa.drag.active
+                        Drag.source: tile
+                        Drag.hotSpot.x: width / 2
+                        Drag.hotSpot.y: height / 2
+
                         RowLayout {
-                            anchors.fill: parent; anchors.leftMargin: 10; spacing: 10
-                            Rectangle { width: 20; height: 20; radius: 5; color: theme.accent; opacity: 0.8 }
-                            Text { text: modelData; color: theme.text; font.pixelSize: 13; Layout.fillWidth: true }
-                            Text { text: "›"; color: theme.muted; font.pixelSize: 16; rightPadding: 10 }
+                            anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10; spacing: 8
+                            Rectangle { width: 18; height: 18; radius: 4; color: theme.accent; opacity: 0.85 }
+                            Text { text: tile.modelData.label; color: theme.text; font.pixelSize: 13
+                                Layout.fillWidth: true; elide: Text.ElideRight }
+                            Text { text: tile.modelData.type; color: theme.muted; font.pixelSize: 10 }
+                        }
+
+                        HoverHandler { id: tileHover }
+                        MouseArea {
+                            id: dragMa
+                            anchors.fill: parent
+                            cursorShape: Qt.OpenHandCursor
+                            drag.target: tile
+                            onReleased: tile.Drag.drop()
+                        }
+                        // float above the other panels while dragging, snap back after
+                        states: State {
+                            when: dragMa.drag.active
+                            ParentChange { target: tile; parent: root.contentItem }
                         }
                     }
                 }
