@@ -30,7 +30,27 @@ ApplicationWindow {
         readonly property color muted: "#8a8a9a"
         readonly property color accent: "#3d8bfd"
         readonly property color ok: "#3fbf7f"
+        readonly property color warn: "#e0a54f"
         readonly property int radius: 10
+    }
+
+    // small themed push-button used in the top bar
+    component ActionButton: Rectangle {
+        id: ab
+        property string label: ""
+        property bool primary: false
+        property bool enabledFlag: true
+        signal clicked()
+        implicitWidth: abText.width + 26; implicitHeight: 34
+        radius: theme.radius
+        opacity: enabledFlag ? 1.0 : 0.4
+        color: primary ? (abHover.hovered ? Qt.lighter(theme.accent, 1.1) : theme.accent)
+                       : (abHover.hovered ? theme.cell : theme.panel2)
+        border.color: primary ? theme.accent : theme.line
+        Text { id: abText; anchors.centerIn: parent; text: ab.label
+            color: primary ? "#ffffff" : theme.text; font.pixelSize: 13; font.bold: ab.primary }
+        HoverHandler { id: abHover; enabled: ab.enabledFlag }
+        TapHandler { enabled: ab.enabledFlag; onTapped: ab.clicked() }
     }
 
     // ============================ TOP BAR =================================
@@ -63,7 +83,22 @@ ApplicationWindow {
             Rectangle {
                 Layout.preferredWidth: 160; Layout.preferredHeight: 34
                 radius: theme.radius; color: theme.panel2; border.color: theme.line
-                Text { anchors.centerIn: parent; text: backend.activeProfile; color: theme.text; font.pixelSize: 13 }
+                RowLayout {
+                    anchors.centerIn: parent; spacing: 8
+                    Rectangle { width: 8; height: 8; radius: 4; color: theme.warn
+                        visible: backend.dirty }   // unsaved-changes dot
+                    Text { text: backend.activeProfile; color: theme.text; font.pixelSize: 13 }
+                }
+            }
+
+            // save / revert staged edits
+            ActionButton {
+                label: "Save"; primary: true; enabledFlag: backend.dirty
+                onClicked: backend.save()
+            }
+            ActionButton {
+                label: "Revert"; enabledFlag: backend.dirty
+                onClicked: backend.revert()
             }
 
             // dynamic mode toggle
@@ -174,6 +209,25 @@ ApplicationWindow {
                     Layout.fillWidth: true; wrapMode: Text.WordWrap
                     text: "Tap a key, encoder, dial, wheel or button on the device to bind an action or set an image."
                     color: theme.muted; font.pixelSize: 12
+                }
+
+                // copy / paste this control's function onto a compatible one
+                RowLayout {
+                    visible: backend.selectedControl !== ""
+                    Layout.fillWidth: true; spacing: 8
+                    ActionButton { label: "Copy"; onClicked: backend.copyControl() }
+                    ActionButton {
+                        label: "Paste"; enabledFlag: backend.canPaste
+                        onClicked: backend.pasteControl()
+                    }
+                    Item { Layout.fillWidth: true }
+                }
+                Text {
+                    visible: backend.selectedControl !== "" && backend.hasClipboard
+                    Layout.fillWidth: true; elide: Text.ElideRight
+                    text: "Clipboard: " + backend.clipboardLabel
+                        + (backend.canPaste ? "" : " (incompatible)")
+                    color: backend.canPaste ? theme.ok : theme.muted; font.pixelSize: 11
                 }
 
                 // scrollable editor body

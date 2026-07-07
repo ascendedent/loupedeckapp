@@ -37,6 +37,10 @@ class DeviceController:
         self.submenu_stack = []
         self.connected = False
         self.on_state = on_state
+        # Draft/staging: edits mutate the in-memory config (so the on-screen
+        # mirror updates live) but are not written to disk or pushed to the
+        # hardware until save(); revert() reloads the on-disk profile.
+        self.dirty = False
 
     def _emit(self, kind):
         if self.on_state:
@@ -92,6 +96,7 @@ class DeviceController:
         self.config.load(name)
         self.submenu_stack.clear()
         self.selected_ws = WS_KEYS[0]
+        self.dirty = False
         if self.device:
             self.on_workspace_press(WS_KEYS[0])
         self._emit("profile")
@@ -154,10 +159,11 @@ class DeviceController:
             elif key == WHEEL_DISPLAY and self.profile.has_wheel:
                 self.set_img_to_wheel(path)
 
-    # -- editing (UI-driven; writes into current menu, live-updates device) -
+    # -- editing (draft; mutates the in-memory menu, staged until save) -----
     def set_action(self, slot_key, a_type, value):
         """Bind (or clear, when a_type=='none') an action on the currently
-        displayed menu. Navigation types (submenu/back) are not created here."""
+        displayed menu. Navigation types (submenu/back) are not created here.
+        Staged only: not written to disk until save()."""
         menu = self.current_menu()
         if slot_key not in menu.actions and a_type == "none":
             return
@@ -165,27 +171,37 @@ class DeviceController:
             menu.actions[slot_key] = LdAction()
         else:
             menu.actions[slot_key] = LdAction(action_type=a_type, action=value)
+        self.dirty = True
 
     def set_image(self, key, path):
         """Set (or clear, when path is falsy) the image for an image-bearing
-        control and push just that slot to the device."""
+        control. Staged only: the on-screen mirror reflects it immediately, but
+        the hardware is not repainted until save()."""
         menu = self.current_menu()
         if key not in menu.images:
             return
         menu.images[key] = path or ""
-        if not self.device:
-            return
-        if key.startswith("tb"):
-            self.set_img_to_touchbutton(path, self.tb_name_to_keycode(key))
-        elif key.startswith("dis"):
-            self.set_img_to_touchdisplay(path, key[4], int(key[3]))
-        elif key == WHEEL_DISPLAY and self.profile.has_wheel:
-            self.set_img_to_wheel(path)
+        self.dirty = True
 
     def save(self):
-        """Persist the whole config back to its profile file."""
-        if self.config.profile:
-            self.config.save(self.config.profile)
+        """Commit staged edits: write the profile file and repaint the device
+        with the current menu's images."""
+        if not self.config.profile:
+            return
+        self.config.save(self.config.profile)
+        if self.device:
+            self.render_workspace(self.current_menu())
+        self.dirty = False
+
+    def revert(self):
+        """Discard staged edits by reloading the on-disk profile."""
+        if not self.config.profile:
+            return
+        self.config.load(self.config.profile)
+        self.submenu_stack.clear()
+        if self.device:
+            self.render_workspace(self.current_menu())
+        self.dirty = False
 
     # -- workspace / submenu state -----------------------------------------
     def current_ws(self):

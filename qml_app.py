@@ -34,6 +34,7 @@ class Backend(QObject):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._selected = ""
+        self._clipboard = None   # copied control function (see copyControl)
         self._ctl = DeviceController(on_state=lambda kind: self._marshal.emit(kind))
         self._pm = ProfileManager(os.path.join(APP_DIR, "dynamic_profiles.json"))
         self._watcher = window_watcher.get_watcher(
@@ -231,23 +232,88 @@ class Backend(QObject):
         self.selectionChanged.emit()
         self.stateChanged.emit()
 
+    @Property(bool, notify=stateChanged)
+    def dirty(self):
+        return self._ctl.dirty
+
     @Slot(str, str, str)
     def setActionSlot(self, slot_key, a_type, value):
         self._ctl.set_action(slot_key, a_type, value)
-        self._ctl.save()
         self.stateChanged.emit()
 
     @Slot(str, str)
     def setImage(self, key, file_url):
         path = QUrl(file_url).toLocalFile() if file_url else ""
         self._ctl.set_image(key, path)
-        self._ctl.save()
         self.stateChanged.emit()
 
     @Slot(str)
     def clearImage(self, key):
         self._ctl.set_image(key, "")
+        self.stateChanged.emit()
+
+    @Slot()
+    def save(self):
         self._ctl.save()
+        self.stateChanged.emit()
+
+    @Slot()
+    def revert(self):
+        self._ctl.revert()
+        self.selectionChanged.emit()
+        self.stateChanged.emit()
+
+    # -- copy / paste a control's function ---------------------------------
+    def _kind(self, key):
+        """Paste-compatibility class: 'knob' (encoder/dial, press + 2 rotate
+        slots) vs 'key' (single-action buttons, touch keys, side cells, wheel)."""
+        if key.startswith("enc") or key in ("dial", "dial-l", "dial-r"):
+            return "knob"
+        return "key"
+
+    @Property(bool, notify=selectionChanged)
+    def hasClipboard(self):
+        return self._clipboard is not None
+
+    @Property(str, notify=selectionChanged)
+    def clipboardLabel(self):
+        return self._clipboard["label"] if self._clipboard else ""
+
+    @Property(bool, notify=selectionChanged)
+    def canPaste(self):
+        return (self._clipboard is not None and bool(self._selected)
+                and self._kind(self._selected) == self._clipboard["kind"])
+
+    @Slot()
+    def copyControl(self):
+        key = self._selected
+        if not key:
+            return
+        menu = self._menu()
+        slots = {}
+        for slot, _ in self._slot_defs(key):
+            act = menu.actions.get(slot) if menu else None
+            suffix = slot[len(key):]   # "" / "-l" / "-r"
+            slots[suffix] = (getattr(act, "a_type", "none") if act else "none",
+                             getattr(act, "action", "") if act else "")
+        self._clipboard = {
+            "kind": self._kind(key),
+            "label": self._label(key),
+            "slots": slots,
+            "image": (menu.images.get(key, "") if (menu and self.selectedHasImage) else None),
+        }
+        self.selectionChanged.emit()
+
+    @Slot()
+    def pasteControl(self):
+        key = self._selected
+        if not key or not self.canPaste:
+            return
+        for suffix, (a_type, value) in self._clipboard["slots"].items():
+            self._ctl.set_action(key + suffix, a_type, value)
+        img = self._clipboard.get("image")
+        if img is not None and self.selectedHasImage:
+            self._ctl.set_image(key, img)
         self.stateChanged.emit()
 
     # -- slots -------------------------------------------------------------
