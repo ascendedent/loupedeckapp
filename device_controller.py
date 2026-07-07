@@ -19,7 +19,7 @@ from PIL import Image
 
 import ct_support
 from DeviceProfile import DeviceProfile, DIAL_ID, WHEEL_DISPLAY, WS_KEYS
-from LdConfiguration import LdConfiguration, LdAction
+from LdConfiguration import LdConfiguration, LdAction, LdSubmenu
 
 from Loupedeck import DeviceManager
 from Loupedeck.Devices import LoupedeckLive
@@ -162,16 +162,49 @@ class DeviceController:
     # -- editing (draft; mutates the in-memory menu, staged until save) -----
     def set_action(self, slot_key, a_type, value):
         """Bind (or clear, when a_type=='none') an action on the currently
-        displayed menu. Navigation types (submenu/back) are not created here.
-        Staged only: not written to disk until save()."""
+        displayed menu. Staged only: not written to disk until save().
+
+        'submenu' creates/renames a nested page (an LdSubmenu whose contents are
+        edited by navigating into it); 'back' returns to the parent menu."""
         menu = self.current_menu()
         if slot_key not in menu.actions and a_type == "none":
             return
-        if a_type == "none":
+        if a_type == "submenu":
+            existing = menu.actions.get(slot_key)
+            if isinstance(existing, LdSubmenu):
+                existing.setName(value or existing.name)   # preserve contents
+            else:
+                menu.actions[slot_key] = LdSubmenu(name=value or "submenu")
+        elif a_type == "back":
+            menu.actions[slot_key] = LdAction(action_type="back")
+        elif a_type == "none":
             menu.actions[slot_key] = LdAction()
         else:
             menu.actions[slot_key] = LdAction(action_type=a_type, action=value)
         self.dirty = True
+
+    # -- UI-side submenu navigation (mirrors device press handling) --------
+    def open_submenu(self, slot_key):
+        """Navigate the app into the submenu bound at slot_key (edits then
+        target the nested page). Also renders it on the device if connected."""
+        action = self.current_menu().actions.get(slot_key)
+        if action is None or action.a_type != "submenu":
+            return False
+        self.submenu_stack.append(action)
+        if self.device:
+            self.render_workspace(action.action)
+        self._emit("workspace")
+        return True
+
+    def close_submenu(self):
+        """Pop one level of submenu navigation."""
+        if not self.submenu_stack:
+            return False
+        self.submenu_stack.pop()
+        if self.device:
+            self.render_workspace(self.current_menu())
+        self._emit("workspace")
+        return True
 
     def set_image(self, key, path):
         """Set (or clear, when path is falsy) the image for an image-bearing

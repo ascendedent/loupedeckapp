@@ -205,17 +205,36 @@ class Backend(QObject):
         menu = self._menu()
         for slot, label in self._slot_defs(self._selected):
             act = menu.actions.get(slot) if menu else None
-            out.append({
-                "slot": slot,
-                "label": label,
-                "type": getattr(act, "a_type", "none") if act else "none",
-                "value": getattr(act, "action", "") if act else "",
-            })
+            a_type = getattr(act, "a_type", "none") if act else "none"
+            if a_type == "submenu":
+                value = getattr(act, "name", "")     # .action is a workspace
+            elif a_type == "back":
+                value = ""
+            else:
+                value = getattr(act, "action", "") if act else ""
+            out.append({"slot": slot, "label": label, "type": a_type, "value": value})
         return out
 
     @Property("QStringList", constant=True)
     def actionTypes(self):
         return list(self.ACTION_TYPES)
+
+    @Property("QStringList", notify=selectionChanged)
+    def selectedActionTypes(self):
+        """Action types offered for the selected control: submenu/back are only
+        meaningful on single-action 'key' controls, not encoders/dial."""
+        types = list(self.ACTION_TYPES)
+        if self._selected and self._kind(self._selected) == "key":
+            types += ["submenu", "back"]
+        return types
+
+    @Property(bool, notify=stateChanged)
+    def selectedIsSubmenu(self):
+        menu = self._menu()
+        if not self._selected or not menu:
+            return False
+        act = menu.actions.get(self._selected)
+        return getattr(act, "a_type", "") == "submenu"
 
     @Slot(str)
     def selectControl(self, key):
@@ -262,6 +281,21 @@ class Backend(QObject):
         self._ctl.revert()
         self.selectionChanged.emit()
         self.stateChanged.emit()
+
+    # -- submenu navigation ------------------------------------------------
+    @Slot()
+    def enterSubmenu(self):
+        if self._selected and self._ctl.open_submenu(self._selected):
+            self._selected = ""      # selection belonged to the parent menu
+            self.selectionChanged.emit()
+            self.stateChanged.emit()
+
+    @Slot()
+    def goBack(self):
+        if self._ctl.close_submenu():
+            self._selected = ""
+            self.selectionChanged.emit()
+            self.stateChanged.emit()
 
     # -- copy / paste a control's function ---------------------------------
     def _kind(self, key):

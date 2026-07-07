@@ -89,10 +89,12 @@ Item {
             anchors.top: parent.top; anchors.left: parent.left
             anchors.margins: 12
             width: bc.width + 20; height: 24; radius: 12
-            color: theme.panel2; border.color: theme.accent
+            color: bcHover.hovered ? theme.cell : theme.panel2; border.color: theme.accent
             Text { id: bc; anchors.centerIn: parent
-                text: "▸ submenu " + backend.menuDepth
+                text: "← submenu " + backend.menuDepth
                 color: theme.accent; font.pixelSize: 11; font.bold: true }
+            HoverHandler { id: bcHover }
+            TapHandler { onTapped: backend.goBack() }
         }
 
         ColumnLayout {

@@ -189,6 +189,11 @@ ApplicationWindow {
                 // -------- Inspector --------
                 RowLayout {
                     Layout.fillWidth: true
+                    ActionButton {
+                        visible: backend.menuDepth > 0
+                        label: "← Back"
+                        onClicked: backend.goBack()
+                    }
                     Text {
                         text: backend.selectedControl === "" ? "Inspector" : backend.selectedLabel
                         color: theme.text; font.pixelSize: 15; font.bold: true
@@ -249,19 +254,20 @@ ApplicationWindow {
                                 ComboBox {
                                     id: typeBox
                                     Layout.fillWidth: true
-                                    model: backend.actionTypes
-                                    currentIndex: Math.max(0, backend.actionTypes.indexOf(modelData.type))
+                                    model: backend.selectedActionTypes
+                                    currentIndex: Math.max(0, backend.selectedActionTypes.indexOf(modelData.type))
                                     onActivated: backend.setActionSlot(modelData.slot, currentText, valueField.text)
                                 }
                                 TextField {
                                     id: valueField
                                     Layout.fillWidth: true
-                                    enabled: typeBox.currentText !== "none"
+                                    visible: typeBox.currentText !== "none" && typeBox.currentText !== "back"
                                     text: modelData.value
                                     color: theme.text
                                     placeholderText: typeBox.currentText === "hotkey" ? "e.g. ctrl+c"
                                                    : typeBox.currentText === "media" ? "play-pause / next / previous"
                                                    : typeBox.currentText === "text" ? "text to type"
+                                                   : typeBox.currentText === "submenu" ? "submenu name"
                                                    : "command to run"
                                     placeholderTextColor: theme.muted
                                     background: Rectangle {
@@ -269,6 +275,12 @@ ApplicationWindow {
                                         border.color: valueField.activeFocus ? theme.accent : theme.line
                                     }
                                     onEditingFinished: backend.setActionSlot(modelData.slot, typeBox.currentText, text)
+                                }
+                                // navigate into a submenu to edit its keys
+                                ActionButton {
+                                    visible: typeBox.currentText === "submenu" && backend.selectedIsSubmenu
+                                    label: "Open submenu →"
+                                    onClicked: backend.enterSubmenu()
                                 }
                             }
                         }
