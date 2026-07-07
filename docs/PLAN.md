@@ -185,6 +185,20 @@ Provide a **v1→v2 migration** so existing `Profiles/*.json` load cleanly.
   left Action Library, center device view, right pages/profiles tree.
 - Dark theme, rounded cards, animated toggles; drag-drop actions onto keys.
 - **CT-accurate device view** incl. wheel + dial; live preview mirrors what's on the device.
+- **Control inspector** (done, slice 4): tap a control → edit its action(s) + image; encoders/dial
+  expose press + two rotate slots.
+- **Explicit staging + Save/Apply** *(planned)*: edits are currently applied to the device and
+  written to the profile JSON immediately. Move to a **draft model** — changes accumulate in an
+  in-memory working copy, the UI shows a dirty/unsaved indicator, and a **Save** button commits them
+  (push to the device + write the profile); add **Revert** to discard the draft. Decide whether the
+  live device preview updates on every edit (nice for feedback) or only on Save (matches the
+  official app); likely: mirror updates live, hardware push on Save.
+- **Copy / paste a control's function** *(planned)*: copy the action(s) (and optionally image) from
+  one control and paste onto another. **Type-compatibility rules** — a knob/encoder function (which
+  has press + rotate slots) can only paste onto another knob/encoder; a button/touch-key function
+  onto another button/touch-key; the dial counts as a knob; the wheel as a touch target. Paste maps
+  matching slots (press→press, rotate-l→rotate-l, …) and skips/greys incompatible targets. Support
+  copy/paste within a profile and across profiles/workspaces.
 - Keep a thin PyQt5 restyle available as interim (Option A) if QML slips.
 
 ### G. Packaging & distribution
@@ -202,7 +216,7 @@ Provide a **v1→v2 migration** so existing `Profiles/*.json` load cleanly.
 | **M1 — CT correctness** *(done)* | The current UI is *correct* for the CT | Workstream A (partial) + B; PID-based model detect; wheel/dial events read; geometry fixed | ✅ Every CT key/encoder/side-display/dial/wheel decodes; wheel renders; right-display placement fixed |
 | **M2 — Input that works** *(done)* | Actions actually fire on Wayland | Workstream C (ydotool + KDE dbus); media/launch actions | ✅ `input_backend` (ydotool→xdotool→pyautogui); hotkey/text/launch/media; verified typing into native Wayland windows |
 | **M3 — Profiles & dynamic mode** *(done)* | Per-app profiles | Workstreams D + E; schema v2 + migration; FocusWatcher via KWin | ✅ schema v2 + migration; WindowWatcher (kdotool); ProfileManager + dynamic-mode toggle; **verified live on-device** (focus Chrome→blue / other→red profile switch). Action *library* UI deferred to M4. |
-| **M4 — UI overhaul** *(in progress)* | Looks/feels close to official | Workstream F (PySide6+QML), action library, pages tree, theming | Slice 1 ✅ shell + CT device view. Slice 2 ✅ **live**: `LdConfiguration` decoupled from Qt; `DeviceController` drives the CT from the QML app; profile clicks + dynamic mode verified on-device. Next: on-screen device mirror of the loaded profile, action drag-drop + editing (new action types), theming polish. |
+| **M4 — UI overhaul** *(in progress)* | Looks/feels close to official | Workstream F (PySide6+QML), action library, pages tree, theming | Slice 1 ✅ shell + CT device view. Slice 2 ✅ **live**: `LdConfiguration` decoupled from Qt; `DeviceController` drives the CT from the QML app; profile clicks + dynamic mode verified on-device. Slice 3 ✅ **live**: on-screen device mirror of the loaded profile (images + bound-action highlights + submenu breadcrumb; ws buttons labelled 1..8). Slice 4 ✅ **live**: control inspector — tap a control → edit action(s) + image, persists to profile JSON. **Next:** explicit staging + **Save/Apply** button (draft model, dirty indicator, Revert); **copy/paste a control's function** onto other compatible controls (type-checked knob↔knob, button↔button); submenu/back creation; drag-drop from the action library; theming polish. |
 | **M5 — Ship it** | Installable by non-devs | Workstream G; docs; starter profiles | Flatpak/AppImage installs & runs on a clean KDE machine |
 
 Milestones are independently valuable; M1–M3 don't depend on the UI-stack decision.
