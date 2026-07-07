@@ -102,6 +102,51 @@ class Backend(QObject):
     def ctExtraButtons(self):
         return list(self._ctl.profile.extra_buttons)
 
+    # -- on-screen mirror of the currently displayed menu ------------------
+    def _menu(self):
+        """The workspace or submenu whose images/actions are live on the
+        device right now. Works before connect too (empty default config)."""
+        try:
+            return self._ctl.current_menu()
+        except Exception:
+            return None
+
+    @Property("QVariantMap", notify=stateChanged)
+    def keyImages(self):
+        """control-key -> file:// URL for every slot with an image (touch
+        buttons, side-display cells, wheel), for the DeviceView mirror."""
+        menu = self._menu()
+        out = {}
+        if not menu:
+            return out
+        for key, path in menu.images.items():
+            if not path:
+                continue
+            ap = path if os.path.isabs(path) else os.path.join(APP_DIR, path)
+            out[key] = QUrl.fromLocalFile(ap).toString()
+        return out
+
+    @Property("QVariantMap", notify=stateChanged)
+    def boundActions(self):
+        """control-key -> action summary for every bound (non-'none') control,
+        so the mirror can highlight encoders/dial/CT-buttons that do something."""
+        menu = self._menu()
+        out = {}
+        if not menu:
+            return out
+        for key, action in menu.actions.items():
+            if action is not None and getattr(action, "a_type", "none") != "none":
+                out[key] = getattr(action, "summary", "") or action.a_type
+        return out
+
+    @Property(str, notify=stateChanged)
+    def selectedWs(self):
+        return self._ctl.selected_ws
+
+    @Property(int, notify=stateChanged)
+    def menuDepth(self):
+        return len(self._ctl.submenu_stack)
+
     # -- slots -------------------------------------------------------------
     @Slot(str)
     def loadProfile(self, name):
