@@ -8,6 +8,8 @@ ApplicationWindow {
     visible: true
     width: 1180
     height: 760
+    minimumWidth: 900
+    minimumHeight: 600
     title: "Loupedeck Config"
     color: theme.bg
 
@@ -49,8 +51,12 @@ ApplicationWindow {
         border.color: primary ? theme.accent : theme.line
         Text { id: abText; anchors.centerIn: parent; text: ab.label
             color: primary ? "#ffffff" : theme.text; font.pixelSize: 13; font.bold: ab.primary }
-        HoverHandler { id: abHover; enabled: ab.enabledFlag }
-        TapHandler { enabled: ab.enabledFlag; onTapped: ab.clicked() }
+        HoverHandler { id: abHover; enabled: ab.enabledFlag; cursorShape: Qt.PointingHandCursor }
+        TapHandler { id: abTap; enabled: ab.enabledFlag; onTapped: ab.clicked() }
+        scale: abTap.pressed ? 0.94 : 1.0
+        Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
+        Behavior on color { ColorAnimation { duration: 110 } }
+        Behavior on opacity { NumberAnimation { duration: 130 } }
     }
 
     // ============================ TOP BAR =================================
@@ -113,6 +119,15 @@ ApplicationWindow {
         }
     }
 
+    // subtle gradient backdrop behind the body
+    Rectangle {
+        anchors.fill: parent; z: -1
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: "#191922" }
+            GradientStop { position: 1.0; color: "#101015" }
+        }
+    }
+
     // ============================ BODY (3 columns) =========================
     RowLayout {
         anchors.fill: parent
@@ -151,6 +166,9 @@ ApplicationWindow {
                         width: libList.width; height: 38; radius: theme.radius
                         color: dragMa.drag.active ? theme.accent : (tileHover.hovered ? theme.cell : theme.panel2)
                         border.color: dragMa.drag.active ? theme.accent : theme.line
+                        scale: dragMa.drag.active ? 1.04 : 1.0
+                        Behavior on color { ColorAnimation { duration: 120 } }
+                        Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
 
                         // drag payload read by the DropArea on each control
                         property string aType: modelData.type
@@ -189,11 +207,20 @@ ApplicationWindow {
 
         // ---------- CENTER: device view ----------
         Rectangle {
+            id: centerPanel
             Layout.fillWidth: true; Layout.fillHeight: true
+            Layout.minimumWidth: 320
             radius: theme.radius; color: theme.panel; border.color: theme.line
+            clip: true
             DeviceView {
+                id: deviceView
                 anchors.centerIn: parent
                 theme: theme
+                // shrink to fit the panel (never upscale) so it never spills
+                // over the side panels when the window is resized
+                scale: Math.min(1,
+                    (centerPanel.width - 28) / implicitWidth,
+                    (centerPanel.height - 28) / implicitHeight)
             }
         }
 
@@ -212,7 +239,8 @@ ApplicationWindow {
                         color: modelData === backend.activeProfile ? theme.accent
                                : (hover.hovered ? theme.cell : theme.panel2)
                         opacity: modelData === backend.activeProfile ? 0.9 : 1.0
-                        HoverHandler { id: hover }
+                        Behavior on color { ColorAnimation { duration: 120 } }
+                        HoverHandler { id: hover; cursorShape: Qt.PointingHandCursor }
                         TapHandler { onTapped: backend.loadProfile(modelData) }
                         RowLayout {
                             anchors.fill: parent; anchors.leftMargin: 10; spacing: 8
