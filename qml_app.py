@@ -19,18 +19,21 @@ from PySide6.QtQml import QQmlApplicationEngine
 import window_watcher
 from profile_manager import ProfileManager
 from device_controller import DeviceController
+from DeviceProfile import WHEEL_DISPLAY
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 class Backend(QObject):
     stateChanged = Signal()
+    selectionChanged = Signal()
     # private cross-thread marshals -> delivered on the Qt main thread
     _marshal = Signal(str)
     _focusSig = Signal(str, str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._selected = ""
         self._ctl = DeviceController(on_state=lambda kind: self._marshal.emit(kind))
         self._pm = ProfileManager(os.path.join(APP_DIR, "dynamic_profiles.json"))
         self._watcher = window_watcher.get_watcher(
@@ -146,6 +149,106 @@ class Backend(QObject):
     @Property(int, notify=stateChanged)
     def menuDepth(self):
         return len(self._ctl.submenu_stack)
+
+    # -- control selection + action editing (inspector) --------------------
+    ACTION_TYPES = ["none", "command", "hotkey", "text", "media"]
+
+    def _slot_defs(self, key):
+        """(slot-key, label) pairs a control exposes. Encoders and the dial
+        have press + two rotate slots; everything else is a single action."""
+        if key.startswith("enc"):
+            return [(key, "Press"), (key + "-l", "Rotate ◀"), (key + "-r", "Rotate ▶")]
+        if key in ("dial", "dial-l", "dial-r"):
+            return [("dial", "Press"), ("dial-l", "Rotate ◀"), ("dial-r", "Rotate ▶")]
+        return [(key, "Action")]
+
+    def _label(self, key):
+        if key.startswith("tb"):
+            return "Touch key %s,%s" % (key[2], key[3])
+        if key.startswith("dis"):
+            return "Side %s cell %s" % ("left" if key[4] == "L" else "right", key[3])
+        if key.startswith("enc"):
+            return "Encoder %s%s" % (key[3], key[4])
+        if key == "dial":
+            return "Dial"
+        if key == WHEEL_DISPLAY:
+            return "Wheel"
+        return "Button %s" % key.upper()
+
+    @Property(str, notify=selectionChanged)
+    def selectedControl(self):
+        return self._selected
+
+    @Property(str, notify=selectionChanged)
+    def selectedLabel(self):
+        return self._label(self._selected) if self._selected else ""
+
+    @Property(bool, notify=selectionChanged)
+    def selectedHasImage(self):
+        k = self._selected
+        return bool(k) and (k.startswith("tb") or k.startswith("dis") or k == WHEEL_DISPLAY)
+
+    @Property(str, notify=stateChanged)
+    def selectedImage(self):
+        if not self._selected:
+            return ""
+        return self.keyImages.get(self._selected, "")
+
+    @Property("QVariantList", notify=stateChanged)
+    def selectedSlots(self):
+        """Editor rows for the selected control: slot key, label, current
+        action type + value."""
+        out = []
+        if not self._selected:
+            return out
+        menu = self._menu()
+        for slot, label in self._slot_defs(self._selected):
+            act = menu.actions.get(slot) if menu else None
+            out.append({
+                "slot": slot,
+                "label": label,
+                "type": getattr(act, "a_type", "none") if act else "none",
+                "value": getattr(act, "action", "") if act else "",
+            })
+        return out
+
+    @Property("QStringList", constant=True)
+    def actionTypes(self):
+        return list(self.ACTION_TYPES)
+
+    @Slot(str)
+    def selectControl(self, key):
+        # normalise encoder/dial rotate slots to their base control
+        if key.endswith("-l") or key.endswith("-r"):
+            key = key[:-2]
+        self._selected = key
+        self.selectionChanged.emit()
+        self.stateChanged.emit()
+
+    @Slot()
+    def deselect(self):
+        self._selected = ""
+        self.selectionChanged.emit()
+        self.stateChanged.emit()
+
+    @Slot(str, str, str)
+    def setActionSlot(self, slot_key, a_type, value):
+        self._ctl.set_action(slot_key, a_type, value)
+        self._ctl.save()
+        self.stateChanged.emit()
+
+    @Slot(str, str)
+    def setImage(self, key, file_url):
+        path = QUrl(file_url).toLocalFile() if file_url else ""
+        self._ctl.set_image(key, path)
+        self._ctl.save()
+        self.stateChanged.emit()
+
+    @Slot(str)
+    def clearImage(self, key):
+        self._ctl.set_image(key, "")
+        self._ctl.save()
+        self.stateChanged.emit()
 
     # -- slots -------------------------------------------------------------
     @Slot(str)

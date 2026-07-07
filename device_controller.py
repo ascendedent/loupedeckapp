@@ -19,7 +19,7 @@ from PIL import Image
 
 import ct_support
 from DeviceProfile import DeviceProfile, DIAL_ID, WHEEL_DISPLAY, WS_KEYS
-from LdConfiguration import LdConfiguration
+from LdConfiguration import LdConfiguration, LdAction
 
 from Loupedeck import DeviceManager
 from Loupedeck.Devices import LoupedeckLive
@@ -153,6 +153,39 @@ class DeviceController:
                 self.set_img_to_touchdisplay(path, key[4], int(key[3]))
             elif key == WHEEL_DISPLAY and self.profile.has_wheel:
                 self.set_img_to_wheel(path)
+
+    # -- editing (UI-driven; writes into current menu, live-updates device) -
+    def set_action(self, slot_key, a_type, value):
+        """Bind (or clear, when a_type=='none') an action on the currently
+        displayed menu. Navigation types (submenu/back) are not created here."""
+        menu = self.current_menu()
+        if slot_key not in menu.actions and a_type == "none":
+            return
+        if a_type == "none":
+            menu.actions[slot_key] = LdAction()
+        else:
+            menu.actions[slot_key] = LdAction(action_type=a_type, action=value)
+
+    def set_image(self, key, path):
+        """Set (or clear, when path is falsy) the image for an image-bearing
+        control and push just that slot to the device."""
+        menu = self.current_menu()
+        if key not in menu.images:
+            return
+        menu.images[key] = path or ""
+        if not self.device:
+            return
+        if key.startswith("tb"):
+            self.set_img_to_touchbutton(path, self.tb_name_to_keycode(key))
+        elif key.startswith("dis"):
+            self.set_img_to_touchdisplay(path, key[4], int(key[3]))
+        elif key == WHEEL_DISPLAY and self.profile.has_wheel:
+            self.set_img_to_wheel(path)
+
+    def save(self):
+        """Persist the whole config back to its profile file."""
+        if self.config.profile:
+            self.config.save(self.config.profile)
 
     # -- workspace / submenu state -----------------------------------------
     def current_ws(self):

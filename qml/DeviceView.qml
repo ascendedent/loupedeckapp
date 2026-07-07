@@ -1,10 +1,10 @@
 import QtQuick
 import QtQuick.Layouts
 
-// CT-accurate device mock that MIRRORS the loaded profile: touch-key / side /
-// wheel images come from backend.keyImages, and encoders / dial / workspace /
-// CT buttons light up when backend.boundActions binds them. Editing (assigning
-// actions from the UI) is the next slice.
+// CT-accurate device mock that MIRRORS the loaded profile and lets you SELECT a
+// control (tap it) to edit in the right-hand inspector. Images come from
+// backend.keyImages; bound controls light up from backend.boundActions; the
+// selected control gets an 'ok'-coloured ring.
 Item {
     id: dv
     property var theme
@@ -24,32 +24,55 @@ Item {
         var b = backend.boundActions
         return b[base] !== undefined || b[base + "-l"] !== undefined || b[base + "-r"] !== undefined
     }
-    function actionText(key) { return backend.boundActions[key] || "" }
+    function isSel(key) { return key !== "" && backend.selectedControl === key }
 
     // reusable pieces ------------------------------------------------------
     component Encoder: Rectangle {
         property bool active: false
+        property string ctlKey: ""
+        property bool sel: dv.isSel(ctlKey)
         width: 54; height: 54; radius: 27
-        color: theme.cell
-        border.color: active ? theme.accent : theme.line
+        color: sel ? Qt.rgba(theme.ok.r, theme.ok.g, theme.ok.b, 0.18) : theme.cell
+        border.color: sel ? theme.ok : (active ? theme.accent : theme.line)
         border.width: 3
         Rectangle {  // knob indicator notch
             width: 4; height: 12; radius: 2
-            color: active ? theme.accent : theme.muted
+            color: (active || sel) ? theme.text : theme.muted
             anchors.horizontalCenter: parent.horizontalCenter; anchors.top: parent.top; anchors.topMargin: 6
         }
+        TapHandler { enabled: ctlKey !== ""; onTapped: backend.selectControl(ctlKey) }
     }
 
     component RoundBtn: Rectangle {
         property string label: ""
         property bool active: false
         property color activeColor: theme.accent
+        property string ctlKey: ""
+        property bool sel: dv.isSel(ctlKey)
         width: 40; height: 40; radius: 20
-        color: active ? Qt.rgba(activeColor.r, activeColor.g, activeColor.b, 0.22) : theme.cell
-        border.color: active ? activeColor : theme.line
+        color: sel ? Qt.rgba(theme.ok.r, theme.ok.g, theme.ok.b, 0.22)
+             : (active ? Qt.rgba(activeColor.r, activeColor.g, activeColor.b, 0.22) : theme.cell)
+        border.color: sel ? theme.ok : (active ? activeColor : theme.line)
         border.width: 2
         Text { anchors.centerIn: parent; text: label
-            color: active ? theme.text : theme.muted; font.pixelSize: 11 }
+            color: (active || sel) ? theme.text : theme.muted; font.pixelSize: 11 }
+        TapHandler { enabled: ctlKey !== ""; onTapped: backend.selectControl(ctlKey) }
+    }
+
+    component SideCell: Rectangle {
+        property string ctlKey: ""
+        property bool sel: dv.isSel(ctlKey)
+        width: 30; height: dv.keySize; radius: 6
+        color: theme.cell
+        border.color: sel ? theme.ok : (dv.bound(ctlKey) ? theme.accent : theme.line)
+        border.width: sel ? 2 : 1
+        clip: true
+        Image {
+            anchors.fill: parent; anchors.margins: 1
+            source: dv.img(ctlKey); visible: source != ""
+            fillMode: Image.PreserveAspectCrop; asynchronous: true
+        }
+        TapHandler { onTapped: backend.selectControl(ctlKey) }
     }
 
     Rectangle {
@@ -82,9 +105,9 @@ Item {
                 id: topZone
                 spacing: 14
                 ColumnLayout { spacing: 20
-                    Encoder { active: dv.encBound("enc1L") }
-                    Encoder { active: dv.encBound("enc2L") }
-                    Encoder { active: dv.encBound("enc3L") }
+                    Encoder { ctlKey: "enc1L"; active: dv.encBound("enc1L") }
+                    Encoder { ctlKey: "enc2L"; active: dv.encBound("enc2L") }
+                    Encoder { ctlKey: "enc3L"; active: dv.encBound("enc3L") }
                 }
 
                 // left side strip (3 cells)
@@ -92,16 +115,7 @@ Item {
                     spacing: dv.gap
                     Repeater {
                         model: ["dis1L", "dis2L", "dis3L"]
-                        Rectangle {
-                            width: 30; height: dv.keySize; radius: 6
-                            color: theme.cell; border.color: theme.line
-                            clip: true
-                            Image {
-                                anchors.fill: parent; anchors.margins: 1
-                                source: dv.img(modelData); visible: source != ""
-                                fillMode: Image.PreserveAspectCrop; asynchronous: true
-                            }
-                        }
+                        SideCell { ctlKey: modelData }
                     }
                 }
 
@@ -121,6 +135,7 @@ Item {
                                 property int c: index % dv.cols + 1
                                 property string key: "tb" + r + c
                                 property string src: dv.img(key)
+                                property bool sel: dv.isSel(key)
                                 width: dv.keySize; height: dv.keySize; radius: 8
                                 color: theme.cell; clip: true
                                 Image {
@@ -131,14 +146,16 @@ Item {
                                 Rectangle {  // outline
                                     anchors.fill: parent; anchors.margins: 1; radius: 7
                                     color: "transparent"
-                                    border.color: dv.bound(parent.key) ? theme.accent : theme.line
-                                    border.width: 1
+                                    border.color: parent.sel ? theme.ok
+                                                : (dv.bound(parent.key) ? theme.accent : theme.line)
+                                    border.width: parent.sel ? 2 : 1
                                 }
                                 Rectangle {  // bound-but-no-image dot
                                     visible: parent.src == "" && dv.bound(parent.key)
                                     anchors.centerIn: parent
                                     width: 8; height: 8; radius: 4; color: theme.accent
                                 }
+                                TapHandler { onTapped: backend.selectControl(parent.key) }
                             }
                         }
                     }
@@ -149,34 +166,24 @@ Item {
                     spacing: dv.gap
                     Repeater {
                         model: ["dis1R", "dis2R", "dis3R"]
-                        Rectangle {
-                            width: 30; height: dv.keySize; radius: 6
-                            color: theme.cell; border.color: theme.line
-                            clip: true
-                            Image {
-                                anchors.fill: parent; anchors.margins: 1
-                                source: dv.img(modelData); visible: source != ""
-                                fillMode: Image.PreserveAspectCrop; asynchronous: true
-                            }
-                        }
+                        SideCell { ctlKey: modelData }
                     }
                 }
 
                 ColumnLayout { spacing: 20
-                    Encoder { active: dv.encBound("enc1R") }
-                    Encoder { active: dv.encBound("enc2R") }
-                    Encoder { active: dv.encBound("enc3R") }
+                    Encoder { ctlKey: "enc1R"; active: dv.encBound("enc1R") }
+                    Encoder { ctlKey: "enc2R"; active: dv.encBound("enc2R") }
+                    Encoder { ctlKey: "enc3R"; active: dv.encBound("enc3R") }
                 }
             }
 
-            // ---- workspace round buttons (circle + 1..7) ----
+            // ---- workspace round buttons (labelled 1..8 like the hardware) ----
             RowLayout {
                 id: wsRow
                 Layout.alignment: Qt.AlignHCenter
                 spacing: 16
-                // Labels match the physical CT (1..8). Internally the first
-                // button is the firmware 'circle' key, then '1'..'7'; only the
-                // displayed number is shifted so the UI reads like the hardware.
+                // First button is the firmware 'circle' key; only the label is
+                // shifted so the UI reads 1..8 like the physical CT.
                 RoundBtn {
                     label: "1"; activeColor: theme.ok
                     active: backend.selectedWs === "circle"
@@ -207,22 +214,25 @@ Item {
                             {l: "⌨", k: "keyboard"}, {l: "↵", k: "enter"},
                             {l: "fn", k: "fnL"}, {l: "▤", k: "save"}
                         ]
-                        RoundBtn { label: modelData.l; active: dv.bound(modelData.k) }
+                        RoundBtn { label: modelData.l; ctlKey: modelData.k; active: dv.bound(modelData.k) }
                     }
                 }
 
-                // the big round wheel + dial screen
+                // the big round wheel + dial screen (outer ring = dial, inner = wheel)
                 Rectangle {
                     width: 180; height: 180; radius: 90
                     color: theme.cell
-                    border.color: (dv.bound("dial") || dv.bound("dial-l") || dv.bound("dial-r") || dv.bound("wheel"))
-                                  ? theme.accent : theme.line
+                    border.color: dv.isSel("dial") ? theme.ok
+                                : ((dv.bound("dial") || dv.bound("dial-l") || dv.bound("dial-r")) ? theme.accent : theme.line)
                     border.width: 3
-                    visible: backend.hasWheel
-                    Rectangle {  // round screen
+                    TapHandler { onTapped: backend.selectControl("dial") }   // ring
+                    Rectangle {  // round screen (wheel)
                         anchors.centerIn: parent; width: 150; height: 150; radius: 75
-                        color: "#07070a"; border.color: theme.line; border.width: 1
-                        // wheel image (inscribed square inside the round screen)
+                        color: "#07070a"
+                        border.color: dv.isSel("wheel") ? theme.ok
+                                    : (dv.bound("wheel") ? theme.accent : theme.line)
+                        border.width: dv.isSel("wheel") ? 2 : 1
+                        TapHandler { onTapped: backend.selectControl("wheel") }
                         Image {
                             anchors.centerIn: parent; width: 106; height: 106
                             source: dv.img("wheel"); visible: source != ""
@@ -244,7 +254,7 @@ Item {
                             {l: "A", k: "a"}, {l: "B", k: "b"}, {l: "C", k: "c"},
                             {l: "D", k: "d"}, {l: "E", k: "e"}, {l: "fn", k: "fnR"}
                         ]
-                        RoundBtn { label: modelData.l; active: dv.bound(modelData.k) }
+                        RoundBtn { label: modelData.l; ctlKey: modelData.k; active: dv.bound(modelData.k) }
                     }
                 }
             }

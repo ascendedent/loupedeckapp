@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
+import QtQuick.Dialogs
 
 ApplicationWindow {
     id: root
@@ -9,6 +10,13 @@ ApplicationWindow {
     height: 760
     title: "Loupedeck Config"
     color: theme.bg
+
+    FileDialog {
+        id: imageDialog
+        title: "Choose an image for " + backend.selectedLabel
+        nameFilters: ["Images (*.png *.jpg *.jpeg *.bmp *.gif)", "All files (*)"]
+        onAccepted: backend.setImage(backend.selectedControl, selectedFile)
+    }
 
     // ---- dark theme tokens ------------------------------------------------
     QtObject {
@@ -116,18 +124,18 @@ ApplicationWindow {
             }
         }
 
-        // ---------- RIGHT: profiles / pages ----------
+        // ---------- RIGHT: profiles + inspector ----------
         Rectangle {
-            Layout.preferredWidth: 270; Layout.fillHeight: true
+            Layout.preferredWidth: 300; Layout.fillHeight: true
             radius: theme.radius; color: theme.panel; border.color: theme.line
             ColumnLayout {
                 anchors.fill: parent; anchors.margins: 12; spacing: 10
                 Text { text: "Profiles"; color: theme.text; font.pixelSize: 15; font.bold: true }
                 ListView {
-                    Layout.fillWidth: true; Layout.preferredHeight: 220; clip: true; spacing: 4
+                    Layout.fillWidth: true; Layout.preferredHeight: 150; clip: true; spacing: 4
                     model: backend.profiles
                     delegate: Rectangle {
-                        width: ListView.view.width; height: 38; radius: theme.radius
+                        width: ListView.view.width; height: 36; radius: theme.radius
                         color: modelData === backend.activeProfile ? theme.accent
                                : (hover.hovered ? theme.cell : theme.panel2)
                         opacity: modelData === backend.activeProfile ? 0.9 : 1.0
@@ -140,10 +148,111 @@ ApplicationWindow {
                         }
                     }
                 }
+
                 Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
-                Text { text: "Pages"; color: theme.text; font.pixelSize: 15; font.bold: true }
-                Text { text: "Touch page 1"; color: theme.muted; font.pixelSize: 13 }
-                Item { Layout.fillHeight: true }
+
+                // -------- Inspector --------
+                RowLayout {
+                    Layout.fillWidth: true
+                    Text {
+                        text: backend.selectedControl === "" ? "Inspector" : backend.selectedLabel
+                        color: theme.text; font.pixelSize: 15; font.bold: true
+                        Layout.fillWidth: true; elide: Text.ElideRight
+                    }
+                    Rectangle {
+                        visible: backend.selectedControl !== ""
+                        width: 22; height: 22; radius: 11
+                        color: clear.hovered ? theme.cell : theme.panel2; border.color: theme.line
+                        Text { anchors.centerIn: parent; text: "✕"; color: theme.muted; font.pixelSize: 12 }
+                        HoverHandler { id: clear }
+                        TapHandler { onTapped: backend.deselect() }
+                    }
+                }
+
+                Text {
+                    visible: backend.selectedControl === ""
+                    Layout.fillWidth: true; wrapMode: Text.WordWrap
+                    text: "Tap a key, encoder, dial, wheel or button on the device to bind an action or set an image."
+                    color: theme.muted; font.pixelSize: 12
+                }
+
+                // scrollable editor body
+                Flickable {
+                    Layout.fillWidth: true; Layout.fillHeight: true
+                    visible: backend.selectedControl !== ""
+                    clip: true; contentHeight: editor.height
+                    ColumnLayout {
+                        id: editor
+                        width: parent.width; spacing: 12
+
+                        // action slots (1 for most controls, 3 for encoder/dial)
+                        Repeater {
+                            model: backend.selectedSlots
+                            delegate: ColumnLayout {
+                                required property var modelData
+                                Layout.fillWidth: true; spacing: 4
+                                Text { text: modelData.label; color: theme.muted; font.pixelSize: 12 }
+                                ComboBox {
+                                    id: typeBox
+                                    Layout.fillWidth: true
+                                    model: backend.actionTypes
+                                    currentIndex: Math.max(0, backend.actionTypes.indexOf(modelData.type))
+                                    onActivated: backend.setActionSlot(modelData.slot, currentText, valueField.text)
+                                }
+                                TextField {
+                                    id: valueField
+                                    Layout.fillWidth: true
+                                    enabled: typeBox.currentText !== "none"
+                                    text: modelData.value
+                                    color: theme.text
+                                    placeholderText: typeBox.currentText === "hotkey" ? "e.g. ctrl+c"
+                                                   : typeBox.currentText === "media" ? "play-pause / next / previous"
+                                                   : typeBox.currentText === "text" ? "text to type"
+                                                   : "command to run"
+                                    placeholderTextColor: theme.muted
+                                    background: Rectangle {
+                                        radius: 6; color: theme.panel2
+                                        border.color: valueField.activeFocus ? theme.accent : theme.line
+                                    }
+                                    onEditingFinished: backend.setActionSlot(modelData.slot, typeBox.currentText, text)
+                                }
+                            }
+                        }
+
+                        // image section (touch keys / side cells / wheel)
+                        ColumnLayout {
+                            visible: backend.selectedHasImage
+                            Layout.fillWidth: true; spacing: 6
+                            Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
+                            Text { text: "Image"; color: theme.muted; font.pixelSize: 12 }
+                            Rectangle {
+                                Layout.alignment: Qt.AlignHCenter
+                                width: 90; height: 90; radius: 8
+                                color: theme.panel2; border.color: theme.line
+                                Image {
+                                    anchors.fill: parent; anchors.margins: 3
+                                    source: backend.selectedImage; visible: source != ""
+                                    fillMode: Image.PreserveAspectFit; asynchronous: true
+                                }
+                                Text {
+                                    anchors.centerIn: parent; visible: backend.selectedImage == ""
+                                    text: "none"; color: theme.muted; font.pixelSize: 11
+                                }
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true; spacing: 8
+                                Button {
+                                    Layout.fillWidth: true; text: "Set image…"
+                                    onClicked: imageDialog.open()
+                                }
+                                Button {
+                                    text: "Clear"; enabled: backend.selectedImage != ""
+                                    onClicked: backend.clearImage(backend.selectedControl)
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
