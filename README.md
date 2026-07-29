@@ -148,11 +148,16 @@ See [`docs/PLAN.md`](docs/PLAN.md) for the full design notes and roadmap.
 
 ## Roadmap
 
-- Ready-to-use starter profiles and nicer defaults.
-- Configurable side displays (single image vs. split into cells).
-- Packaging (Flatpak / AppImage) with the udev + ydotool setup bundled.
-- An eventual **macOS** build — the core is already platform-agnostic; it needs macOS input and
-  active-window adapters and app packaging.
+Agreed direction (detail in [`docs/PLAN.md`](docs/PLAN.md)):
+
+1. **Consistency** — QML as the only UI (retire legacy PyQt5); `AppPaths` (no CWD-relative
+   profiles); explicit platform factories for input / focus / shortcut catalogs.
+2. **Ship Linux** — pinned deps; Flatpak and/or AppImage; udev + ydotool docs; starter profiles.
+3. **Product depth** — full dynamic-mode UX in QML, profile CRUD/import-export, real action search,
+   brightness/reconnect, Live/Live S mirror fidelity, macros and encoder adjustments, UI polish.
+4. **macOS** — native build targeting **macOS 10.14+**: device I/O first, then Quartz input,
+   frontmost-app dynamic mode, then `.app` packaging. The core is already Qt-free; this is mostly
+   adapters, permissions UX, and paths.
 
 ## Credits & license
 
