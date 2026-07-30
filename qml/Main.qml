@@ -541,7 +541,7 @@ ApplicationWindow {
                                     }
                                     Text {
                                         Layout.fillWidth: true; wrapMode: Text.WordWrap
-                                        text: "Images are scaled to fit — never cropped or stretched. Match this size for a pixel-perfect fill."
+                                        text: "Images are scaled to fit, never cropped or stretched. Match this size for a pixel-perfect fill."
                                         color: theme.muted; font.pixelSize: 10
                                     }
                                 }

@@ -1,12 +1,12 @@
 # loupedeckapp
 
-A native **Linux** configuration app for the **Loupedeck CT** (and Loupedeck Live / Live S) — an
+A native **Linux** configuration app for the **Loupedeck CT** (and Loupedeck Live / Live S): an
 open-source stand-in for the official Loupedeck software, which is Windows/macOS only.
 
 Assign images, background colours, text labels, LED colours and actions to every touch key, side
-display, encoder, and — on the CT — the rotary dial and round wheel screen; organise them into
+display, encoder, and (on the CT) the rotary dial and round wheel screen; organise them into
 workspaces and nested submenus; and optionally auto-switch profiles based on the focused desktop
-application — all from a modern, dark PySide6/QML interface.
+application. All from a modern, dark PySide6/QML interface.
 
 > **Origin.** This project began as a fork of
 > [flowernert/loupedeckapp](https://github.com/flowernert/loupedeckapp) (which targets the Loupedeck
@@ -19,11 +19,11 @@ application — all from a modern, dark PySide6/QML interface.
 
 | Device            | USB PID     | Status                                                                                   |
 |-------------------|-------------|------------------------------------------------------------------------------------------|
-| Loupedeck **CT**  | `2ec2:0003` | Primary target — full support incl. the 240×240 wheel screen, rotary dial, and CT buttons |
+| Loupedeck **CT**  | `2ec2:0003` | Primary target; full support incl. the 240×240 wheel screen, rotary dial, and CT buttons |
 | Loupedeck **Live**| `2ec2:0004` | Supported (upstream's original target)                                                   |
 | Loupedeck **Live S** | `2ec2:0006` | Supported (5-column geometry, no side screens)                                        |
 
-The model is detected from the USB product id — the vendored device library reports every model as
+The model is detected from the USB product id. The vendored device library reports every model as
 `LoupedeckLive`, so CT-specific behaviour is enabled only when a wheel/dial is present.
 
 ## Features
@@ -37,9 +37,9 @@ The model is detected from the USB product id — the vendored device library re
   **submenus**.
 
 ### Per-control styling
-- **Images** — fit to the control (aspect preserved, never cropped or stretched). The inspector
+- **Images**: fit to the control (aspect preserved, never cropped or stretched). The inspector
   shows the exact target size for a pixel-perfect fill (90×90 keys, 60×90 side cells, 240×240 wheel).
-- **Text labels** — on by default, auto-derived from the assigned action's name (e.g. `Copy`), with
+- **Text labels**: on by default, auto-derived from the assigned action's name (e.g. `Copy`), with
   a per-control show/hide toggle so a label is never lost when you add an image. Placement
   top / middle / bottom, and three modes: **over** the image, on a **bar**, or **shrink** (image
   resized so the label sits beside it). Custom bar colour.
@@ -49,17 +49,17 @@ The model is detected from the USB product id — the vendored device library re
 
 ### Actions
 - `command`/launch, `hotkey`, `text`, `media` (MPRIS), and `submenu` / `back` navigation.
-- **Hotkey recorder** — press a key combination to capture it — plus a **presets** picker that
-  includes your machine's configured KDE global shortcuts.
+- **Hotkey recorder** that captures a key combination when you press it, plus a **presets** picker
+  that includes your machine's configured KDE global shortcuts.
 - A searchable **action library** you drag onto controls. Dropping onto an encoder, the dial, or the
   wheel lets you pick the **press / rotate / touch** slot.
 
 ### Workflow
 - Three-column dark UI (PySide6 + QML): action library · live device mirror · inspector.
-- **Draft editing** — edits update the on-screen mirror live and are pushed to the hardware only on
+- **Draft editing**: edits update the on-screen mirror live and are pushed to the hardware only on
   **Save**; **Revert** discards the draft.
 - **Copy / paste** a control's entire function onto another compatible control.
-- **Dynamic mode** — switches the active profile when the focused desktop app changes (KDE Wayland,
+- **Dynamic mode**: switches the active profile when the focused desktop app changes (KDE Wayland,
   via KWin scripting).
 - JSON profiles (schema v4, backward compatible with older profiles).
 
@@ -74,10 +74,10 @@ The model is detected from the USB product id — the vendored device library re
 - Optional / legacy: `PyQt5` (the older `app.py` UI), `pyautogui` + `python-xlib` (X11 input fallback).
 
 **System tools**
-- **`ydotool`** + the `ydotoold` daemon — injects hotkeys/text on **Wayland** via kernel uinput
+- **`ydotool`** + the `ydotoold` daemon: injects hotkeys/text on **Wayland** via kernel uinput
   (required for actions to fire in native Wayland sessions).
-- `playerctl` — media transport via MPRIS.
-- `kdotool` — active-window detection for dynamic mode on KDE Wayland.
+- `playerctl`: media transport via MPRIS.
+- `kdotool`: active-window detection for dynamic mode on KDE Wayland.
 
 ## Setup
 
@@ -105,7 +105,7 @@ SUBSYSTEM=="tty", ATTRS{idProduct}=="0003", ATTRS{idVendor}=="2ec2", GROUP="dial
 Then add yourself to the group and re-login:
 
 ```bash
-sudo usermod -aG dialout "$USER"     # some distros use `plugdev` — match GROUP= above
+sudo usermod -aG dialout "$USER"     # some distros use `plugdev`; match GROUP= above
 ```
 
 ### Wayland input (ydotool)
@@ -150,14 +150,14 @@ See [`docs/PLAN.md`](docs/PLAN.md) for the full design notes and roadmap.
 
 Agreed direction (detail in [`docs/PLAN.md`](docs/PLAN.md)):
 
-1. **Consistency** — QML as the only UI (retire legacy PyQt5); `AppPaths` (no CWD-relative
+1. **Consistency**: QML as the only UI (retire legacy PyQt5); `AppPaths` (no CWD-relative
    profiles); explicit platform factories for input / focus / shortcut catalogs.
-2. **Ship Linux** — pinned deps; Flatpak and/or AppImage; udev + ydotool docs; starter profiles.
-3. **Product depth** — full dynamic-mode UX in QML, profile CRUD/import-export, real action search,
-   brightness/reconnect, Live/Live S mirror fidelity, macros, UI polish, and **encoder
-   adjustments**: per-control invert, sensitivity, and acceleration curves plus a scroll action —
-   tuning the official app doesn't offer either.
-4. **macOS** — native build targeting **macOS 10.14+**: device I/O first, then Quartz input,
+2. **Ship Linux**: pinned deps; Flatpak and/or AppImage; udev + ydotool docs; starter profiles.
+3. **Product depth**: full dynamic-mode UX in QML, profile CRUD/import-export, real action search,
+   brightness/reconnect, Live/Live S mirror fidelity, macros, and UI polish. Plus **encoder
+   adjustments** (per-control invert, sensitivity, and acceleration curves) and a scroll action,
+   neither of which the official app offers.
+4. **macOS**: native build targeting **macOS 10.14+**: device I/O first, then Quartz input,
    frontmost-app dynamic mode, then `.app` packaging. The core is already Qt-free; this is mostly
    adapters, permissions UX, and paths.
 

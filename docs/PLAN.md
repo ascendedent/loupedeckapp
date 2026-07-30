@@ -1,4 +1,4 @@
-# loupedeckapp — Build Plan
+# loupedeckapp Build Plan
 
 Roadmap for a robust, modern Loupedeck configuration app: **Linux first** (primary), then
 **macOS** (minimum target **macOS 10.14 Mojave**). Full **Loupedeck CT** support, Live / Live S
@@ -12,10 +12,10 @@ kept working where practical. UI aims to approach the official Loupedeck desktop
 
 ## 1. Vision
 
-A native configuration app that lets you visually configure a Loupedeck device — assign images,
+A native configuration app that lets you visually configure a Loupedeck device: assign images,
 labels, colours, and actions to every touch key, side display, encoder, and (on the CT) the wheel
 and dial; organise them into workspaces and nested submenus; and optionally auto-switch profiles
-based on the focused desktop application — with a modern, dark, responsive UI.
+based on the focused desktop application. All with a modern, dark, responsive UI.
 
 | Priority | Platform | Notes |
 |----------|----------|--------|
@@ -26,7 +26,7 @@ based on the focused desktop application — with a modern, dark, responsive UI.
 
 Primary device: **Loupedeck CT**. Keep **Live / Live S** correct where practical.
 
-**Product positioning on macOS:** open, scriptable, CT-focused, no account — not a full clone of
+**Product positioning on macOS:** open, scriptable, CT-focused, no account. Not a full clone of
 the official plugin marketplace (which already covers Mac).
 
 ---
@@ -58,19 +58,19 @@ the official plugin marketplace (which already covers Mac).
 | Device engine | `DeviceController` | Logic still in `LdApp` |
 | Labels / LEDs / bg / draft / library | Yes | Limited / absent |
 | Bind focused app → profile | **Missing** | Present |
-| Product path | **Canonical** | **Deprecated** — freeze, then remove |
+| Product path | **Canonical** | **Deprecated**; freeze, then remove |
 
 **DECIDED:** QML is the only product UI. No new features in the PyQt5 tree. Remove once QML has
 parity on dynamic binding + profile lifecycle (Phase A).
 
 ### Known gaps (ordered by agreed priority)
 
-1. **One UI** — finish QML parity; retire PyQt5.
-2. **Platform adapters + paths** — explicit factories; no CWD-relative `./Profiles`.
-3. **Ship Linux (M5)** — pin deps, packaging, udev/ydotool docs, starter profiles.
-4. **Functionality** — dynamic UX, profile CRUD, real search library, device polish, Live S fidelity, macros/adjustments.
-5. **UI polish** — search, workspace chrome, dirty guards, inspector structure, empty categories.
-6. **macOS (M6)** — adapters, Accessibility UX, `.app`, support **10.14+**.
+1. **One UI**: finish QML parity; retire PyQt5.
+2. **Platform adapters + paths**: explicit factories; no CWD-relative `./Profiles`.
+3. **Ship Linux (M5)**: pin deps, packaging, udev/ydotool docs, starter profiles.
+4. **Functionality**: dynamic UX, profile CRUD, real search library, device polish, Live S fidelity, macros/adjustments.
+5. **UI polish**: search, workspace chrome, dirty guards, inspector structure, empty categories.
+6. **macOS (M6)**: adapters, Accessibility UX, `.app`, support **10.14+**.
 
 ---
 
@@ -89,7 +89,7 @@ parity on dynamic binding + profile lifecycle (Phase A).
 
 ## 4. Architecture
 
-### 4.1 UI stack — decided
+### 4.1 UI stack (decided)
 
 **PySide6 + QML only.** Core stays Qt-free. Legacy PyQt5 is migration residue, not a second product.
 
@@ -146,7 +146,7 @@ Extend dynamic bindings so the same file can work on Linux and macOS:
   "app_profiles": [
     { "match": { "wm_class": "google-chrome" }, "profile": "browser" },
     { "match": { "bundle_id": "com.google.Chrome" }, "profile": "browser" },
-    { "match": { "title_contains": "—" }, "profile": "optional" }
+    { "match": { "title_contains": "Gmail" }, "profile": "optional" }
   ]
 }
 ```
@@ -171,11 +171,11 @@ Future schema bumps only when needed (e.g. macros, named workspaces, side-displa
 ### A. Consistency & single product UI ✅ direction locked
 
 - [x] Qt-free core + QML front-end driving `DeviceController`
-- [ ] **AppPaths** — user dir + bundled assets; fix all profile/image I/O
-- [ ] **Platform factory stubs** — re-home existing Linux backends behind `get_input_backend()` /
+- [ ] **AppPaths**: user dir + bundled assets; fix all profile/image I/O
+- [ ] **Platform factory stubs**: re-home existing Linux backends behind `get_input_backend()` /
       `get_window_watcher()` / OS action defaults (behaviour unchanged on KDE)
 - [ ] QML: **bind focused app → profile**, list/edit/remove bindings, show current focus class
-- [ ] QML: **profile lifecycle** — create, rename, duplicate, delete; set default
+- [ ] QML: **profile lifecycle** (create, rename, duplicate, delete; set default)
 - [ ] Wire action **search**; hide empty library categories
 - [ ] Dirty guards: warn on profile switch / quit if unsaved
 - [ ] **Deprecate then remove** PyQt5 entry (`app.py`, `LdApp.py`, `LdWidget.py`, `LdDialog.py`)
@@ -197,7 +197,7 @@ Future schema bumps only when needed (e.g. macros, named workspaces, side-displa
 - [ ] Surface “input backend unavailable” in UI (not only console)
 - [ ] Optional later: GNOME / X11 `_NET_ACTIVE_WINDOW` watchers
 
-**macOS (M6) — support floor: 10.14 Mojave**
+**macOS (M6). Support floor: 10.14 Mojave**
 
 - [ ] `MacQuartzBackend` (or equivalent) for hotkey + type; map `cmd`/`command`/`super`
 - [ ] Media via AppleScript / system media keys (not MPRIS)
@@ -215,13 +215,13 @@ Future schema bumps only when needed (e.g. macros, named workspaces, side-displa
 - [x] Library + drag-drop; hotkey recorder; common + KDE shortcut pick-lists
 - [ ] Real search/filter; platform-neutral defaults (no hard-coded `konsole`/`dolphin` only)
 - [ ] Macros (`multi` sequence)
-- [ ] Encoder **adjustments** (relative steps: volume, scrub, …) — see **D.1**
+- [ ] Encoder **adjustments** (relative steps: volume, scrub, …), see **D.1**
 - [ ] Per-control rotation tuning: invert, sensitivity, acceleration curve (**D.1**)
 - [ ] **Scroll / mouse-wheel** action type (`input_backend` has no scroll verb today) (**D.1**)
 - [ ] Move action execution off the device reader thread (**D.1** prerequisite)
 - [ ] Later: plugin registration (OBS, etc.)
 
-#### D.1 Encoder feel — direction, sensitivity, acceleration *(community request)*
+#### D.1 Encoder feel: direction, sensitivity, acceleration *(community request)*
 
 Rotary controls today fire **exactly one action per detent**, in whichever direction the hardware
 reports. Nothing can slow a control down, speed it up, or reverse it short of manually swapping the
@@ -229,18 +229,18 @@ reports. Nothing can slow a control down, speed it up, or reverse it short of ma
 rather than parity work.
 
 **What the hardware gives us.** `on_rotate` in the devleaks lib emits one message per detent
-carrying a *direction only* (`left` / `right`) — no magnitude — plus a `ts` timestamp. Every notion
+carrying a *direction only* (`left` / `right`, no magnitude) plus a `ts` timestamp. Every notion
 of "speed" therefore has to be synthesised in our dispatch layer from tick **rate**; the device
 will never report one.
 
-**Model — per control, not per slot.** Invert spans both directions and speed is a physical
+**Model: per control, not per slot.** Invert spans both directions and speed is a physical
 property of the encoder, so tuning is keyed by control (`enc1L`, `dial`), not by rotate slot.
 
 | Knob | Meaning |
 |------|---------|
 | `invert` | Swap `-l` / `-r` at dispatch time |
-| `detents_per_step` | Divide — fire once every N detents (slow a control down) |
-| `steps_per_detent` | Multiply — fire N times per detent (speed a control up) |
+| `detents_per_step` | Divide: fire once every N detents (slow a control down) |
+| `steps_per_detent` | Multiply: fire N times per detent (speed a control up) |
 | `curve` | `linear` (fixed multiplier) or `accel` (multiplier scales with tick rate, clamped by `max_steps`) |
 
 **Backend work.** `send_hotkey` needs a `repeat` argument so N steps cost one process spawn:
@@ -248,12 +248,12 @@ property of the encoder, so tuning is keyed by control (`enc1L`, `dial`), not by
 simply emitted N times in a single invocation (`xdotool key --repeat N` on X11).
 
 **This also unlocks the "mouse wheel" half of the request.** There is no scroll action at all
-today. `ydotool mousemove -w <dx> <dy>` emits `REL_HWHEEL` / `REL_WHEEL` — a *magnitude* per call,
-not a repeat — which makes scroll both the cheapest new action to add and the ideal one to prove
-the curve against, since accelerating it is a bigger number rather than more calls. Also fills the
-empty **Adjustments** library category (§3).
+today. `ydotool mousemove -w <dx> <dy>` emits `REL_HWHEEL` / `REL_WHEEL`, a *magnitude* per call
+rather than a repeat. That makes scroll both the cheapest new action to add and the ideal one to
+prove the curve against, since accelerating it is a bigger number rather than more calls. It also
+fills the empty **Adjustments** library category (§3).
 
-**Prerequisite — get action execution off the reader thread.** `DeviceController.device_callback`
+**Prerequisite: get action execution off the reader thread.** `DeviceController.device_callback`
 runs on the devleaks serial reader thread, and every action does a blocking `subprocess.run`.
 That is already a latency risk at one action per detent; with acceleration it becomes a guaranteed
 stall (`ydotool key` alone spends ~12 ms *per key event* by default, so a 5× repeat is ~120 ms of
@@ -261,9 +261,9 @@ blocked reader). Needs a single-consumer dispatch queue that **coalesces** pendi
 control instead of queueing unboundedly. Do this before, or alongside, the curve work.
 
 **Repeatability by action type.** `hotkey` / `scroll` repeat; `text` repeats (rarely wanted);
-`command` / `launch` / `media` / `submenu` / `back` clamp to 1 — never repeat a process spawn.
+`command` / `launch` / `media` / `submenu` / `back` clamp to 1, never repeating a process spawn.
 
-**Sequencing.** Async dispatch and `invert` are small and independent — invert is usable
+**Sequencing.** Async dispatch and `invert` are small and independent; invert is usable
 immediately since both rotate slots already exist. Sensitivity, the accel curve, and the scroll
 action land together with schema v5 in **Phase C**.
 
@@ -322,15 +322,15 @@ adapters are not reworked after installers exist.
 
 | Phase / milestone | Goal | Contains | Exit criteria |
 |-------------------|------|----------|---------------|
-| **M0 — Baseline** *(done)* | Runs on CT | Fork, deps, permissions | App drives CT without sudo |
-| **M1 — CT correctness** *(done)* | Correct geometry & I/O | DeviceProfile, ct_support | All CT controls decode; wheel renders |
-| **M2 — Input** *(done)* | Actions on Wayland | input_backend | Hotkey/text into native Wayland clients |
-| **M3 — Profiles** *(done)* | Per-app dynamic switch | schema, ProfileManager, kdotool | Live Chrome→blue / else→red verified |
-| **M4 — QML UI** *(feature-complete; polish remains)* | Modern editor | Shell, mirror, inspector, draft, copy/paste, library DnD, submenus, labels/LEDs/bg | ✅ listed features work on-device; remaining items → Phase A / F |
-| **Phase A — Consistency** *(next)* | One product, portable core | AppPaths, platform factories, QML bind-app + profile CRUD, search, dirty guards, deprecate PyQt5 | QML alone is enough to use daily; no CWD-relative profiles; Linux behaviour unchanged |
-| **M5 — Ship Linux** | Installable by non-devs | Workstream G; starter profiles; udev/ydotool docs; optional defork | Flatpak and/or AppImage on clean KDE; pinned deps; smoke tests green |
+| **M0: Baseline** *(done)* | Runs on CT | Fork, deps, permissions | App drives CT without sudo |
+| **M1: CT correctness** *(done)* | Correct geometry & I/O | DeviceProfile, ct_support | All CT controls decode; wheel renders |
+| **M2: Input** *(done)* | Actions on Wayland | input_backend | Hotkey/text into native Wayland clients |
+| **M3: Profiles** *(done)* | Per-app dynamic switch | schema, ProfileManager, kdotool | Live Chrome→blue / else→red verified |
+| **M4: QML UI** *(feature-complete; polish remains)* | Modern editor | Shell, mirror, inspector, draft, copy/paste, library DnD, submenus, labels/LEDs/bg | ✅ listed features work on-device; remaining items → Phase A / F |
+| **Phase A: Consistency** *(next)* | One product, portable core | AppPaths, platform factories, QML bind-app + profile CRUD, search, dirty guards, deprecate PyQt5 | QML alone is enough to use daily; no CWD-relative profiles; Linux behaviour unchanged |
+| **M5: Ship Linux** | Installable by non-devs | Workstream G; starter profiles; udev/ydotool docs; optional defork | Flatpak and/or AppImage on clean KDE; pinned deps; smoke tests green |
 | **Phase C depth** *(ongoing after M5)* | Product depth | Macros, adjustments, side-display modes, Live S view, GNOME watcher optional, UI polish (F) | Documented per feature |
-| **M6 — macOS** | Native Mac app, **10.14+** | M6a→M6d; Workstream C mac + I | CT configure + actions + optional dynamic mode from a 10.14-compatible `.app` |
+| **M6: macOS** | Native Mac app, **10.14+** | M6a→M6d; Workstream C mac + I | CT configure + actions + optional dynamic mode from a 10.14-compatible `.app` |
 
 ```
 Phase A (consistency)
@@ -355,7 +355,7 @@ Near-term (Phase A / M5):
 Medium-term (Phase C):
 
 - [ ] Macro / multi-step actions
-- [ ] Encoder adjustments — invert, sensitivity, acceleration curve, scroll action (§5.D.1)
+- [ ] Encoder adjustments: invert, sensitivity, acceleration curve, scroll action (§5.D.1)
 - [ ] Async action dispatch (off the device reader thread) + rotate coalescing (§5.D.1)
 - [ ] Configurable side-display layout
 - [ ] Optional tray / autostart / always-on runtime split

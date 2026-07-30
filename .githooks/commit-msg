@@ -18,7 +18,7 @@ patterns=(
 
 for p in "${patterns[@]}"; do
     if grep -qiE "$p" "$msg_file"; then
-        echo "commit-msg hook: BLOCKED — commit message contains forbidden AI-attribution text matching /$p/." >&2
+        echo "commit-msg hook: BLOCKED. Commit message contains forbidden AI-attribution text matching /$p/." >&2
         echo "This repo forbids listing Claude/AI as a contributor. Remove the offending line and retry." >&2
         exit 1
     fi
