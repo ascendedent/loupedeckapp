@@ -158,6 +158,10 @@ Exact match preferred; then case-insensitive substring (existing behaviour for `
 **Current:** schema **v4** (actions, images, labels, led_colors, bg_colors; CT dial/wheel/buttons).
 Older profiles load with migration-by-overlay (missing keys default to unbound).
 
+**Planned v5:** a per-workspace `tuning` map for rotary controls (§5.D.1), keyed like the existing
+`labels` / `led_colors` / `bg_colors` maps so the same overlay migration applies and `LdAction`
+stays unchanged.
+
 Future schema bumps only when needed (e.g. macros, named workspaces, side-display mode).
 
 ---
@@ -211,8 +215,57 @@ Future schema bumps only when needed (e.g. macros, named workspaces, side-displa
 - [x] Library + drag-drop; hotkey recorder; common + KDE shortcut pick-lists
 - [ ] Real search/filter; platform-neutral defaults (no hard-coded `konsole`/`dolphin` only)
 - [ ] Macros (`multi` sequence)
-- [ ] Encoder **adjustments** (relative steps: volume, scrub, …)
+- [ ] Encoder **adjustments** (relative steps: volume, scrub, …) — see **D.1**
+- [ ] Per-control rotation tuning: invert, sensitivity, acceleration curve (**D.1**)
+- [ ] **Scroll / mouse-wheel** action type (`input_backend` has no scroll verb today) (**D.1**)
+- [ ] Move action execution off the device reader thread (**D.1** prerequisite)
 - [ ] Later: plugin registration (OBS, etc.)
+
+#### D.1 Encoder feel — direction, sensitivity, acceleration *(community request)*
+
+Rotary controls today fire **exactly one action per detent**, in whichever direction the hardware
+reports. Nothing can slow a control down, speed it up, or reverse it short of manually swapping the
+`-l` / `-r` bindings. The official app has the same limitation, so this is differentiator work
+rather than parity work.
+
+**What the hardware gives us.** `on_rotate` in the devleaks lib emits one message per detent
+carrying a *direction only* (`left` / `right`) — no magnitude — plus a `ts` timestamp. Every notion
+of "speed" therefore has to be synthesised in our dispatch layer from tick **rate**; the device
+will never report one.
+
+**Model — per control, not per slot.** Invert spans both directions and speed is a physical
+property of the encoder, so tuning is keyed by control (`enc1L`, `dial`), not by rotate slot.
+
+| Knob | Meaning |
+|------|---------|
+| `invert` | Swap `-l` / `-r` at dispatch time |
+| `detents_per_step` | Divide — fire once every N detents (slow a control down) |
+| `steps_per_detent` | Multiply — fire N times per detent (speed a control up) |
+| `curve` | `linear` (fixed multiplier) or `accel` (multiplier scales with tick rate, clamped by `max_steps`) |
+
+**Backend work.** `send_hotkey` needs a `repeat` argument so N steps cost one process spawn:
+`ydotool key` already accepts an arbitrary list of `CODE:STATE` pairs, so the down/up pair is
+simply emitted N times in a single invocation (`xdotool key --repeat N` on X11).
+
+**This also unlocks the "mouse wheel" half of the request.** There is no scroll action at all
+today. `ydotool mousemove -w <dx> <dy>` emits `REL_HWHEEL` / `REL_WHEEL` — a *magnitude* per call,
+not a repeat — which makes scroll both the cheapest new action to add and the ideal one to prove
+the curve against, since accelerating it is a bigger number rather than more calls. Also fills the
+empty **Adjustments** library category (§3).
+
+**Prerequisite — get action execution off the reader thread.** `DeviceController.device_callback`
+runs on the devleaks serial reader thread, and every action does a blocking `subprocess.run`.
+That is already a latency risk at one action per detent; with acceleration it becomes a guaranteed
+stall (`ydotool key` alone spends ~12 ms *per key event* by default, so a 5× repeat is ~120 ms of
+blocked reader). Needs a single-consumer dispatch queue that **coalesces** pending rotate steps per
+control instead of queueing unboundedly. Do this before, or alongside, the curve work.
+
+**Repeatability by action type.** `hotkey` / `scroll` repeat; `text` repeats (rarely wanted);
+`command` / `launch` / `media` / `submenu` / `back` clamp to 1 — never repeat a process spawn.
+
+**Sequencing.** Async dispatch and `invert` are small and independent — invert is usable
+immediately since both rotate slots already exist. Sensitivity, the accel curve, and the scroll
+action land together with schema v5 in **Phase C**.
 
 ### E. Profiles & dynamic mode
 
@@ -302,7 +355,8 @@ Near-term (Phase A / M5):
 Medium-term (Phase C):
 
 - [ ] Macro / multi-step actions
-- [ ] Encoder adjustments
+- [ ] Encoder adjustments — invert, sensitivity, acceleration curve, scroll action (§5.D.1)
+- [ ] Async action dispatch (off the device reader thread) + rotate coalescing (§5.D.1)
 - [ ] Configurable side-display layout
 - [ ] Optional tray / autostart / always-on runtime split
 - [ ] Plugin hooks (later)
@@ -328,6 +382,7 @@ Medium-term (Phase C):
 |------|------------|
 | ydotool / uinput setup friction on Linux | Document + package; UI status when daemon down |
 | KWin / kdotool API drift | Keep polling backend thin; optional DBus later |
+| Fast encoder twists stalling the device reader thread | Async dispatch queue + per-control coalescing before shipping acceleration (§5.D.1) |
 | Dual UI divergence | Phase A: freeze/remove PyQt5 |
 | CWD-relative profiles break packaging | AppPaths first |
 | Official Loupedeck app holds USB on Mac | Document quit-official-app; exclusive serial |

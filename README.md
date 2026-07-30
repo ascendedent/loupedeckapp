@@ -154,7 +154,9 @@ Agreed direction (detail in [`docs/PLAN.md`](docs/PLAN.md)):
    profiles); explicit platform factories for input / focus / shortcut catalogs.
 2. **Ship Linux** — pinned deps; Flatpak and/or AppImage; udev + ydotool docs; starter profiles.
 3. **Product depth** — full dynamic-mode UX in QML, profile CRUD/import-export, real action search,
-   brightness/reconnect, Live/Live S mirror fidelity, macros and encoder adjustments, UI polish.
+   brightness/reconnect, Live/Live S mirror fidelity, macros, UI polish, and **encoder
+   adjustments**: per-control invert, sensitivity, and acceleration curves plus a scroll action —
+   tuning the official app doesn't offer either.
 4. **macOS** — native build targeting **macOS 10.14+**: device I/O first, then Quartz input,
    frontmost-app dynamic mode, then `.app` packaging. The core is already Qt-free; this is mostly
    adapters, permissions UX, and paths.
