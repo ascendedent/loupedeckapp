@@ -33,7 +33,7 @@ Item {
 
     // text-label overlay for image-bearing controls (mirrors the device:
     // over = text over the image; bar = text on a band; shrink = band at an edge
-    // with the image resized beside it — the image inset is done by each cell)
+    // with the image resized beside it; the image inset is done by each cell)
     component CtrlLabel: Item {
         id: cl
         property var lbl: undefined

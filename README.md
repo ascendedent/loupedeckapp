@@ -32,8 +32,8 @@ The model is detected from the USB product id. The vendored device library repor
 - 4×3 touch-key grid, left/right side displays, and 6 side encoders (press + rotate).
 - On the **CT**: the round **wheel screen** (renders big-endian 240×240), the rotary **dial**
   (press + rotate), and the CT function buttons (`home`, `undo`, `keyboard`, `enter`, `save`,
-  `fn`, `a`–`e`).
-- 8 workspaces on the physical buttons (`circle` + `1`–`7`), each with its own layout, plus nested
+  `fn`, `a`-`e`).
+- 8 workspaces on the physical buttons (`circle` + `1`-`7`), each with its own layout, plus nested
   **submenus**.
 
 ### Per-control styling

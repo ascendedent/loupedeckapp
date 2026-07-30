@@ -210,7 +210,7 @@ ApplicationWindow {
         }
     }
 
-    // hotkey recorder — grabs focus and captures the next combo into recordSlot
+    // hotkey recorder: grabs focus and captures the next combo into recordSlot
     Rectangle {
         id: recordOverlay
         anchors.fill: parent; z: 100

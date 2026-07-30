@@ -277,7 +277,7 @@ class Backend(QObject):
         return out
 
     def _effective_label(self):
-        """Label fields for the inspector — ignores the on/off toggle and image
+        """Label fields for the inspector. Ignores the on/off toggle and image
         so the text/placement controls always show the effective values (the
         text never blanks when you hide the label or add an image)."""
         menu = self._menu()

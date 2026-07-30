@@ -75,7 +75,7 @@ class LdWorkspace:
                    "tb11", "tb12", "tb13", "tb14",
                    "tb21", "tb22", "tb23", "tb24",
                    "tb31", "tb32", "tb33", "tb34"]
-    # schema v2 — CT-only controls (harmless/unbound on the Live): the round
+    # schema v2: CT-only controls (harmless/unbound on the Live). The round
     # dial (press + rotate) and the CT's extra hardware buttons. Keys here match
     # what LdApp.device_callback looks up (see on_dial_*, on_wheel_press,
     # on_ct_button). Old (v1) profiles simply lack these and load as "none".
@@ -89,7 +89,7 @@ class LdWorkspace:
                     "tb31": "", "tb32": "", "tb33": "", "tb34": "",
                     WHEEL_DISPLAY: ""}  # CT round wheel screen image (v2)
 
-    # schema v3 — per-control text labels for image-bearing controls, keyed the
+    # schema v3: per-control text labels for image-bearing controls, keyed the
     # same as images. Each value is {"text", "pos": top|middle|bottom, "mode":
     # over|bar|shrink, "bar_color"?: "#rrggbb"}. In "shrink" mode the image is
     # resized so the label sits in a band above/below it (no overlap); "bar" and
@@ -98,12 +98,12 @@ class LdWorkspace:
     # bound action when there is no image). Old profiles lack this and load empty.
     self.labels = {}
 
-    # schema v3 — RGB LED colours for physical buttons (workspace buttons
+    # schema v3: RGB LED colours for physical buttons (workspace buttons
     # 'circle'+'1'..'7' and the CT's extra buttons), keyed by button name to a
     # "#rrggbb" string. Absent = default (grey / selected-workspace green).
     self.led_colors = {}
 
-    # schema v4 — background fill colour ("#rrggbb") for image-bearing controls,
+    # schema v4: background fill colour ("#rrggbb") for image-bearing controls,
     # keyed the same as images. Drawn beneath the image (visible in shrink mode
     # or when there is no image), letting a control show a colour + an image
     # together. Absent = no background (black fallback).

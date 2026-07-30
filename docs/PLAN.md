@@ -33,7 +33,7 @@ the official plugin marketplace (which already covers Mac).
 
 ## 2. Current status (as of post-M4 feature work)
 
-### Done (M0–M4 core)
+### Done (M0-M4 core)
 
 | Area | Status |
 |------|--------|
@@ -41,7 +41,7 @@ the official plugin marketplace (which already covers Mac).
 | Wheel screen, dial, CT buttons | ✅ `ct_support` + routing in `DeviceController` |
 | Wayland input | ✅ `input_backend` (ydotool → xdotool → pyautogui) |
 | Media / launch | ✅ playerctl + detached shell |
-| Schema v2–v4 (dial/wheel/CT slots, labels, LEDs, bg colours) | ✅ `LdConfiguration` |
+| Schema v2-v4 (dial/wheel/CT slots, labels, LEDs, bg colours) | ✅ `LdConfiguration` |
 | Dynamic mode (KDE) | ✅ `window_watcher` (kdotool) + `ProfileManager` |
 | QML three-column shell + CT device mirror | ✅ `qml_app.py` + `qml/` |
 | Inspector (actions, image, labels, LED, bg) | ✅ |
@@ -201,7 +201,7 @@ Future schema bumps only when needed (e.g. macros, named workspaces, side-displa
 
 - [ ] `MacQuartzBackend` (or equivalent) for hotkey + type; map `cmd`/`command`/`super`
 - [ ] Media via AppleScript / system media keys (not MPRIS)
-- [ ] Launch via `open -a` / bundle id–aware actions
+- [ ] Launch via `open -a` / bundle id-aware actions
 - [ ] `MacFrontmostWatcher` (`NSWorkspace` + optional Accessibility)
 - [ ] Match on `bundle_id` (+ name fallback)
 - [ ] First-run: **Accessibility** (and any serial) permission copy
@@ -310,7 +310,7 @@ Sub-milestones:
 | **M6d** | Ship `.app` | PyInstaller/Briefcase (or equivalent); Resources + App Support paths; optional notarization for distribution outside dev machines |
 
 **Compatibility:** minimum **macOS 10.14**. Prefer APIs and dependency pins that remain runnable on
-10.14–current; CI or a manual checklist should include a 10.14 (or oldest available) smoke path
+10.14-current; CI or a manual checklist should include a 10.14 (or oldest available) smoke path
 when hardware/VMs allow.
 
 ---
@@ -404,7 +404,7 @@ draft/copy-paste → submenus → library DnD → labels/LEDs/bg).
 2. Introduce platform factories; move existing Linux backends behind them (no behaviour change).
 3. QML: bind focused app, manage bindings, profile CRUD.
 4. Wire action search; dirty quit/switch guards.
-5. Mark legacy PyQt5 deprecated in README; remove when 3–4 are solid.
+5. Mark legacy PyQt5 deprecated in README; remove when 3-4 are solid.
 
 **Then M5:** pyproject + pins, udev/ydotool packaging notes, Flatpak/AppImage, starter profiles,
 smoke tests.
