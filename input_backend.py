@@ -97,6 +97,13 @@ class YdotoolBackend(InputBackend):
     `ydotoold` daemon."""
     name = "ydotool"
 
+    # `ydotool key` defaults to 12 ms between keystrokes, so a four-event combo
+    # (ctrl down, key down, key up, ctrl up) spends ~36 ms in delays alone. That
+    # dominates per-action latency and is the main cost when a rotary control
+    # fires once per detent. 0 removes it. Raise this if an app starts missing a
+    # modifier that has not settled yet.
+    key_delay_ms = 0
+
     def __init__(self):
         self.bin = shutil.which("ydotool")
         self.env = dict(os.environ)
@@ -117,7 +124,8 @@ class YdotoolBackend(InputBackend):
             return
         down = ["%d:1" % c for c in codes]
         up = ["%d:0" % c for c in reversed(codes)]
-        subprocess.run([self.bin, "key", *down, *up], env=self.env, check=True)
+        subprocess.run([self.bin, "key", "-d", str(self.key_delay_ms), *down, *up],
+                       env=self.env, check=True)
 
     def type_text(self, text):
         subprocess.run([self.bin, "type", "--", text], env=self.env, check=True)
