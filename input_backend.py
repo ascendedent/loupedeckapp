@@ -97,11 +97,16 @@ class YdotoolBackend(InputBackend):
     `ydotoold` daemon."""
     name = "ydotool"
 
-    # `ydotool key` defaults to 12 ms between keystrokes, so a four-event combo
-    # (ctrl down, key down, key up, ctrl up) spends ~36 ms in delays alone. That
-    # dominates per-action latency and is the main cost when a rotary control
-    # fires once per detent. 0 removes it. Raise this if an app starts missing a
-    # modifier that has not settled yet.
+    # `ydotool key` sleeps its delay after *every* key event, not between them:
+    # measured cost is 12.1 ms x N events, so a four-event combo (ctrl down, key
+    # down, key up, ctrl up) spends ~48 ms in delays. That dominates per-action
+    # latency and is the main cost when a rotary control fires once per detent.
+    # 0 removes it: a combo drops from ~48.6 ms to ~0.6 ms.
+    #
+    # Raise this if an app starts missing a modifier that has not settled yet.
+    # Measured clean at 0 on this machine (640 combos, paced and back-to-back,
+    # native Wayland and XWayland, zero dropped modifiers), but that only covers
+    # a Qt receiver; other toolkits have not been checked.
     key_delay_ms = 0
 
     def __init__(self):

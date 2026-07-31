@@ -275,9 +275,15 @@ budget actually land. Splitting them is why the sequencing below no longer treat
 one unit. Accumulators are per control and **reset on direction change**, otherwise reversing a
 Slow 1/3 control costs two dead detents.
 
-**Backend work.** `send_hotkey` needs a `repeat` argument so N steps cost one process spawn:
-`ydotool key` already accepts an arbitrary list of `CODE:STATE` pairs, so the down/up pair is
-simply emitted N times in a single invocation (`xdotool key --repeat N` on X11).
+**Backend work.** `send_hotkey` takes a `repeat` argument: `ydotool key` already accepts an
+arbitrary list of `CODE:STATE` pairs, so the down/up pair is simply emitted N times in a single
+invocation (`xdotool key --repeat N` on X11).
+
+Note the original justification for this ("N steps cost one process spawn") does **not** survive
+measurement: bare spawn is **0.3 ms**, so three spawns cost ~1 ms. Batching is still worth doing
+for *atomicity* (one invocation cannot be interleaved with another control's events, and the
+modifier is held down once across the run rather than re-pressed per step), but not for latency.
+Anything in this plan that gates work on spawn cost needs re-reading in that light.
 
 **This also unlocks the "mouse wheel" half of the request.** There is no scroll action at all
 today. `ydotool mousemove -w <dx> <dy>` emits `REL_HWHEEL` / `REL_WHEEL`, a *magnitude* per call
@@ -291,36 +297,85 @@ is a separate thread feeding an unbounded `Queue`. Serial reading is therefore n
 device message is ever lost. The failure mode is not a stall but **overshoot**: every action does a
 blocking `subprocess.run`, so when the detent rate outruns the consumer the backlog drains *after*
 the user's hand stops and the control keeps adjusting past where they left it. That is a bug in
-today's 1:1 behaviour, not something acceleration introduces. Needs a single-consumer dispatch
-queue that **coalesces** pending rotate steps per control instead of queueing unboundedly. Do this
-before, or alongside, the curve work.
+today's 1:1 behaviour, not something acceleration introduces.
 
-**Latency: the 12 ms is a default, not a floor.** `ydotool key` documents 12 ms *between
-keystrokes*, so a four-event combo (`ctrl` down, key down, key up, `ctrl` up) spends ~36 ms in
-delays alone before spawn overhead, not the ~12 ms per event assumed earlier. Passing `-d 0`
-removes it. That is a one-line change to the existing `send_hotkey`, it cuts *current* per-detent
-cost several-fold with no architecture work at all, and it is worth doing independently of encoder
-tuning. It also makes the Fast presets far cheaper than the earlier estimate implied. Keep the
-value tunable rather than hard-coding zero: a zero gap risks apps that miss a modifier which has
-not settled.
+**How urgent that is depends entirely on the key delay, and it has now moved.** *(Measured.)*
+Dispatch capacity is `1000 / ms-per-detent`; a brisk human twist is roughly 15-25 detents/sec:
 
-**Open question: target-app coalescing.** Whether Fast 2x/3x delivers 2x/3x depends on the
-receiving app treating rapid identical keypresses as discrete steps. If a host debounces them, no
-amount of plumbing on our side recovers the difference. This is the real reason to hedge on Fast
-(not latency, which is solvable) and it needs empirical per-app testing before the presets are
-advertised.
+| scenario | ms/detent | detents/sec capacity | vs a brisk twist |
+|----------|-----------|----------------------|------------------|
+| `hotkey` at `-d 12` (before) | 48.60 | 21 | **overshoots** |
+| `hotkey` at `-d 0` (now) | 0.56 | 1786 | 71x headroom |
+| Fast 3x, three separate spawns | 1.68 | 595 | 24x headroom |
+| Fast 3x, batched into one spawn | 0.60 | 1667 | 67x headroom |
+| `media` (playerctl) | 2.60 | 385 | 15x headroom |
+
+At `-d 12` capacity sat at 21 detents/sec, *inside* the range of a brisk twist, so overshoot was
+not hypothetical. At `-d 0` the backlog cannot build from keyboard actions at any speed a hand can
+produce. Measured per action type: `hotkey` 0.56 ms, `text` 0.20 ms, `launch`/`command` 0.09 ms
+(a detached `Popen` that never waits on the child, so even a slow shell command does not block),
+`media` 2.60 ms.
+
+The coalescing queue is therefore **no longer a prerequisite for encoder tuning**. It remains worth
+building for its own reasons: it is the only thing that bounds a genuinely slow action, and batch
+depth is still the cleanest speed signal for the accel curve. But it no longer gates the presets.
+
+**Latency: the 12 ms is a default, not a floor.** *(Measured, superseding two earlier estimates.)*
+`ydotool key` sleeps its delay after **every** key event, not between them. Measured on this
+machine, the cost is linear in event count at 12.1 ms/event:
+
+| events | 1 | 2 | 4 | 6 | 8 |
+|--------|---|---|---|---|---|
+| median ms | 12.3 | 24.4 | 48.7 | 72.9 | 97.0 |
+
+So a four-event combo costs **~48 ms**, not the ~36 ms a previous revision of this section claimed;
+the original "~12 ms per key event" reading was the correct one. Passing `-d 0` takes a combo from
+**48.6 ms to 0.6 ms** (99% of the cost). That is a one-line change to the existing `send_hotkey`,
+it needs no architecture work, and it is worth doing independently of encoder tuning. Keep the
+value tunable rather than hard-coding zero, in case an app misses a modifier that has not settled.
+
+**Modifier safety at `-d 0`: no loss observed.** 640 `ctrl+shift+<key>` combos across `-d` 0/1/4/12,
+both paced and back-to-back with no gap (the shape a fast twist produces), against a native Wayland
+client and an XWayland one: zero dropped or unset modifiers in every cell. The settling risk is
+real in principle but did not reproduce here. Caveat: this only exercises a **Qt** receiver; GTK,
+Electron, and browser hosts are unverified.
+
+**Target-app coalescing: delivery is 1:1, semantics still unproven.** *(Partly measured.)* Whether
+Fast 2x/3x delivers 2x/3x depends on the receiving app treating rapid identical keypresses as
+discrete steps. Measured at the *delivery* layer: 600 `ctrl+shift+a` presses at `-d 0` (repeat
+depths 1/2/3/5/10, both the batched single-invocation form and N separate spawns) arrived **1:1 in
+every cell**, all with modifiers intact and none flagged as auto-repeat.
+
+Two things that settles. Nothing between `ydotool` and the client collapses rapid repeats, and the
+batched form (modifier held once, key's down/up pair emitted N times) is delivery-equivalent to N
+spawns, so `repeat` can use it freely.
+
+What it does **not** settle: this counts `keyPressEvent` in a Qt widget, the most permissive
+possible receiver. It proves N events in yields N events out; it does not prove a host *acts* on
+all N (a mixer may rate-limit its own volume step, an editor may debounce undo). That residual
+question is per-app and semantic, needs testing against real targets, and is the only remaining
+reason to hedge on Fast.
 
 **Repeatability by action type.** `hotkey` / `scroll` repeat; `text` repeats (rarely wanted);
 `command` / `launch` / `media` / `submenu` / `back` clamp to 1, never repeating a process spawn.
 
-**Sequencing.** Three tiers, not one:
+**Sequencing.** *(Revised after measurement: tier 3 was gated on a latency budget that no longer
+exists.)*
 
-1. **Now, standalone:** the `send_hotkey` key-delay fix. Pure latency win, no schema, no queue.
-2. **Early, no queue dependency:** `invert` and the Slow presets. Invert is usable immediately
-   since both rotate slots already exist; Slow only ever drops events, so it cannot make the
-   backlog worse. Both need the schema v5 `tuning` map but none of the dispatch work.
-3. **Phase C, behind the queue:** the Fast presets, the accel curve, and the scroll action, all of
-   which add events and therefore require coalescing to land first.
+1. **Done:** the `send_hotkey` key-delay fix (`-d 0`). Pure latency win, no schema, no queue.
+2. **Next, no queue dependency:** `invert` and the Slow presets. Invert is usable immediately since
+   both rotate slots already exist; Slow only ever drops events, so it cannot make the backlog
+   worse. Both need the schema v5 `tuning` map but none of the dispatch work.
+3. **Also unblocked: the Fast presets and the scroll action.** These were held behind the queue on
+   the assumption that adding events would blow a latency budget. Measured, Fast 3x costs 1.68 ms
+   per detent even *unbatched* (24x headroom), so coalescing buys it nothing. Fast now ships with
+   the Slow presets in the same schema v5 change; the two are one feature. Scroll never needed the
+   queue either, since `ydotool mousemove -w` takes a magnitude rather than a repeat. Delivery of
+   repeats is measured 1:1 (below), so the only remaining gate on Fast is whether a given host
+   *acts* on every repeat, which is a per-app semantic question no dispatch work resolves.
+4. **Still Phase C, on its own merits:** the coalescing queue and the accel curve. The curve wants
+   batch depth as its speed signal, so it genuinely does depend on the queue. Neither now blocks
+   anything else.
 
 ### E. Profiles & dynamic mode
 
