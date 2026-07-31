@@ -41,7 +41,7 @@ the official plugin marketplace (which already covers Mac).
 | Wheel screen, dial, CT buttons | ✅ `ct_support` + routing in `DeviceController` |
 | Wayland input | ✅ `input_backend` (ydotool → xdotool → pyautogui) |
 | Media / launch | ✅ playerctl + detached shell |
-| Schema v2-v4 (dial/wheel/CT slots, labels, LEDs, bg colours) | ✅ `LdConfiguration` |
+| Schema v2-v5 (dial/wheel/CT slots, labels, LEDs, bg colours, encoder tuning) | ✅ `LdConfiguration` |
 | Dynamic mode (KDE) | ✅ `window_watcher` (kdotool) + `ProfileManager` |
 | QML three-column shell + CT device mirror | ✅ `qml_app.py` + `qml/` |
 | Inspector (actions, image, labels, LED, bg) | ✅ |
@@ -155,12 +155,15 @@ Exact match preferred; then case-insensitive substring (existing behaviour for `
 
 ### 4.5 Config schema
 
-**Current:** schema **v4** (actions, images, labels, led_colors, bg_colors; CT dial/wheel/buttons).
-Older profiles load with migration-by-overlay (missing keys default to unbound).
+**Current:** schema **v5** (actions, images, labels, led_colors, bg_colors, tuning; CT
+dial/wheel/buttons). Older profiles load with migration-by-overlay (missing keys default to
+unbound).
 
-**Planned v5:** a per-workspace `tuning` map for rotary controls (§5.D.1), keyed like the existing
-`labels` / `led_colors` / `bg_colors` maps so the same overlay migration applies and `LdAction`
-stays unchanged.
+**v5 (landed):** a per-workspace `tuning` map for rotary controls (§5.D.1), keyed like the existing
+`labels` / `led_colors` / `bg_colors` maps so the same overlay migration applies. `LdAction` gained
+only an optional `repeat` argument on `execute()`. Entries are keyed by *control* (`enc1L`,
+`dial`), not by rotate slot, and pass through `normalize_tuning()` on load so a partial or
+hand-edited entry can never reach dispatch.
 
 Future schema bumps only when needed (e.g. macros, named workspaces, side-display mode).
 
@@ -363,10 +366,17 @@ reason to hedge on Fast.
 exists.)*
 
 1. **Done:** the `send_hotkey` key-delay fix (`-d 0`). Pure latency win, no schema, no queue.
-2. **Next, no queue dependency:** `invert` and the Slow presets. Invert is usable immediately since
-   both rotate slots already exist; Slow only ever drops events, so it cannot make the backlog
-   worse. Both need the schema v5 `tuning` map but none of the dispatch work.
-3. **Also unblocked: the Fast presets and the scroll action.** These were held behind the queue on
+2. **Engine done (schema v5):** `invert` and the Slow presets. The per-workspace `tuning` map is
+   keyed by control, `normalize_tuning` guarantees dispatch never sees a partial entry, and older
+   profiles load at 1:1 unchanged. Accumulators live in the controller (not the profile) and reset
+   on reversal and on workspace switch. Wired in both `DeviceController.on_rotate` and
+   `LdApp.on_rotate` so the two front-ends feel the same. **Still to do: the inspector UI** (an
+   Invert checkbox plus the preset dropdown); `TUNING_PRESETS` / `preset_to_tuning` /
+   `tuning_to_preset` in `LdConfiguration` are the shared surface for it.
+3. **Engine done, same change: the Fast presets.** `send_hotkey(combo, repeat=N)` emits the
+   batched form on ydotool (`--repeat` on X11); `text` repeats; `command` / `launch` / `media`
+   clamp to 1 so a fast twist cannot fan out into N process launches. **The scroll action is not
+   built yet.** These were held behind the queue on
    the assumption that adding events would blow a latency budget. Measured, Fast 3x costs 1.68 ms
    per detent even *unbatched* (24x headroom), so coalescing buys it nothing. Fast now ships with
    the Slow presets in the same schema v5 change; the two are one feature. Scroll never needed the

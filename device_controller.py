@@ -20,7 +20,8 @@ from PIL import Image
 import ct_support
 import label_render
 from DeviceProfile import DeviceProfile, DIAL_ID, WHEEL_DISPLAY, WS_KEYS
-from LdConfiguration import LdConfiguration, LdAction, LdSubmenu
+from LdConfiguration import (LdConfiguration, LdAction, LdSubmenu,
+                             DEFAULT_TUNING, DIAL_KEY)
 
 from Loupedeck import DeviceManager
 from Loupedeck.Devices import LoupedeckLive
@@ -38,6 +39,9 @@ class DeviceController:
         self.submenu_stack = []
         self.connected = False
         self.on_state = on_state
+        # Banked detents per rotate control for the Slow presets:
+        # control -> (direction, count). Runtime feel, not persisted state.
+        self._rot_accum = {}
         # Draft/staging: edits mutate the in-memory config (so the on-screen
         # mirror updates live) but are not written to disk or pushed to the
         # hardware until save(); revert() reloads the on-disk profile.
@@ -95,6 +99,7 @@ class DeviceController:
         if self.device:
             self.device.reset()
         self.config.load(name)
+        self._rot_accum.clear()
         self.submenu_stack.clear()
         self.selected_ws = WS_KEYS[0]
         self.dirty = False
@@ -419,6 +424,9 @@ class DeviceController:
         return self.config.workspaces[WS_KEYS.index(key)]
 
     def on_workspace_press(self, ws_key):
+        # Banked detents belong to the workspace that banked them; tuning can
+        # differ per workspace, so carrying a partial count across is wrong.
+        self._rot_accum.clear()
         if self.submenu_stack:
             self.submenu_stack.clear()
         self.selected_ws = ws_key
@@ -438,12 +446,13 @@ class DeviceController:
                     self.on_touchdisplay_press(message[CBC.X.value], message[CBC.Y.value])
         elif message[CBC.IDENTIFIER.value] == DIAL_ID:
             if message[CBC.ACTION.value] is CBC.ROTATE.value:
-                self.run_bound_action("dial-" + message[CBC.STATE.value][0])
+                self.on_rotate(DIAL_KEY, message[CBC.STATE.value][0])
             elif message[CBC.ACTION.value] is CBC.PUSH.value and message[CBC.STATE.value] == "down":
                 self.run_bound_action("dial")
         elif "knob" in message[CBC.IDENTIFIER.value]:
             if message[CBC.ACTION.value] is CBC.ROTATE.value:
-                self.run_bound_action(self.knob_to_enc_name(message[CBC.IDENTIFIER.value]) + "-" + message[CBC.STATE.value][0])
+                self.on_rotate(self.knob_to_enc_name(message[CBC.IDENTIFIER.value]),
+                               message[CBC.STATE.value][0])
             elif message[CBC.ACTION.value] is CBC.PUSH.value and message[CBC.STATE.value] == "down":
                 self.run_bound_action(self.knob_to_enc_name(message[CBC.IDENTIFIER.value]))
         elif message[CBC.IDENTIFIER.value] in WS_KEYS:
@@ -477,10 +486,43 @@ class DeviceController:
         else:
             action.execute()
 
-    def run_bound_action(self, str_key):
+    def on_rotate(self, control, direction):
+        """Apply schema v5 tuning, then dispatch the rotate slot.
+
+        The device reports direction only, never magnitude, so both halves of
+        "sensitivity" are synthesised here: `detents_per_step` divides (swallow
+        detents until the threshold is reached) and `steps_per_detent`
+        multiplies (one action carrying a repeat count).
+        """
+        menu = self.current_menu()
+        tuning = (menu.tuning_for(control) if hasattr(menu, "tuning_for")
+                  else dict(DEFAULT_TUNING))
+
+        if tuning["invert"]:
+            direction = "r" if direction == "l" else "l"
+
+        per_step = tuning["detents_per_step"]
+        if per_step > 1:
+            last_dir, count = self._rot_accum.get(control, (None, 0))
+            # Reset on reversal: otherwise turning a Slow 1/3 control back the
+            # other way spends the detents already banked in the old direction.
+            count = count + 1 if last_dir == direction else 1
+            if count < per_step:
+                self._rot_accum[control] = (direction, count)
+                return
+            self._rot_accum[control] = (direction, 0)
+        else:
+            self._rot_accum.pop(control, None)
+
+        self.run_bound_action(control + "-" + direction,
+                              repeat=tuning["steps_per_detent"])
+
+    def run_bound_action(self, str_key, repeat=1):
         action = self.current_menu().actions.get(str_key)
         if action is not None:
             if action.a_type in ("submenu", "back"):
+                # Navigation never repeats: N steps into the same submenu is
+                # still one submenu.
                 self.on_touch_press(str_key)
             else:
-                action.execute()
+                action.execute(repeat=repeat)

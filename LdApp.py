@@ -1,5 +1,5 @@
 import LdWidget as ldw
-from LdConfiguration import LdAction
+from LdConfiguration import LdAction, DEFAULT_TUNING, DIAL_KEY
 from LdDialog import ConfigImgDialog
 from DeviceProfile import DeviceProfile, DIAL_ID, WHEEL_DISPLAY
 import ct_support
@@ -38,6 +38,9 @@ class LdApp(QApplication):
   def __init__(self, argv):
     QApplication.__init__(self, argv)
     QApplication.qApp = self
+    # Banked detents per rotate control for the Slow presets (schema v5):
+    # control -> (direction, count). Runtime feel, not persisted state.
+    self._rot_accum = {}
     # Sensible default until detect() identifies the real model via USB PID.
     self.device_profile = DeviceProfile.for_model("LoupedeckLive")
     self.main_window = QMainWindow()
@@ -407,8 +410,34 @@ class LdApp(QApplication):
     self.current_menu().actions[str_key].execute()
 
   def on_encoder_rotate(self, encoder, direction):
-    str_key = self.knob_to_enc_name(encoder) + "-" + direction[0]
-    self.current_menu().actions[str_key].execute()
+    self.on_rotate(self.knob_to_enc_name(encoder), direction[0])
+
+  def on_rotate(self, control, direction):
+    """Apply schema v5 tuning, then dispatch the rotate slot. Mirrors
+    DeviceController.on_rotate so both front-ends feel identical; see
+    docs/PLAN.md 5.D.1."""
+    menu = self.current_menu()
+    tuning = (menu.tuning_for(control) if hasattr(menu, "tuning_for")
+              else dict(DEFAULT_TUNING))
+
+    if tuning["invert"]:
+      direction = "r" if direction == "l" else "l"
+
+    per_step = tuning["detents_per_step"]
+    if per_step > 1:
+      last_dir, count = self._rot_accum.get(control, (None, 0))
+      # Reset on reversal, so turning back does not spend banked detents.
+      count = count + 1 if last_dir == direction else 1
+      if count < per_step:
+        self._rot_accum[control] = (direction, count)
+        return
+      self._rot_accum[control] = (direction, 0)
+    else:
+      self._rot_accum.pop(control, None)
+
+    action = menu.actions.get(control + "-" + direction)
+    if action is not None:
+      action.execute(repeat=tuning["steps_per_detent"])
 
   # -- CT-only controls -----------------------------------------------------
   # These map to config keys that the v1 schema does not yet define, so we look
@@ -423,7 +452,7 @@ class LdApp(QApplication):
     self.run_bound_action("wheel")
 
   def on_dial_rotate(self, direction):
-    self.run_bound_action("dial-" + direction[0])
+    self.on_rotate(DIAL_KEY, direction[0])
 
   def on_dial_press(self):
     self.run_bound_action("dial")
@@ -432,6 +461,8 @@ class LdApp(QApplication):
     self.run_bound_action(name)
 
   def on_workspace_press(self, ws_key):
+    # Banked detents belong to the workspace that banked them.
+    self._rot_accum.clear()
     current_ws = self.selected_ws
     mb = self.ld_widget.modebuttons[current_ws]
     mb.setProperty("state", "unselected")

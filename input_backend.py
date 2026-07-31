@@ -71,7 +71,7 @@ class InputBackend:
     def available(self):
         return False
 
-    def send_hotkey(self, combo):
+    def send_hotkey(self, combo, repeat=1):
         raise NotImplementedError
 
     def type_text(self, text):
@@ -85,8 +85,8 @@ class NullBackend(InputBackend):
     def available(self):
         return True
 
-    def send_hotkey(self, combo):
-        print("[input] no working backend; would send hotkey: %s" % combo)
+    def send_hotkey(self, combo, repeat=1):
+        print("[input] no working backend; would send hotkey: %s (x%d)" % (combo, repeat))
 
     def type_text(self, text):
         print("[input] no working backend; would type: %r" % text)
@@ -123,13 +123,26 @@ class YdotoolBackend(InputBackend):
     def available(self):
         return bool(self.bin)
 
-    def send_hotkey(self, combo):
+    def send_hotkey(self, combo, repeat=1):
+        """Send `combo`, repeating the non-modifier key `repeat` times.
+
+        The modifiers are pressed once and held across the whole run rather than
+        re-pressed per step: one invocation cannot be interleaved with another
+        control's events, and it is what the encoder Fast presets emit. Measured
+        1:1 in delivery against separate invocations up to depth 10, so the
+        batched form loses nothing (docs/PLAN.md 5.D.1). repeat=1 produces the
+        exact byte sequence this method sent before the argument existed.
+        """
         codes = _parse_combo(combo)
         if not codes:
             return
-        down = ["%d:1" % c for c in codes]
-        up = ["%d:0" % c for c in reversed(codes)]
-        subprocess.run([self.bin, "key", "-d", str(self.key_delay_ms), *down, *up],
+        n = max(1, int(repeat))
+        mods, key = codes[:-1], codes[-1]
+        args = ["%d:1" % c for c in mods]
+        for _ in range(n):
+            args += ["%d:1" % key, "%d:0" % key]
+        args += ["%d:0" % c for c in reversed(mods)]
+        subprocess.run([self.bin, "key", "-d", str(self.key_delay_ms), *args],
                        env=self.env, check=True)
 
     def type_text(self, text):
@@ -146,9 +159,13 @@ class XdotoolBackend(InputBackend):
     def available(self):
         return bool(self.bin) and os.environ.get("DISPLAY")
 
-    def send_hotkey(self, combo):
+    def send_hotkey(self, combo, repeat=1):
         # xdotool uses '+' combos with names like ctrl/shift/super/Return.
-        subprocess.run([self.bin, "key", combo.replace(" ", "")], check=True)
+        n = max(1, int(repeat))
+        cmd = [self.bin, "key"]
+        if n > 1:
+            cmd += ["--repeat", str(n)]
+        subprocess.run(cmd + [combo.replace(" ", "")], check=True)
 
     def type_text(self, text):
         subprocess.run([self.bin, "type", "--", text], check=True)
@@ -167,10 +184,11 @@ class PyAutoGuiBackend(InputBackend):
         except Exception:
             return False
 
-    def send_hotkey(self, combo):
+    def send_hotkey(self, combo, repeat=1):
         import pyautogui
         keys = [k.strip().lower() for k in combo.split("+") if k.strip()]
-        pyautogui.hotkey(*keys)  # NOTE: *keys, not a list (the old code passed a list -> bug)
+        for _ in range(max(1, int(repeat))):
+            pyautogui.hotkey(*keys)  # NOTE: *keys, not a list (the old code passed a list -> bug)
 
     def type_text(self, text):
         import pyautogui
@@ -210,8 +228,8 @@ def reset_backend():
 
 # -- convenience action helpers ------------------------------------------------
 
-def send_hotkey(combo):
-    get_backend().send_hotkey(combo)
+def send_hotkey(combo, repeat=1):
+    get_backend().send_hotkey(combo, repeat=repeat)
 
 
 def type_text(text):

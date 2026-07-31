@@ -2,13 +2,64 @@ import json, os
 import input_backend
 from DeviceProfile import CT_EXTRA_BUTTONS, WHEEL_DISPLAY, WS_KEYS
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 # Config action-key names for the CT dial (decoupled from the device id
 # "knobCT"); these must match the lookups in LdApp (on_dial_press/rotate).
 DIAL_KEY = "dial"
 DIAL_KEY_L = "dial-l"
 DIAL_KEY_R = "dial-r"
+
+# -- schema v5: encoder feel ---------------------------------------------------
+# Tuning is keyed by *control* (the physical knob), not by rotate slot: invert
+# spans both directions and speed is a property of the encoder itself.
+ROTATE_CONTROLS = ("enc1L", "enc2L", "enc3L", "enc1R", "enc2R", "enc3R", DIAL_KEY)
+
+DEFAULT_TUNING = {"invert": False, "detents_per_step": 1, "steps_per_detent": 1}
+
+# The device reports direction only, never magnitude, so "sensitivity" is
+# synthesised in dispatch: detents_per_step divides (drop events), and
+# steps_per_detent multiplies (repeat the bound action). Presets are the UI
+# surface; the two integers are the stored representation.
+TUNING_PRESETS = [
+    ("original", "Original",  1, 1),   # 1 detent = 1 step
+    ("slow2",    "Slow 1/2",  2, 1),   # 2 detents = 1 step
+    ("slow3",    "Slow 1/3",  3, 1),   # 3 detents = 1 step
+    ("fast2",    "Fast 2x",   1, 2),   # 1 detent = 2 steps
+    ("fast3",    "Fast 3x",   1, 3),   # 1 detent = 3 steps
+]
+
+
+def normalize_tuning(raw):
+    """Coerce a stored tuning entry into a complete, sane dict."""
+    t = dict(DEFAULT_TUNING)
+    if isinstance(raw, dict):
+        t["invert"] = bool(raw.get("invert", False))
+        for key in ("detents_per_step", "steps_per_detent"):
+            try:
+                t[key] = max(1, int(raw.get(key, 1)))
+            except (TypeError, ValueError):
+                t[key] = 1
+    return t
+
+
+def preset_to_tuning(preset_id, invert=False):
+    """'fast3' -> {'invert': .., 'detents_per_step': 1, 'steps_per_detent': 3}"""
+    for pid, _label, dps, spd in TUNING_PRESETS:
+        if pid == preset_id:
+            return {"invert": bool(invert),
+                    "detents_per_step": dps, "steps_per_detent": spd}
+    return dict(DEFAULT_TUNING, invert=bool(invert))
+
+
+def tuning_to_preset(tuning):
+    """Reverse lookup for the inspector. Returns None for a combination the
+    presets do not cover (the integers remain authoritative)."""
+    t = normalize_tuning(tuning)
+    for pid, _label, dps, spd in TUNING_PRESETS:
+        if t["detents_per_step"] == dps and t["steps_per_detent"] == spd:
+            return pid
+    return None
 
 
 class LdConfiguration:
@@ -109,6 +160,25 @@ class LdWorkspace:
     # together. Absent = no background (black fallback).
     self.bg_colors = {}
 
+    # schema v5: per-control encoder feel, keyed by control name (see
+    # ROTATE_CONTROLS) to {"invert", "detents_per_step", "steps_per_detent"}.
+    # Absent key = DEFAULT_TUNING (1:1, not inverted), so older profiles load
+    # with today's behaviour unchanged.
+    self.tuning = {}
+
+  def tuning_for(self, control):
+    """Effective tuning for a rotate control; always a complete dict."""
+    return normalize_tuning(self.tuning.get(control))
+
+  def set_tuning(self, control, tuning):
+    """Store tuning for a control, dropping entries that are pure defaults so
+    profiles do not fill up with no-op maps."""
+    t = normalize_tuning(tuning)
+    if t == DEFAULT_TUNING:
+      self.tuning.pop(control, None)
+    else:
+      self.tuning[control] = t
+
   def save(self, profile_name):
     self.profile = profile_name
     with open("./Profiles/" + profile_name + ".json", "w") as file:
@@ -127,7 +197,8 @@ class LdWorkspace:
           "images": {key: image for key, image in self.images.items()},
           "labels": {key: dict(v) for key, v in self.labels.items()},
           "led_colors": dict(self.led_colors),
-          "bg_colors": dict(self.bg_colors)}
+          "bg_colors": dict(self.bg_colors),
+          "tuning": {key: dict(v) for key, v in self.tuning.items()}}
     return s
 
   def from_JSON(json_data):
@@ -139,6 +210,10 @@ class LdWorkspace:
     ldw.labels = dict(json_data.get("labels", {}))          # v3; absent in older profiles
     ldw.led_colors = dict(json_data.get("led_colors", {}))  # v3
     ldw.bg_colors = dict(json_data.get("bg_colors", {}))    # v4
+    # v5; absent in older profiles, and normalised so a hand-edited or truncated
+    # entry cannot reach dispatch as a partial dict.
+    ldw.tuning = {key: normalize_tuning(val)
+                  for key, val in json_data.get("tuning", {}).items()}
     return ldw
 
 
@@ -161,14 +236,22 @@ class LdAction:
     else:
       self.summary = "none"
 
-  def execute(self):
+  def execute(self, repeat=1):
+    """Run the action. `repeat` comes from the encoder Fast presets.
+
+    Only keystroke-like types repeat: `command`/`launch`/`media` clamp to 1, so
+    a fast twist can never fan out into N process launches or N transport
+    commands (docs/PLAN.md 5.D.1, "repeatability by action type").
+    """
+    n = max(1, int(repeat))
     try:
       if self.a_type in ("command", "launch"):
         input_backend.launch_app(self.action)
       elif self.a_type == "hotkey":
-        input_backend.send_hotkey(self.action)
+        input_backend.send_hotkey(self.action, repeat=n)
       elif self.a_type == "text":
-        input_backend.type_text(self.action)
+        for _ in range(n):
+          input_backend.type_text(self.action)
       elif self.a_type == "media":
         input_backend.media(self.action)
       else:
