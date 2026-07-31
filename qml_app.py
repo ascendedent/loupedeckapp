@@ -21,7 +21,7 @@ import system_shortcuts
 from profile_manager import ProfileManager
 from device_controller import DeviceController
 from DeviceProfile import WHEEL_DISPLAY, WS_KEYS
-from LdConfiguration import (ROTATE_CONTROLS, TUNING_PRESETS,
+from LdConfiguration import (ROTATE_CONTROLS, TUNING_PRESETS, DEFAULT_TUNING,
                              preset_to_tuning, tuning_to_preset)
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -444,28 +444,25 @@ class Backend(QObject):
 
     @Property(bool, notify=stateChanged)
     def selectedInvert(self):
-        menu = self._menu()
-        if not (menu and self._has_tuning()):
+        if not self._has_tuning():
             return False
-        return bool(menu.tuning_for(self._selected)["invert"])
+        return bool(self._ctl.effective_tuning(self._selected)["invert"])
 
     @Property(str, notify=stateChanged)
     def selectedPreset(self):
         """Preset id for the selected control, or '' for a hand-edited
         combination the presets do not cover."""
-        menu = self._menu()
-        if not (menu and self._has_tuning()):
+        if not self._has_tuning():
             return ""
-        return tuning_to_preset(menu.tuning_for(self._selected)) or ""
+        return tuning_to_preset(self._ctl.effective_tuning(self._selected)) or ""
 
     @Property(str, notify=stateChanged)
     def selectedTuningSummary(self):
         """Plain-language description of the current feel, so the effect is
         legible without decoding two integers."""
-        menu = self._menu()
-        if not (menu and self._has_tuning()):
+        if not self._has_tuning():
             return ""
-        t = menu.tuning_for(self._selected)
+        t = self._ctl.effective_tuning(self._selected)
         dps, spd = t["detents_per_step"], t["steps_per_detent"]
         if dps > 1:
             s = "%d detents = 1 step" % dps
@@ -473,7 +470,14 @@ class Backend(QObject):
             s = "1 detent = %d steps" % spd
         else:
             s = "1 detent = 1 step"
-        return s + (", reversed" if t["invert"] else "")
+        s += ", reversed" if t["invert"] else ""
+        # Say so when this menu is only borrowing the setting, otherwise an
+        # inherited Fast 3x reads as if it were set here.
+        menu = self._menu()
+        if menu is not None and self._selected not in getattr(menu, "tuning", {}) \
+                and t != DEFAULT_TUNING:
+            s += " (inherited)"
+        return s
 
     @Slot(str, bool)
     def setTuning(self, preset_id, invert):

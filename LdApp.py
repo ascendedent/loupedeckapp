@@ -412,13 +412,21 @@ class LdApp(QApplication):
   def on_encoder_rotate(self, encoder, direction):
     self.on_rotate(self.knob_to_enc_name(encoder), direction[0])
 
+  def effective_tuning(self, control):
+    """Encoder feel for `control`, inherited down the submenu stack. Mirrors
+    DeviceController.effective_tuning."""
+    chain = [self.current_ws()] + [s.action for s in self.submenu_stack]
+    for menu in reversed(chain):
+      if control in getattr(menu, "tuning", {}):
+        return menu.tuning_for(control)
+    return dict(DEFAULT_TUNING)
+
   def on_rotate(self, control, direction):
     """Apply schema v5 tuning, then dispatch the rotate slot. Mirrors
     DeviceController.on_rotate so both front-ends feel identical; see
     docs/PLAN.md 5.D.1."""
     menu = self.current_menu()
-    tuning = (menu.tuning_for(control) if hasattr(menu, "tuning_for")
-              else dict(DEFAULT_TUNING))
+    tuning = self.effective_tuning(control)
 
     if tuning["invert"]:
       direction = "r" if direction == "l" else "l"

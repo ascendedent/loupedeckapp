@@ -252,6 +252,17 @@ rather than two.
 **Model: per control, not per slot.** Invert spans both directions and speed is a physical
 property of the encoder, so tuning is keyed by control (`enc1L`, `dial`), not by rotate slot.
 
+**Feel inherits down the submenu stack.** A submenu is its own `LdWorkspace`, so a knob set to
+Fast 3x on a workspace would otherwise snap back to 1:1 the moment a submenu opened. Resolution
+walks workspace → open submenus and takes the *nearest explicit entry*; a submenu that says nothing
+borrows from its parent. A submenu may still override deliberately, including back to Original:
+`set_tuning` compares against the **inherited** value rather than `DEFAULT_TUNING` when deciding
+whether an entry is redundant, so an explicit 1:1 under a Fast 3x workspace is stored instead of
+being dropped and silently re-inheriting. The inspector marks a borrowed value "(inherited)".
+
+Scope is still per workspace. Feel is arguably a property of the hardware and might belong at
+profile level with per-workspace override; deferred until the presets have been used in anger.
+
 | Knob | Meaning |
 |------|---------|
 | `invert` | Swap `-l` / `-r` at dispatch time |

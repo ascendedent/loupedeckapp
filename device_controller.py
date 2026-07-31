@@ -404,7 +404,7 @@ class DeviceController:
         if control not in ROTATE_CONTROLS:
             return
         menu = self.current_menu()
-        menu.set_tuning(control, tuning)
+        menu.set_tuning(control, tuning, inherited=self.inherited_tuning(control))
         self._rot_accum.pop(control, None)
         self.dirty = True
 
@@ -501,6 +501,33 @@ class DeviceController:
         else:
             action.execute()
 
+    # -- encoder feel resolution (schema v5) -------------------------------
+    def _menu_chain(self):
+        """Workspace first, then each open submenu, deepest last."""
+        return [self.current_ws()] + [s.action for s in self.submenu_stack]
+
+    def _resolve_tuning(self, control, chain):
+        """Nearest explicit entry wins; nothing set anywhere means defaults."""
+        for menu in reversed(chain):
+            if control in getattr(menu, "tuning", {}):
+                return menu.tuning_for(control)
+        return dict(DEFAULT_TUNING)
+
+    def effective_tuning(self, control):
+        """How `control` actually behaves right now.
+
+        A submenu is its own LdWorkspace, so without inheritance a knob set to
+        Fast 3x on a workspace would silently drop back to 1:1 the moment you
+        opened a submenu. Feel is a property of the hardware, so it carries
+        down the stack unless a submenu overrides it deliberately.
+        """
+        return self._resolve_tuning(control, self._menu_chain())
+
+    def inherited_tuning(self, control):
+        """What `control` would resolve to if the *current* menu said nothing,
+        i.e. what an entry here has to differ from to be worth storing."""
+        return self._resolve_tuning(control, self._menu_chain()[:-1])
+
     def on_rotate(self, control, direction):
         """Apply schema v5 tuning, then dispatch the rotate slot.
 
@@ -509,9 +536,7 @@ class DeviceController:
         detents until the threshold is reached) and `steps_per_detent`
         multiplies (one action carrying a repeat count).
         """
-        menu = self.current_menu()
-        tuning = (menu.tuning_for(control) if hasattr(menu, "tuning_for")
-                  else dict(DEFAULT_TUNING))
+        tuning = self.effective_tuning(control)
 
         if tuning["invert"]:
             direction = "r" if direction == "l" else "l"

@@ -31,9 +31,19 @@ TUNING_PRESETS = [
 
 
 def normalize_tuning(raw):
-    """Coerce a stored tuning entry into a complete, sane dict."""
+    """Coerce a stored tuning entry into a complete, sane dict.
+
+    Keys we do not recognise are carried through untouched. A profile written
+    by a newer build (say, once `curve` lands) would otherwise be silently
+    stripped by loading and re-saving it here, which is data loss rather than
+    graceful degradation. Unknown keys are ignored by dispatch but survive the
+    round-trip.
+    """
     t = dict(DEFAULT_TUNING)
     if isinstance(raw, dict):
+        for key, val in raw.items():
+            if key not in DEFAULT_TUNING:
+                t[key] = val
         t["invert"] = bool(raw.get("invert", False))
         for key in ("detents_per_step", "steps_per_detent"):
             try:
@@ -170,11 +180,19 @@ class LdWorkspace:
     """Effective tuning for a rotate control; always a complete dict."""
     return normalize_tuning(self.tuning.get(control))
 
-  def set_tuning(self, control, tuning):
-    """Store tuning for a control, dropping entries that are pure defaults so
-    profiles do not fill up with no-op maps."""
+  def set_tuning(self, control, tuning, inherited=None):
+    """Store tuning for a control, dropping the entry when it would say nothing
+    the surrounding context does not already say.
+
+    `inherited` is what this control resolves to *without* an entry here (the
+    parent workspace's setting, for a submenu). Dropping is keyed to that, not
+    to DEFAULT_TUNING: inside a submenu under a Fast 3x workspace, an explicit
+    "Original" is a real override and has to be stored, or setting it back to
+    1:1 would silently re-inherit Fast 3x.
+    """
+    base = normalize_tuning(inherited)
     t = normalize_tuning(tuning)
-    if t == DEFAULT_TUNING:
+    if t == base:
       self.tuning.pop(control, None)
     else:
       self.tuning[control] = t
