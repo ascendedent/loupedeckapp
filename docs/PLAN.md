@@ -370,9 +370,11 @@ exists.)*
    keyed by control, `normalize_tuning` guarantees dispatch never sees a partial entry, and older
    profiles load at 1:1 unchanged. Accumulators live in the controller (not the profile) and reset
    on reversal and on workspace switch. Wired in both `DeviceController.on_rotate` and
-   `LdApp.on_rotate` so the two front-ends feel the same. **Still to do: the inspector UI** (an
-   Invert checkbox plus the preset dropdown); `TUNING_PRESETS` / `preset_to_tuning` /
-   `tuning_to_preset` in `LdConfiguration` are the shared surface for it.
+   `LdApp.on_rotate` so the two front-ends feel the same. The QML inspector shows an "Encoder feel"
+   section for rotate controls only: a preset dropdown, an Invert checkbox, and a plain-language
+   summary of the resulting feel. Edits stage through `DeviceController.set_tuning` like any other
+   draft edit; unlike images and LEDs there is nothing to repaint, since tuning only changes how
+   incoming events are read.
 3. **Engine done, same change: the Fast presets.** `send_hotkey(combo, repeat=N)` emits the
    batched form on ydotool (`--repeat` on X11); `text` repeats; `command` / `launch` / `media`
    clamp to 1 so a fast twist cannot fan out into N process launches. **The scroll action is not

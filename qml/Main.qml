@@ -682,6 +682,63 @@ ApplicationWindow {
                                 }
                             }
                         }
+
+                        // Encoder feel (rotate controls: encoders + CT dial)
+                        ColumnLayout {
+                            id: tuningSection
+                            visible: backend.selectedHasTuning
+                            Layout.fillWidth: true; spacing: 6
+
+                            // The dropdown is index-based, so map to and from the
+                            // preset id the backend speaks. An empty selectedPreset
+                            // means a hand-edited combination no preset covers; the
+                            // dropdown then shows nothing rather than lying.
+                            function presetIndex(id) {
+                                for (var i = 0; i < backend.tuningPresets.length; i++)
+                                    if (backend.tuningPresets[i].id === id)
+                                        return i
+                                return -1
+                            }
+
+                            Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
+                            Text { text: "Encoder feel"; color: theme.muted; font.pixelSize: 12 }
+
+                            RowLayout {
+                                Layout.fillWidth: true; spacing: 8
+                                Text {
+                                    text: "Speed"; color: theme.muted
+                                    font.pixelSize: 12; Layout.preferredWidth: 46
+                                }
+                                ComboBox {
+                                    id: presetBox
+                                    Layout.fillWidth: true
+                                    model: backend.tuningPresets
+                                    textRole: "label"
+                                    currentIndex: tuningSection.presetIndex(backend.selectedPreset)
+                                    onActivated: backend.setTuning(
+                                        backend.tuningPresets[currentIndex].id,
+                                        invertBox.checked)
+                                }
+                            }
+
+                            CheckBox {
+                                id: invertBox
+                                text: "Invert direction"
+                                checked: backend.selectedInvert
+                                onToggled: backend.setTuning(
+                                    presetBox.currentIndex >= 0
+                                        ? backend.tuningPresets[presetBox.currentIndex].id
+                                        : "original",
+                                    checked)
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: backend.selectedTuningSummary
+                                color: theme.muted; font.pixelSize: 11
+                                wrapMode: Text.WordWrap
+                            }
+                        }
                     }
                 }
             }

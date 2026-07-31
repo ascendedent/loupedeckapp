@@ -21,7 +21,7 @@ import ct_support
 import label_render
 from DeviceProfile import DeviceProfile, DIAL_ID, WHEEL_DISPLAY, WS_KEYS
 from LdConfiguration import (LdConfiguration, LdAction, LdSubmenu,
-                             DEFAULT_TUNING, DIAL_KEY)
+                             DEFAULT_TUNING, DIAL_KEY, ROTATE_CONTROLS)
 
 from Loupedeck import DeviceManager
 from Loupedeck.Devices import LoupedeckLive
@@ -391,6 +391,21 @@ class DeviceController:
             menu.led_colors[key] = c if c.startswith("#") else "#" + c
         else:
             menu.led_colors.pop(key, None)
+        self.dirty = True
+
+    def set_tuning(self, control, tuning):
+        """Set a rotate control's feel (schema v5). Staged until save().
+
+        Unlike images and LEDs this never touches the hardware: tuning only
+        changes how incoming rotate events are interpreted, so there is nothing
+        to repaint. Banked detents are dropped, otherwise a count taken under
+        the old setting would be spent under the new one.
+        """
+        if control not in ROTATE_CONTROLS:
+            return
+        menu = self.current_menu()
+        menu.set_tuning(control, tuning)
+        self._rot_accum.pop(control, None)
         self.dirty = True
 
     def save(self):

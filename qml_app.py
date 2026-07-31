@@ -21,6 +21,8 @@ import system_shortcuts
 from profile_manager import ProfileManager
 from device_controller import DeviceController
 from DeviceProfile import WHEEL_DISPLAY, WS_KEYS
+from LdConfiguration import (ROTATE_CONTROLS, TUNING_PRESETS,
+                             preset_to_tuning, tuning_to_preset)
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -420,6 +422,65 @@ class Backend(QObject):
     @Slot(str, str)
     def setLed(self, key, color):
         self._ctl.set_led(key, color)
+        self.stateChanged.emit()
+
+    # -- encoder feel (schema v5) ------------------------------------------
+    def _has_tuning(self):
+        """Plain helper, not the Property: reading a Property off `self` inside
+        a method yields the descriptor (always truthy), which would silently
+        defeat every guard below."""
+        return self._selected in ROTATE_CONTROLS
+
+    @Property(bool, notify=selectionChanged)
+    def selectedHasTuning(self):
+        """Rotate controls only: the encoders and the CT dial."""
+        return self._has_tuning()
+
+    @Property("QVariantList", constant=True)
+    def tuningPresets(self):
+        """Speed presets for the inspector dropdown. The two integers behind
+        them stay authoritative; this is only the surface."""
+        return [{"id": pid, "label": label} for pid, label, _d, _s in TUNING_PRESETS]
+
+    @Property(bool, notify=stateChanged)
+    def selectedInvert(self):
+        menu = self._menu()
+        if not (menu and self._has_tuning()):
+            return False
+        return bool(menu.tuning_for(self._selected)["invert"])
+
+    @Property(str, notify=stateChanged)
+    def selectedPreset(self):
+        """Preset id for the selected control, or '' for a hand-edited
+        combination the presets do not cover."""
+        menu = self._menu()
+        if not (menu and self._has_tuning()):
+            return ""
+        return tuning_to_preset(menu.tuning_for(self._selected)) or ""
+
+    @Property(str, notify=stateChanged)
+    def selectedTuningSummary(self):
+        """Plain-language description of the current feel, so the effect is
+        legible without decoding two integers."""
+        menu = self._menu()
+        if not (menu and self._has_tuning()):
+            return ""
+        t = menu.tuning_for(self._selected)
+        dps, spd = t["detents_per_step"], t["steps_per_detent"]
+        if dps > 1:
+            s = "%d detents = 1 step" % dps
+        elif spd > 1:
+            s = "1 detent = %d steps" % spd
+        else:
+            s = "1 detent = 1 step"
+        return s + (", reversed" if t["invert"] else "")
+
+    @Slot(str, bool)
+    def setTuning(self, preset_id, invert):
+        """Apply a preset (plus invert) to the selected rotate control."""
+        if not self._has_tuning():
+            return
+        self._ctl.set_tuning(self._selected, preset_to_tuning(preset_id, invert))
         self.stateChanged.emit()
 
     @Property("QVariantList", notify=stateChanged)
