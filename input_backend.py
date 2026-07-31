@@ -65,6 +65,20 @@ def _parse_combo(combo):
     return [KEY[n] for n in names]
 
 
+# Scroll directions -> (dx, dy) unit vectors, in evdev's convention: REL_WHEEL
+# positive is up, REL_HWHEEL positive is right. Magnitude is supplied per call
+# rather than by repeating, which is why scroll is the natural place to prove an
+# acceleration curve (see docs/PLAN.md 5.D.1).
+SCROLL_DIRECTIONS = {
+    "up": (0, 1), "down": (0, -1), "right": (1, 0), "left": (-1, 0),
+}
+
+
+def _parse_scroll(direction):
+    """'up' -> (0, 1). Unknown directions scroll nothing rather than raising."""
+    return SCROLL_DIRECTIONS.get(str(direction).strip().lower(), (0, 0))
+
+
 class InputBackend:
     name = "none"
 
@@ -77,6 +91,9 @@ class InputBackend:
     def type_text(self, text):
         raise NotImplementedError
 
+    def scroll(self, direction, amount=1):
+        raise NotImplementedError
+
 
 class NullBackend(InputBackend):
     """Used when no working backend exists; logs instead of crashing."""
@@ -87,6 +104,9 @@ class NullBackend(InputBackend):
 
     def send_hotkey(self, combo, repeat=1):
         print("[input] no working backend; would send hotkey: %s (x%d)" % (combo, repeat))
+
+    def scroll(self, direction, amount=1):
+        print("[input] no working backend; would scroll %s x%d" % (direction, amount))
 
     def type_text(self, text):
         print("[input] no working backend; would type: %r" % text)
@@ -148,6 +168,16 @@ class YdotoolBackend(InputBackend):
     def type_text(self, text):
         subprocess.run([self.bin, "type", "--", text], env=self.env, check=True)
 
+    def scroll(self, direction, amount=1):
+        """One invocation carrying the whole magnitude, not `amount` clicks."""
+        dx, dy = _parse_scroll(direction)
+        n = max(1, int(amount))
+        if not (dx or dy):
+            return
+        subprocess.run([self.bin, "mousemove", "-w",
+                        "-x", str(dx * n), "-y", str(dy * n)],
+                       env=self.env, check=True)
+
 
 class XdotoolBackend(InputBackend):
     """X11 backend."""
@@ -169,6 +199,15 @@ class XdotoolBackend(InputBackend):
 
     def type_text(self, text):
         subprocess.run([self.bin, "type", "--", text], check=True)
+
+    def scroll(self, direction, amount=1):
+        # X11 has no magnitude: wheel is buttons 4/5 (up/down), 6/7 (left/right).
+        button = {"up": "4", "down": "5", "left": "6", "right": "7"}.get(
+            str(direction).strip().lower())
+        if not button:
+            return
+        subprocess.run([self.bin, "click", "--repeat", str(max(1, int(amount))),
+                        button], check=True)
 
 
 class PyAutoGuiBackend(InputBackend):
@@ -193,6 +232,15 @@ class PyAutoGuiBackend(InputBackend):
     def type_text(self, text):
         import pyautogui
         pyautogui.typewrite(text)
+
+    def scroll(self, direction, amount=1):
+        import pyautogui
+        dx, dy = _parse_scroll(direction)
+        n = max(1, int(amount))
+        if dy:
+            pyautogui.scroll(dy * n)
+        elif dx:
+            pyautogui.hscroll(dx * n)
 
 
 _backend = None
@@ -234,6 +282,11 @@ def send_hotkey(combo, repeat=1):
 
 def type_text(text):
     get_backend().type_text(text)
+
+
+def scroll(direction, amount=1):
+    """Scroll `direction` ('up'/'down'/'left'/'right') by `amount` notches."""
+    get_backend().scroll(direction, amount=amount)
 
 
 def launch_app(command):

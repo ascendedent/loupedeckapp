@@ -177,7 +177,7 @@ class Backend(QObject):
         return len(self._ctl.submenu_stack)
 
     # -- control selection + action editing (inspector) --------------------
-    ACTION_TYPES = ["none", "command", "hotkey", "text", "media"]
+    ACTION_TYPES = ["none", "command", "hotkey", "text", "scroll", "media"]
 
     # Ready-to-use actions for the left-panel library (category, label, type,
     # value). Dragged onto a control to bind it; templates (empty value) are
@@ -193,6 +193,10 @@ class Backend(QObject):
         ("System", "Select all", "hotkey", "ctrl+a"),
         ("System", "Save", "hotkey", "ctrl+s"),
         ("System", "Screenshot", "command", "spectacle"),
+        ("Adjustments", "Scroll up", "scroll", "up"),
+        ("Adjustments", "Scroll down", "scroll", "down"),
+        ("Adjustments", "Scroll left", "scroll", "left"),
+        ("Adjustments", "Scroll right", "scroll", "right"),
         ("Media", "Play / Pause", "media", "play-pause"),
         ("Media", "Next track", "media", "next"),
         ("Media", "Previous track", "media", "previous"),
@@ -471,6 +475,8 @@ class Backend(QObject):
         else:
             s = "1 detent = 1 step"
         s += ", reversed" if t["invert"] else ""
+        if t["curve"] == "accel":
+            s += ", accelerating when spun"
         # Say so when this menu is only borrowing the setting, otherwise an
         # inherited Fast 3x reads as if it were set here.
         menu = self._menu()
@@ -479,12 +485,21 @@ class Backend(QObject):
             s += " (inherited)"
         return s
 
-    @Slot(str, bool)
-    def setTuning(self, preset_id, invert):
-        """Apply a preset (plus invert) to the selected rotate control."""
+    @Property(bool, notify=stateChanged)
+    def selectedAccel(self):
+        if not self._has_tuning():
+            return False
+        return self._ctl.effective_tuning(self._selected)["curve"] == "accel"
+
+    @Slot(str, bool, bool)
+    def setTuning(self, preset_id, invert, accel=False):
+        """Apply a preset (plus invert and acceleration) to the selected
+        rotate control."""
         if not self._has_tuning():
             return
-        self._ctl.set_tuning(self._selected, preset_to_tuning(preset_id, invert))
+        t = preset_to_tuning(preset_id, invert)
+        t["curve"] = "accel" if accel else "linear"
+        self._ctl.set_tuning(self._selected, t)
         self.stateChanged.emit()
 
     @Property("QVariantList", notify=stateChanged)

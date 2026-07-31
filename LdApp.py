@@ -1,5 +1,5 @@
 import LdWidget as ldw
-from LdConfiguration import LdAction, DEFAULT_TUNING, DIAL_KEY
+from LdConfiguration import LdAction, DEFAULT_TUNING, DIAL_KEY, accel_steps
 from LdDialog import ConfigImgDialog
 from DeviceProfile import DeviceProfile, DIAL_ID, WHEEL_DISPLAY
 import ct_support
@@ -445,7 +445,7 @@ class LdApp(QApplication):
 
     action = menu.actions.get(control + "-" + direction)
     if action is not None:
-      action.execute(repeat=tuning["steps_per_detent"])
+      action.execute(repeat=accel_steps(tuning["steps_per_detent"], 1, tuning))
 
   # -- CT-only controls -----------------------------------------------------
   # These map to config keys that the v1 schema does not yet define, so we look

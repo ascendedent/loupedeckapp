@@ -468,6 +468,7 @@ ApplicationWindow {
                                     color: theme.text
                                     placeholderText: typeBox.currentText === "hotkey" ? "e.g. ctrl+c"
                                                    : typeBox.currentText === "media" ? "play-pause / next / previous"
+                                                   : typeBox.currentText === "scroll" ? "up / down / left / right"
                                                    : typeBox.currentText === "text" ? "text to type"
                                                    : typeBox.currentText === "submenu" ? "submenu name"
                                                    : "command to run"
@@ -700,6 +701,14 @@ ApplicationWindow {
                                 return -1
                             }
 
+                            // Whatever speed is showing, so the checkboxes can
+                            // resend it without changing it.
+                            function currentPresetId() {
+                                var i = presetBox.currentIndex
+                                return i >= 0 && i < backend.tuningPresets.length
+                                    ? backend.tuningPresets[i].id : "original"
+                            }
+
                             Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
                             Text { text: "Encoder feel"; color: theme.muted; font.pixelSize: 12 }
 
@@ -717,7 +726,7 @@ ApplicationWindow {
                                     currentIndex: tuningSection.presetIndex(backend.selectedPreset)
                                     onActivated: backend.setTuning(
                                         backend.tuningPresets[currentIndex].id,
-                                        invertBox.checked)
+                                        invertBox.checked, accelBox.checked)
                                 }
                             }
 
@@ -726,10 +735,17 @@ ApplicationWindow {
                                 text: "Invert direction"
                                 checked: backend.selectedInvert
                                 onToggled: backend.setTuning(
-                                    presetBox.currentIndex >= 0
-                                        ? backend.tuningPresets[presetBox.currentIndex].id
-                                        : "original",
-                                    checked)
+                                    tuningSection.currentPresetId(), checked,
+                                    accelBox.checked)
+                            }
+
+                            CheckBox {
+                                id: accelBox
+                                text: "Accelerate when spun"
+                                checked: backend.selectedAccel
+                                onToggled: backend.setTuning(
+                                    tuningSection.currentPresetId(),
+                                    invertBox.checked, checked)
                             }
 
                             Text {

@@ -12,6 +12,8 @@ Callbacks fire on the devleaks reader thread for device-driven events; the UI
 must marshal to its own main thread.
 """
 
+import queue
+import threading
 import time
 from math import floor
 
@@ -21,7 +23,8 @@ import ct_support
 import label_render
 from DeviceProfile import DeviceProfile, DIAL_ID, WHEEL_DISPLAY, WS_KEYS
 from LdConfiguration import (LdConfiguration, LdAction, LdSubmenu,
-                             DEFAULT_TUNING, DIAL_KEY, ROTATE_CONTROLS)
+                             DEFAULT_TUNING, DIAL_KEY, ROTATE_CONTROLS,
+                             accel_steps)
 
 from Loupedeck import DeviceManager
 from Loupedeck.Devices import LoupedeckLive
@@ -31,6 +34,10 @@ BACK_BUTTON_PATH = "Images/submenu_back_button.png"
 
 
 class DeviceController:
+    # Sentinel telling the dispatch thread to exit (a plain object so it can
+    # never collide with a real (control, direction) tuple).
+    _ROT_STOP = object()
+
     def __init__(self, on_state=None):
         self.device = None
         self.profile = DeviceProfile.for_model("LoupedeckLive")
@@ -41,7 +48,11 @@ class DeviceController:
         self.on_state = on_state
         # Banked detents per rotate control for the Slow presets:
         # control -> (direction, count). Runtime feel, not persisted state.
+        # Written by the dispatch thread, cleared from the message thread.
         self._rot_accum = {}
+        self._rot_lock = threading.Lock()
+        self._rot_q = queue.Queue()
+        self._rot_thread = None
         # Draft/staging: edits mutate the in-memory config (so the on-screen
         # mirror updates live) but are not written to disk or pushed to the
         # hardware until save(); revert() reloads the on-disk profile.
@@ -87,6 +98,10 @@ class DeviceController:
         self.device.set_brightness(40)
 
     def close(self):
+        if self._rot_thread is not None and self._rot_thread.is_alive():
+            self._rot_q.put(self._ROT_STOP)
+            self._rot_thread.join(timeout=2.0)
+            self._rot_thread = None
         if self.device:
             self.device.stop()
             self.device = None
@@ -99,7 +114,9 @@ class DeviceController:
         if self.device:
             self.device.reset()
         self.config.load(name)
-        self._rot_accum.clear()
+        self._drain_rotate_queue()
+        with self._rot_lock:
+            self._rot_accum.clear()
         self.submenu_stack.clear()
         self.selected_ws = WS_KEYS[0]
         self.dirty = False
@@ -405,7 +422,8 @@ class DeviceController:
             return
         menu = self.current_menu()
         menu.set_tuning(control, tuning, inherited=self.inherited_tuning(control))
-        self._rot_accum.pop(control, None)
+        with self._rot_lock:
+            self._rot_accum.pop(control, None)
         self.dirty = True
 
     def save(self):
@@ -440,8 +458,11 @@ class DeviceController:
 
     def on_workspace_press(self, ws_key):
         # Banked detents belong to the workspace that banked them; tuning can
-        # differ per workspace, so carrying a partial count across is wrong.
-        self._rot_accum.clear()
+        # differ per workspace, so carrying a partial count across is wrong,
+        # as is replaying queued detents against the new menu.
+        self._drain_rotate_queue()
+        with self._rot_lock:
+            self._rot_accum.clear()
         if self.submenu_stack:
             self.submenu_stack.clear()
         self.selected_ws = ws_key
@@ -461,13 +482,14 @@ class DeviceController:
                     self.on_touchdisplay_press(message[CBC.X.value], message[CBC.Y.value])
         elif message[CBC.IDENTIFIER.value] == DIAL_ID:
             if message[CBC.ACTION.value] is CBC.ROTATE.value:
-                self.on_rotate(DIAL_KEY, message[CBC.STATE.value][0])
+                self._enqueue_rotate(DIAL_KEY, message[CBC.STATE.value][0])
             elif message[CBC.ACTION.value] is CBC.PUSH.value and message[CBC.STATE.value] == "down":
                 self.run_bound_action("dial")
         elif "knob" in message[CBC.IDENTIFIER.value]:
             if message[CBC.ACTION.value] is CBC.ROTATE.value:
-                self.on_rotate(self.knob_to_enc_name(message[CBC.IDENTIFIER.value]),
-                               message[CBC.STATE.value][0])
+                self._enqueue_rotate(
+                    self.knob_to_enc_name(message[CBC.IDENTIFIER.value]),
+                    message[CBC.STATE.value][0])
             elif message[CBC.ACTION.value] is CBC.PUSH.value and message[CBC.STATE.value] == "down":
                 self.run_bound_action(self.knob_to_enc_name(message[CBC.IDENTIFIER.value]))
         elif message[CBC.IDENTIFIER.value] in WS_KEYS:
@@ -528,34 +550,109 @@ class DeviceController:
         i.e. what an entry here has to differ from to be worth storing."""
         return self._resolve_tuning(control, self._menu_chain()[:-1])
 
-    def on_rotate(self, control, direction):
+    def on_rotate(self, control, direction, count=1):
         """Apply schema v5 tuning, then dispatch the rotate slot.
 
         The device reports direction only, never magnitude, so both halves of
-        "sensitivity" are synthesised here: `detents_per_step` divides (swallow
+        "sensitivity" are synthesised here: `detents_per_step` divides (bank
         detents until the threshold is reached) and `steps_per_detent`
         multiplies (one action carrying a repeat count).
+
+        `count` is the number of detents this call represents. It is 1 for a
+        single event and larger when the dispatcher has coalesced a backlog.
         """
         tuning = self.effective_tuning(control)
 
         if tuning["invert"]:
             direction = "r" if direction == "l" else "l"
 
+        n = max(1, int(count))
         per_step = tuning["detents_per_step"]
-        if per_step > 1:
-            last_dir, count = self._rot_accum.get(control, (None, 0))
-            # Reset on reversal: otherwise turning a Slow 1/3 control back the
-            # other way spends the detents already banked in the old direction.
-            count = count + 1 if last_dir == direction else 1
-            if count < per_step:
-                self._rot_accum[control] = (direction, count)
-                return
-            self._rot_accum[control] = (direction, 0)
-        else:
-            self._rot_accum.pop(control, None)
+        with self._rot_lock:
+            if per_step > 1:
+                last_dir, banked = self._rot_accum.get(control, (None, 0))
+                # Reset on reversal: otherwise turning a Slow 1/3 control back
+                # the other way spends detents banked in the old direction.
+                banked = banked + n if last_dir == direction else n
+                steps, banked = divmod(banked, per_step)
+                self._rot_accum[control] = (direction, banked)
+                if steps == 0:
+                    return
+            else:
+                self._rot_accum.pop(control, None)
+                steps = n
 
-        self.run_bound_action(control + "-" + direction,
-                              repeat=tuning["steps_per_detent"])
+        # `n` (raw detents in this batch), not `steps`, is the speed signal: the
+        # Slow presets divide steps down, but turning fast is still turning fast.
+        repeat = accel_steps(steps * tuning["steps_per_detent"], n, tuning)
+        self.run_bound_action(control + "-" + direction, repeat=repeat)
+
+    # -- coalescing dispatch queue -----------------------------------------
+    def _enqueue_rotate(self, control, direction):
+        """Hand a rotate event to the dispatch thread.
+
+        Actions block (a subprocess, or a shell command that can take as long
+        as it likes). Running them on the device's message thread means a
+        backlog drains *after* the user's hand stops and the control keeps
+        moving past where they left it. The queue moves that work off the
+        message thread; coalescing keeps the backlog from being replayed
+        detent-by-detent once it exists.
+        """
+        self._ensure_dispatcher()
+        self._rot_q.put((control, direction))
+
+    def _ensure_dispatcher(self):
+        if self._rot_thread is None or not self._rot_thread.is_alive():
+            self._rot_thread = threading.Thread(
+                target=self._dispatch_loop, name="ld-rotate", daemon=True)
+            self._rot_thread.start()
+
+    def _dispatch_loop(self):
+        while True:
+            item = self._rot_q.get()
+            if item is self._ROT_STOP:
+                return
+            batch = {}
+            stopping = self._fold(item, batch)
+            # Take whatever else is already waiting. Nothing is *waited* for, so
+            # an idle control still dispatches one detent immediately; batching
+            # only happens when events genuinely piled up behind an action.
+            while True:
+                try:
+                    nxt = self._rot_q.get_nowait()
+                except queue.Empty:
+                    break
+                stopping = self._fold(nxt, batch) or stopping
+            for control, net in batch.items():
+                if not net:
+                    continue          # equal turns both ways cancel out
+                try:
+                    self.on_rotate(control, "r" if net > 0 else "l",
+                                   count=abs(net))
+                except Exception as e:
+                    print("rotate dispatch for %r failed: %s: %s"
+                          % (control, type(e).__name__, e))
+            if stopping:
+                return
+
+    def _fold(self, item, batch):
+        """Accumulate one queued event into `batch`. Returns True for the stop
+        sentinel. Opposite detents cancel: the net is where the knob ended up,
+        which is the honest reading for a continuous control."""
+        if item is self._ROT_STOP:
+            return True
+        control, direction = item
+        batch[control] = batch.get(control, 0) + (1 if direction == "r" else -1)
+        return False
+
+    def _drain_rotate_queue(self):
+        """Drop pending rotate events (workspace switch / profile load): they
+        were aimed at a menu that is no longer on screen."""
+        while True:
+            try:
+                self._rot_q.get_nowait()
+            except queue.Empty:
+                return
 
     def run_bound_action(self, str_key, repeat=1):
         action = self.current_menu().actions.get(str_key)

@@ -299,11 +299,13 @@ for *atomicity* (one invocation cannot be interleaved with another control's eve
 modifier is held down once across the run rather than re-pressed per step), but not for latency.
 Anything in this plan that gates work on spawn cost needs re-reading in that light.
 
-**This also unlocks the "mouse wheel" half of the request.** There is no scroll action at all
-today. `ydotool mousemove -w <dx> <dy>` emits `REL_HWHEEL` / `REL_WHEEL`, a *magnitude* per call
-rather than a repeat. That makes scroll both the cheapest new action to add and the ideal one to
-prove the curve against, since accelerating it is a bigger number rather than more calls. It also
-fills the empty **Adjustments** library category (§3).
+**This also unlocks the "mouse wheel" half of the request.** *(Built.)* `ydotool mousemove -w
+<dx> <dy>` emits `REL_HWHEEL` / `REL_WHEEL`, a *magnitude* per call rather than a repeat, so a
+`scroll` action takes its repeat count as distance in a single invocation rather than N calls. That
+makes it the ideal control to prove the curve against, since accelerating it is a bigger number
+rather than more work. Directions are `up` / `down` / `left` / `right`, and the four now fill the
+previously empty **Adjustments** library category (§3). On X11 there is no magnitude at all, so
+`xdotool click --repeat N` on buttons 4/5/6/7 stands in.
 
 **Prerequisite: get action execution off the dispatch thread.** `DeviceController.device_callback`
 runs on the devleaks *message* thread (`_process_messages`), not the serial reader; `_read_serial`
@@ -333,6 +335,15 @@ produce. Measured per action type: `hotkey` 0.56 ms, `text` 0.20 ms, `launch`/`c
 The coalescing queue is therefore **no longer a prerequisite for encoder tuning**. It remains worth
 building for its own reasons: it is the only thing that bounds a genuinely slow action, and batch
 depth is still the cleanest speed signal for the accel curve. But it no longer gates the presets.
+
+**Queue: built.** Rotate events go onto a `queue.Queue` consumed by one dispatch thread. The
+consumer takes an event, then drains whatever else is *already* waiting without ever waiting
+itself, so an idle control still fires one detent immediately and batching only happens when events
+genuinely piled up behind a slow action. Within a batch, opposite detents cancel: the net is where
+the knob ended up, which is the honest reading for a continuous control and is what actually
+cures overshoot. Batches are per control, so two knobs turned together do not merge. Queued
+detents are discarded on workspace switch and profile load, since they were aimed at a menu that is
+no longer on screen. A raising action is caught and logged rather than killing the dispatcher.
 
 **Latency: the 12 ms is a default, not a floor.** *(Measured, superseding two earlier estimates.)*
 `ydotool key` sleeps its delay after **every** key event, not between them. Measured on this
@@ -372,6 +383,30 @@ reason to hedge on Fast.
 
 **Repeatability by action type.** `hotkey` / `scroll` repeat; `text` repeats (rarely wanted);
 `command` / `launch` / `media` / `submenu` / `back` clamp to 1, never repeating a process spawn.
+Combined with coalescing this is what stops a fast spin on a "next track" knob from queueing a
+dozen skips: the batch collapses to one call.
+
+**Acceleration shape: mechanism built, constants unresolved.** `curve` (`linear` | `accel`),
+`accel_gain` and `max_steps` are in schema v5 and wired into dispatch. The multiplier is
+`1 + gain * (depth - 1)` where `depth` is the coalesced batch size, so it is exactly 1 at depth 1
+and `linear` is a no-op at any speed. The cap applies only to `accel`: under `linear`, `steps` is
+the number of detents actually turned, and clamping it would discard real input.
+
+What is **not** settled is the shape. At the placeholder `gain = 1.0` the output is quadratic in
+depth and saturates `max_steps = 10` by a batch of four:
+
+| batch depth | 1 | 2 | 3 | 4 | 6 | 8 | 20 |
+|-------------|---|---|---|---|---|---|----|
+| linear | 1 | 2 | 3 | 4 | 6 | 8 | 20 |
+| accel, gain 1.0 | 1 | 4 | 9 | 10 | 10 | 10 | 10 |
+| accel, gain 0.4 | 1 | 3 | 5 | 9 | 10 | 10 | 10 |
+
+Those numbers are arithmetic, not judgement. Whether saturating that fast feels responsive or
+uncontrollable is a question about a physical knob under a hand, and it also depends on batch depth
+being a decent proxy for hand speed on real hardware, which has never been observed. **Hold for
+hands-on testing before choosing gain, max_steps, or whether the curve should be per control or a
+single global feel.** The UI exposes only an on/off checkbox for now, deliberately: shipping
+sliders for constants known to be placeholders would invite tuning against the wrong curve.
 
 **Sequencing.** *(Revised after measurement: tier 3 was gated on a latency budget that no longer
 exists.)*
@@ -396,9 +431,12 @@ exists.)*
    queue either, since `ydotool mousemove -w` takes a magnitude rather than a repeat. Delivery of
    repeats is measured 1:1 (below), so the only remaining gate on Fast is whether a given host
    *acts* on every repeat, which is a per-app semantic question no dispatch work resolves.
-4. **Still Phase C, on its own merits:** the coalescing queue and the accel curve. The curve wants
-   batch depth as its speed signal, so it genuinely does depend on the queue. Neither now blocks
-   anything else.
+4. **Built:** the coalescing queue, the scroll action, and the accel *mechanism*. The curve takes
+   batch depth as its speed signal, so it did genuinely depend on the queue landing first.
+5. **Blocked on hands-on testing, not on code:** the acceleration *shape* (gain, cap, and whether
+   it should be per control or one global feel), and confirmation that Fast 2x/3x moves real target
+   apps rather than being debounced by them. Both are questions about a physical knob and a
+   specific application; no further engineering resolves them.
 
 ### E. Profiles & dynamic mode
 

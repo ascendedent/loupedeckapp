@@ -15,7 +15,21 @@ DIAL_KEY_R = "dial-r"
 # spans both directions and speed is a property of the encoder itself.
 ROTATE_CONTROLS = ("enc1L", "enc2L", "enc3L", "enc1R", "enc2R", "enc3R", DIAL_KEY)
 
-DEFAULT_TUNING = {"invert": False, "detents_per_step": 1, "steps_per_detent": 1}
+DEFAULT_TUNING = {"invert": False, "detents_per_step": 1, "steps_per_detent": 1,
+                  "curve": "linear", "accel_gain": 1.0, "max_steps": 10}
+
+# `curve` picks how a *fast* twist is treated. "linear" keeps one detent worth
+# of action per detent however fast you turn. "accel" scales the output by how
+# many detents arrived in one coalesced batch, which is the only trustworthy
+# speed signal available (the lib's timestamps are stamped consumer-side and
+# measure our own dispatch latency, see docs/PLAN.md 5.D.1).
+CURVES = ("linear", "accel")
+
+# NOTE: accel_gain and max_steps are deliberately conservative placeholders.
+# The right shape is a question about the feel of a physical knob and cannot be
+# settled by measurement here; see the "acceleration shape" note in 5.D.1.
+DEFAULT_ACCEL_GAIN = 1.0
+DEFAULT_MAX_STEPS = 10
 
 # The device reports direction only, never magnitude, so "sensitivity" is
 # synthesised in dispatch: detents_per_step divides (drop events), and
@@ -34,10 +48,9 @@ def normalize_tuning(raw):
     """Coerce a stored tuning entry into a complete, sane dict.
 
     Keys we do not recognise are carried through untouched. A profile written
-    by a newer build (say, once `curve` lands) would otherwise be silently
-    stripped by loading and re-saving it here, which is data loss rather than
-    graceful degradation. Unknown keys are ignored by dispatch but survive the
-    round-trip.
+    by a newer build would otherwise be silently stripped by loading and
+    re-saving it here, which is data loss rather than graceful degradation.
+    Unknown keys are ignored by dispatch but survive the round-trip.
     """
     t = dict(DEFAULT_TUNING)
     if isinstance(raw, dict):
@@ -50,15 +63,55 @@ def normalize_tuning(raw):
                 t[key] = max(1, int(raw.get(key, 1)))
             except (TypeError, ValueError):
                 t[key] = 1
+        curve = str(raw.get("curve", "linear")).strip().lower()
+        t["curve"] = curve if curve in CURVES else "linear"
+        try:
+            t["accel_gain"] = max(0.0, float(raw.get("accel_gain",
+                                                     DEFAULT_ACCEL_GAIN)))
+        except (TypeError, ValueError):
+            t["accel_gain"] = DEFAULT_ACCEL_GAIN
+        try:
+            t["max_steps"] = max(1, int(raw.get("max_steps", DEFAULT_MAX_STEPS)))
+        except (TypeError, ValueError):
+            t["max_steps"] = DEFAULT_MAX_STEPS
     return t
 
 
+def accel_steps(steps, depth, tuning):
+    """Scale `steps` by how fast the control is turning.
+
+    `depth` is the number of detents the dispatcher coalesced into this batch:
+    1 means the control is idle enough to keep up, larger means the user is
+    spinning it. The multiplier is `1 + gain * (depth - 1)`, so it is exactly 1
+    at depth 1 and a "linear" curve is therefore a no-op at any speed.
+
+    The result is capped by `max_steps`. Without a cap a long fast spin turns
+    into an unbounded burst that the target app has to absorb, and there is no
+    way to take it back.
+
+    The cap deliberately does *not* apply to a linear curve: there, `steps` is
+    exactly the number of detents the user turned, and clamping it would
+    silently discard input they physically performed.
+    """
+    t = normalize_tuning(tuning)
+    if t["curve"] != "accel" or depth <= 1:
+        return max(1, steps)
+    factor = 1.0 + t["accel_gain"] * (depth - 1)
+    return max(1, min(int(round(steps * factor)), t["max_steps"]))
+
+
 def preset_to_tuning(preset_id, invert=False):
-    """'fast3' -> {'invert': .., 'detents_per_step': 1, 'steps_per_detent': 3}"""
+    """'fast3' -> a complete tuning dict with steps_per_detent 3.
+
+    Always complete (the unknown-preset fallback was already returning a full
+    dict, so a hit returning a sparse one made the return shape depend on the
+    argument). Callers that want a non-default curve set it on the result.
+    """
     for pid, _label, dps, spd in TUNING_PRESETS:
         if pid == preset_id:
-            return {"invert": bool(invert),
-                    "detents_per_step": dps, "steps_per_detent": spd}
+            return normalize_tuning({"invert": bool(invert),
+                                     "detents_per_step": dps,
+                                     "steps_per_detent": spd})
     return dict(DEFAULT_TUNING, invert=bool(invert))
 
 
@@ -270,6 +323,10 @@ class LdAction:
       elif self.a_type == "text":
         for _ in range(n):
           input_backend.type_text(self.action)
+      elif self.a_type == "scroll":
+        # Magnitude, not repetition: the wheel takes a distance per call, so a
+        # fast twist becomes a bigger number rather than more invocations.
+        input_backend.scroll(self.action, amount=n)
       elif self.a_type == "media":
         input_backend.media(self.action)
       else:
