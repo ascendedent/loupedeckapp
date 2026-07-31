@@ -233,6 +233,19 @@ carrying a *direction only* (`left` / `right`, no magnitude) plus a `ts` timesta
 of "speed" therefore has to be synthesised in our dispatch layer from tick **rate**; the device
 will never report one.
 
+**Do not build the curve on `ts`.** The lib stamps `ts` with `datetime.now()` inside `on_rotate`,
+and `on_rotate` runs on the *consumer* thread: `_process_messages` dequeues a message, then calls
+the handler. By that point the message has already waited behind the previous action's blocking
+`subprocess.run`. So `ts` records dispatcher throughput, not knob speed, and it skews worst during
+fast twists, which is the only time a curve matters. Feeding it into a multiplier would feed our
+own latency back into itself.
+
+**Coalescing supplies the magnitude the hardware withholds.** Drain the pending events per control
+and the *batch depth* is the speed signal: six detents waiting on `enc1L` means the user is
+spinning it. That reading is count-based, so it sidesteps the timestamp problem entirely, and it
+collapses the async-dispatch prerequisite and the acceleration feature into one piece of work
+rather than two.
+
 **Model: per control, not per slot.** Invert spans both directions and speed is a physical
 property of the encoder, so tuning is keyed by control (`enc1L`, `dial`), not by rotate slot.
 
@@ -242,6 +255,25 @@ property of the encoder, so tuning is keyed by control (`enc1L`, `dial`), not by
 | `detents_per_step` | Divide: fire once every N detents (slow a control down) |
 | `steps_per_detent` | Multiply: fire N times per detent (speed a control up) |
 | `curve` | `linear` (fixed multiplier) or `accel` (multiplier scales with tick rate, clamped by `max_steps`) |
+
+**Presets are the UI surface.** The request asked for discrete choices, not raw integers. The
+inspector shows an Invert checkbox plus a speed dropdown; the two integer knobs stay as the schema
+v5 representation underneath.
+
+| Preset | Meaning | Maps to |
+|--------|---------|---------|
+| Original | 1 detent = 1 step | both knobs 1 |
+| Slow 1/2 | 2 detents = 1 step | `detents_per_step` 2 |
+| Slow 1/3 | 3 detents = 1 step | `detents_per_step` 3 |
+| Fast 2x | 1 detent = 2 steps | `steps_per_detent` 2 |
+| Fast 3x | 1 detent = 3 steps | `steps_per_detent` 3 |
+
+**Slow is free; fast is not.** Slow is *subtractive*: it drops detents, spawns fewer processes than
+today, and depends on none of the queue work, so it can ship beside `invert`. Fast is *additive*:
+it synthesises events the hardware never sent, which is where the repeat plumbing and the latency
+budget actually land. Splitting them is why the sequencing below no longer treats "sensitivity" as
+one unit. Accumulators are per control and **reset on direction change**, otherwise reversing a
+Slow 1/3 control costs two dead detents.
 
 **Backend work.** `send_hotkey` needs a `repeat` argument so N steps cost one process spawn:
 `ydotool key` already accepts an arbitrary list of `CODE:STATE` pairs, so the down/up pair is
@@ -253,19 +285,42 @@ rather than a repeat. That makes scroll both the cheapest new action to add and 
 prove the curve against, since accelerating it is a bigger number rather than more calls. It also
 fills the empty **Adjustments** library category (§3).
 
-**Prerequisite: get action execution off the reader thread.** `DeviceController.device_callback`
-runs on the devleaks serial reader thread, and every action does a blocking `subprocess.run`.
-That is already a latency risk at one action per detent; with acceleration it becomes a guaranteed
-stall (`ydotool key` alone spends ~12 ms *per key event* by default, so a 5× repeat is ~120 ms of
-blocked reader). Needs a single-consumer dispatch queue that **coalesces** pending rotate steps per
-control instead of queueing unboundedly. Do this before, or alongside, the curve work.
+**Prerequisite: get action execution off the dispatch thread.** `DeviceController.device_callback`
+runs on the devleaks *message* thread (`_process_messages`), not the serial reader; `_read_serial`
+is a separate thread feeding an unbounded `Queue`. Serial reading is therefore never blocked and no
+device message is ever lost. The failure mode is not a stall but **overshoot**: every action does a
+blocking `subprocess.run`, so when the detent rate outruns the consumer the backlog drains *after*
+the user's hand stops and the control keeps adjusting past where they left it. That is a bug in
+today's 1:1 behaviour, not something acceleration introduces. Needs a single-consumer dispatch
+queue that **coalesces** pending rotate steps per control instead of queueing unboundedly. Do this
+before, or alongside, the curve work.
+
+**Latency: the 12 ms is a default, not a floor.** `ydotool key` documents 12 ms *between
+keystrokes*, so a four-event combo (`ctrl` down, key down, key up, `ctrl` up) spends ~36 ms in
+delays alone before spawn overhead, not the ~12 ms per event assumed earlier. Passing `-d 0`
+removes it. That is a one-line change to the existing `send_hotkey`, it cuts *current* per-detent
+cost several-fold with no architecture work at all, and it is worth doing independently of encoder
+tuning. It also makes the Fast presets far cheaper than the earlier estimate implied. Keep the
+value tunable rather than hard-coding zero: a zero gap risks apps that miss a modifier which has
+not settled.
+
+**Open question: target-app coalescing.** Whether Fast 2x/3x delivers 2x/3x depends on the
+receiving app treating rapid identical keypresses as discrete steps. If a host debounces them, no
+amount of plumbing on our side recovers the difference. This is the real reason to hedge on Fast
+(not latency, which is solvable) and it needs empirical per-app testing before the presets are
+advertised.
 
 **Repeatability by action type.** `hotkey` / `scroll` repeat; `text` repeats (rarely wanted);
 `command` / `launch` / `media` / `submenu` / `back` clamp to 1, never repeating a process spawn.
 
-**Sequencing.** Async dispatch and `invert` are small and independent; invert is usable
-immediately since both rotate slots already exist. Sensitivity, the accel curve, and the scroll
-action land together with schema v5 in **Phase C**.
+**Sequencing.** Three tiers, not one:
+
+1. **Now, standalone:** the `send_hotkey` key-delay fix. Pure latency win, no schema, no queue.
+2. **Early, no queue dependency:** `invert` and the Slow presets. Invert is usable immediately
+   since both rotate slots already exist; Slow only ever drops events, so it cannot make the
+   backlog worse. Both need the schema v5 `tuning` map but none of the dispatch work.
+3. **Phase C, behind the queue:** the Fast presets, the accel curve, and the scroll action, all of
+   which add events and therefore require coalescing to land first.
 
 ### E. Profiles & dynamic mode
 
@@ -349,14 +404,16 @@ Near-term (Phase A / M5):
 - [ ] Profile create / rename / duplicate / delete / import / export
 - [ ] Action library search + non-empty categories + OS-aware defaults
 - [ ] Brightness, reconnect, backend health in UI
+- [ ] `send_hotkey` key-delay fix: standalone latency win (§5.D.1)
 - [ ] Starter profiles with real defaults
 - [ ] Live / Live S mirror fidelity
 
 Medium-term (Phase C):
 
 - [ ] Macro / multi-step actions
-- [ ] Encoder adjustments: invert, sensitivity, acceleration curve, scroll action (§5.D.1)
-- [ ] Async action dispatch (off the device reader thread) + rotate coalescing (§5.D.1)
+- [ ] Encoder adjustments: invert + Slow presets, no queue dependency (§5.D.1)
+- [ ] Encoder adjustments: Fast presets, acceleration curve, scroll action (§5.D.1)
+- [ ] Async action dispatch (off the message/callback thread) + rotate coalescing (§5.D.1)
 - [ ] Configurable side-display layout
 - [ ] Optional tray / autostart / always-on runtime split
 - [ ] Plugin hooks (later)
@@ -371,6 +428,7 @@ Medium-term (Phase C):
 - [ ] Keyboard shortcuts (platform-native modifier)
 - [ ] Empty states, error toasts, first-run tip
 - [ ] Inspector sections (Action / Appearance / Advanced)
+- [ ] Rotary tuning row: Invert checkbox + speed preset dropdown (§5.D.1)
 - [ ] Hide empty library categories
 - [ ] Optional: thinner Backend bridge; richer device chrome
 
@@ -382,7 +440,9 @@ Medium-term (Phase C):
 |------|------------|
 | ydotool / uinput setup friction on Linux | Document + package; UI status when daemon down |
 | KWin / kdotool API drift | Keep polling backend thin; optional DBus later |
-| Fast encoder twists stalling the device reader thread | Async dispatch queue + per-control coalescing before shipping acceleration (§5.D.1) |
+| Fast encoder twists overshooting (backlog drains after the hand stops) | Async dispatch queue + per-control coalescing before shipping acceleration (§5.D.1) |
+| Accel curve misreading its own latency as knob speed | Derive speed from coalesced batch depth, never from the lib's `ts` (§5.D.1) |
+| Target apps debouncing repeated keys, so Fast 2x/3x under-delivers | Per-app testing before advertising the Fast presets (§5.D.1) |
 | Dual UI divergence | Phase A: freeze/remove PyQt5 |
 | CWD-relative profiles break packaging | AppPaths first |
 | Official Loupedeck app holds USB on Mac | Document quit-official-app; exclusive serial |
