@@ -197,6 +197,12 @@ class Backend(QObject):
         ("Adjustments", "Scroll down", "scroll", "down"),
         ("Adjustments", "Scroll left", "scroll", "left"),
         ("Adjustments", "Scroll right", "scroll", "right"),
+        # Volume is a hotkey rather than a media action: playerctl drives the
+        # media player, while these are the system-wide multimedia keys, which
+        # is what people mean by "bind volume to a knob".
+        ("Adjustments", "Volume up", "hotkey", "volumeup"),
+        ("Adjustments", "Volume down", "hotkey", "volumedown"),
+        ("Adjustments", "Mute", "hotkey", "mute"),
         ("Media", "Play / Pause", "media", "play-pause"),
         ("Media", "Next track", "media", "next"),
         ("Media", "Previous track", "media", "previous"),
@@ -566,8 +572,32 @@ class Backend(QObject):
 
     @Slot(str, str, str)
     def setActionSlot(self, slot_key, a_type, value):
+        # Switching an empty slot to a fixed-choice type should land on a valid
+        # option, not an empty string that silently does nothing.
+        opts = self.VALUE_OPTIONS.get(a_type)
+        if opts and value not in [o["value"] for o in opts]:
+            value = opts[0]["value"]
         self._ctl.set_action(slot_key, a_type, value)
         self.stateChanged.emit()
+
+    # Action types whose value is a fixed set rather than free text. Typing
+    # 'up' by hand is a needless way to get 'sideways' wrong.
+    VALUE_OPTIONS = {
+        "scroll": [{"label": "Up", "value": "up"},
+                   {"label": "Down", "value": "down"},
+                   {"label": "Left", "value": "left"},
+                   {"label": "Right", "value": "right"}],
+        "media": [{"label": "Play / Pause", "value": "play-pause"},
+                  {"label": "Next track", "value": "next"},
+                  {"label": "Previous track", "value": "previous"},
+                  {"label": "Stop", "value": "stop"}],
+    }
+
+    @Property("QVariantMap", constant=True)
+    def valueOptions(self):
+        """action type -> [{label, value}] for types the inspector should
+        present as a dropdown."""
+        return dict(self.VALUE_OPTIONS)
 
     @Slot(str, str)
     def setImage(self, key, file_url):

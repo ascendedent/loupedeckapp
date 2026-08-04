@@ -460,10 +460,36 @@ ApplicationWindow {
                                     currentIndex: Math.max(0, backend.selectedActionTypes.indexOf(modelData.type))
                                     onActivated: backend.setActionSlot(modelData.slot, currentText, valueField.text)
                                 }
+                                // Fixed-choice values (scroll direction, media
+                                // transport) pick from a list; free text is for
+                                // the types that genuinely take arbitrary input.
+                                ComboBox {
+                                    id: choiceBox
+                                    Layout.fillWidth: true
+                                    visible: !!backend.valueOptions[typeBox.currentText]
+                                    textRole: "label"
+                                    model: backend.valueOptions[typeBox.currentText] || []
+                                    currentIndex: {
+                                        var opts = backend.valueOptions[typeBox.currentText] || []
+                                        for (var i = 0; i < opts.length; i++)
+                                            if (opts[i].value === modelData.value)
+                                                return i
+                                        return 0
+                                    }
+                                    onActivated: {
+                                        var opts = backend.valueOptions[typeBox.currentText] || []
+                                        if (opts[currentIndex])
+                                            backend.setActionSlot(modelData.slot,
+                                                                  typeBox.currentText,
+                                                                  opts[currentIndex].value)
+                                    }
+                                }
                                 TextField {
                                     id: valueField
                                     Layout.fillWidth: true
-                                    visible: typeBox.currentText !== "none" && typeBox.currentText !== "back"
+                                    visible: typeBox.currentText !== "none"
+                                             && typeBox.currentText !== "back"
+                                             && !backend.valueOptions[typeBox.currentText]
                                     text: modelData.value
                                     color: theme.text
                                     placeholderText: typeBox.currentText === "hotkey" ? "e.g. ctrl+c"
