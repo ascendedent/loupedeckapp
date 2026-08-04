@@ -129,6 +129,18 @@ class YdotoolBackend(InputBackend):
     # a Qt receiver; other toolkits have not been checked.
     key_delay_ms = 0
 
+    # ...but a *repeat* needs a gap, or the receiver folds the presses into one.
+    # Measured against KDE's volume handler: at 0 ms a repeat of 3 moved the
+    # volume exactly 1 step on every trial; at 1 ms and above it moved 3 of 3 on
+    # every trial. The threshold is under a millisecond, so this is margin for
+    # slower handlers rather than a tuned value. It applies only when repeat > 1,
+    # so a single keypress keeps the ~0.6 ms path.
+    #
+    # Note this is a *semantic* limit, not a delivery one: a Qt client counting
+    # key events receives all N even at 0 ms (640-combo test). The volume
+    # handler receives them too and chooses to collapse them.
+    repeat_delay_ms = 3
+
     def __init__(self):
         self.bin = shutil.which("ydotool")
         self.env = dict(os.environ)
@@ -162,7 +174,8 @@ class YdotoolBackend(InputBackend):
         for _ in range(n):
             args += ["%d:1" % key, "%d:0" % key]
         args += ["%d:0" % c for c in reversed(mods)]
-        subprocess.run([self.bin, "key", "-d", str(self.key_delay_ms), *args],
+        delay = self.key_delay_ms if n == 1 else self.repeat_delay_ms
+        subprocess.run([self.bin, "key", "-d", str(delay), *args],
                        env=self.env, check=True)
 
     def type_text(self, text):

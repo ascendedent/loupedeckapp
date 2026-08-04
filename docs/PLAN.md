@@ -336,6 +336,20 @@ The coalescing queue is therefore **no longer a prerequisite for encoder tuning*
 building for its own reasons: it is the only thing that bounds a genuinely slow action, and batch
 depth is still the cleanest speed signal for the accel curve. But it no longer gates the presets.
 
+**Batch depth is a dead speed signal.** *(Measured on hardware.)* Probing the CT at slow, brisk and
+maximum hand speed across three controls produced `depth == 1` for **every single batch**. The
+cause is not the hardware: a batch only forms when events pile up behind a blocking action, and
+after the `-d 0` fix a hotkey costs ~0.56 ms against a hand that manages perhaps 25 detents/sec.
+Capacity outruns the hand by ~70x, so the backlog the curve wanted to measure essentially never
+exists. This follows directly from the latency measurement above and should have been predicted
+from it.
+
+The queue keeps its value (it still bounds a genuinely slow action, and cancellation still works),
+but acceleration needs a different signal: **timestamp each detent in `_enqueue_rotate`**, which
+runs on the message thread the instant the event arrives, before anything can block. Inter-detent
+interval measured there is a true reading of hand speed, and it sidesteps the original objection to
+the lib's `ts` (that `ts` is stamped only after waiting behind a blocking action).
+
 **Queue: built.** Rotate events go onto a `queue.Queue` consumed by one dispatch thread. The
 consumer takes an event, then drains whatever else is *already* waiting without ever waiting
 itself, so an idle control still fires one detent immediately and batching only happens when events
@@ -365,21 +379,27 @@ client and an XWayland one: zero dropped or unset modifiers in every cell. The s
 real in principle but did not reproduce here. Caveat: this only exercises a **Qt** receiver; GTK,
 Electron, and browser hosts are unverified.
 
-**Target-app coalescing: delivery is 1:1, semantics still unproven.** *(Partly measured.)* Whether
-Fast 2x/3x delivers 2x/3x depends on the receiving app treating rapid identical keypresses as
-discrete steps. Measured at the *delivery* layer: 600 `ctrl+shift+a` presses at `-d 0` (repeat
-depths 1/2/3/5/10, both the batched single-invocation form and N separate spawns) arrived **1:1 in
-every cell**, all with modifiers intact and none flagged as auto-repeat.
+**Target-app coalescing: real, and fixed by spacing the repeats.** *(Measured, both layers.)*
 
-Two things that settles. Nothing between `ydotool` and the client collapses rapid repeats, and the
-batched form (modifier held once, key's down/up pair emitted N times) is delivery-equivalent to N
-spawns, so `repeat` can use it freely.
+*Delivery* is 1:1 and never was the problem: 600 `ctrl+shift+a` presses at `-d 0` (repeat depths
+1/2/3/5/10, both the batched single-invocation form and N separate spawns) arrived 1:1 in every
+cell against a Qt client, modifiers intact, none flagged as auto-repeat. The batched form is
+delivery-equivalent to N spawns, so `repeat` can use it freely.
 
-What it does **not** settle: this counts `keyPressEvent` in a Qt widget, the most permissive
-possible receiver. It proves N events in yields N events out; it does not prove a host *acts* on
-all N (a mixer may rate-limit its own volume step, an editor may debounce undo). That residual
-question is per-app and semantic, needs testing against real targets, and is the only remaining
-reason to hedge on Fast.
+*Semantics* were the problem, and a Qt event counter could never have caught it. Against KDE's
+system volume handler, a repeat of 3 at `-d 0` moved the volume exactly **1 step on every trial**.
+At `-d 1` and above it moved **3 of 3 on every trial** (4 trials per gap at 0/1/2/3/5/8 ms). The
+handler receives all three presses and chooses to collapse presses that arrive with no gap at all.
+
+So a repeat needs a gap even though a single press does not. `YdotoolBackend.repeat_delay_ms`
+(default 3 ms, margin over the sub-millisecond threshold) applies **only when repeat > 1**, leaving
+the ~0.6 ms single-press path untouched. Verified live afterwards: repeat 1/2/3 moves volume 1/2/3
+steps.
+
+The general lesson is worth keeping: **delivery tests cannot answer semantic questions.** The most
+permissive possible receiver (a widget counting key events) reported perfect fidelity for a
+mechanism that did not work at all in the field. Other hosts may need a larger gap than 3 ms; that
+is now one tunable value rather than a redesign.
 
 **Repeatability by action type.** `hotkey` / `scroll` repeat; `text` repeats (rarely wanted);
 `command` / `launch` / `media` / `submenu` / `back` clamp to 1, never repeating a process spawn.
@@ -433,10 +453,12 @@ exists.)*
    *acts* on every repeat, which is a per-app semantic question no dispatch work resolves.
 4. **Built:** the coalescing queue, the scroll action, and the accel *mechanism*. The curve takes
    batch depth as its speed signal, so it did genuinely depend on the queue landing first.
-5. **Blocked on hands-on testing, not on code:** the acceleration *shape* (gain, cap, and whether
-   it should be per control or one global feel), and confirmation that Fast 2x/3x moves real target
-   apps rather than being debounced by them. Both are questions about a physical knob and a
-   specific application; no further engineering resolves them.
+5. **Confirmed on hardware:** Original / Slow / Fast all behave as intended, and the Slow reversal
+   reset takes a fresh N detents rather than spending banked ones. Fast initially moved KDE volume
+   1 step instead of 3; fixed by `repeat_delay_ms` (above).
+6. **Blocked, and now blocked differently:** the acceleration *shape*. Batch depth turned out to be
+   a dead signal (below), so the curve needs re-basing on inter-detent interval before gain and cap
+   can mean anything.
 
 ### E. Profiles & dynamic mode
 
