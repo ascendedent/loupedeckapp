@@ -44,12 +44,14 @@ the official plugin marketplace (which already covers Mac).
 | Schema v2-v5 (dial/wheel/CT slots, labels, LEDs, bg colours, encoder tuning) | ✅ `LdConfiguration` |
 | Dynamic mode (KDE) | ✅ `window_watcher` (kdotool) + `ProfileManager` |
 | QML three-column shell + CT device mirror | ✅ `qml_app.py` + `qml/` |
-| Inspector (actions, image, labels, LED, bg) | ✅ |
+| Inspector (actions, image, labels, LED, bg, encoder feel) | ✅ |
 | Draft Save / Revert (mirror live, hardware on Save) | ✅ |
 | Copy / paste control functions (type-checked) | ✅ |
 | Action library + drag-drop onto controls | ✅ |
 | Submenu create / enter / back from QML | ✅ |
 | Labels, LED colours, backgrounds, image-fit | ✅ |
+| Encoder feel (invert, speed presets, acceleration) | ✅ schema v5 + inspector |
+| Scroll action + coalescing rotate dispatch | ✅ `input_backend` + `device_controller` |
 
 ### Dual UI (debt)
 
@@ -68,7 +70,7 @@ parity on dynamic binding + profile lifecycle (Phase A).
 1. **One UI**: finish QML parity; retire PyQt5.
 2. **Platform adapters + paths**: explicit factories; no CWD-relative `./Profiles`.
 3. **Ship Linux (M5)**: pin deps, packaging, udev/ydotool docs, starter profiles.
-4. **Functionality**: dynamic UX, profile CRUD, real search library, device polish, Live S fidelity, macros/adjustments.
+4. **Functionality**: dynamic UX, profile CRUD, real search library, device polish, Live S fidelity, macros.
 5. **UI polish**: search, workspace chrome, dirty guards, inspector structure, empty categories.
 6. **macOS (M6)**: adapters, Accessibility UX, `.app`, support **10.14+**.
 
@@ -79,7 +81,7 @@ parity on dynamic binding + profile lifecycle (Phase A).
 | Area | Official app | Us today (QML) | Remaining gap |
 |------|--------------|----------------|---------------|
 | **Top bar** | Device · app-profile · Dynamic · workspace · status | Device pill · profile name · Save/Revert · Dynamic | Profile picker depth, workspace name, reconnect status, input-backend health |
-| **Left panel** | Searchable action library | Categorised library + drag-drop | **Search is UI-only (not wired)**; Adjustments empty; KDE-hardcoded apps |
+| **Left panel** | Searchable action library | Categorised library + drag-drop | **Search is UI-only (not wired)**; KDE-hardcoded apps |
 | **Center** | Photorealistic device | Schematic CT mirror; live images/labels/LEDs | Optional photoreal polish; Live/Live S layout fidelity |
 | **Right panel** | Profiles + pages tree | Profile list + rich inspector | Profile create/rename/delete/import; bind-app UI; pages hierarchy |
 | **Profiles** | System + per-app + dynamic | Files on disk + `dynamic_profiles.json` | Full lifecycle; multi-key match (`wm_class` / `bundle_id`) |
@@ -479,9 +481,10 @@ exists.)*
 5. **Confirmed on hardware:** Original / Slow / Fast all behave as intended, and the Slow reversal
    reset takes a fresh N detents rather than spending banked ones. Fast initially moved KDE volume
    1 step instead of 3; fixed by `repeat_delay_ms` (above).
-6. **Built, pending calibration:** acceleration on inter-detent interval, after batch depth was
-   measured dead (below). What remains is choosing `accel_from_ms` / `accel_full_ms` from a real
-   hand; `scratch/probe_rotate.py` reports the numbers and suggests a pair.
+6. **Built and calibrated:** acceleration on inter-detent interval, after batch depth was measured
+   dead (below). Thresholds come from a measured hand and are confirmed working on hardware.
+   Remaining polish, none of it blocking: tuning is scoped per workspace rather than per profile,
+   and the inspector exposes the presets but not the raw integers behind them.
 
 ### E. Profiles & dynamic mode
 

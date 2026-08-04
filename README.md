@@ -48,11 +48,33 @@ The model is detected from the USB product id. The vendored device library repor
 - Everything renders both in the on-screen mirror and on the physical device.
 
 ### Actions
-- `command`/launch, `hotkey`, `text`, `media` (MPRIS), and `submenu` / `back` navigation.
+- `command`/launch, `hotkey`, `text`, `scroll`, `media` (MPRIS), and `submenu` / `back` navigation.
 - **Hotkey recorder** that captures a key combination when you press it, plus a **presets** picker
   that includes your machine's configured KDE global shortcuts.
-- A searchable **action library** you drag onto controls. Dropping onto an encoder, the dial, or the
-  wheel lets you pick the **press / rotate / touch** slot.
+- A categorised **action library** you drag onto controls, including scroll and volume. Dropping
+  onto an encoder, the dial, or the wheel lets you pick the **press / rotate / touch** slot.
+  (The library's search box is not wired up yet.)
+
+### Encoder feel
+
+Per-control tuning for the six encoders and the CT dial, none of which the official app offers.
+Set from the inspector when a rotate control is selected; stored per workspace and inherited into
+submenus unless a submenu overrides it.
+
+- **Invert** direction.
+- **Speed presets**: Original, Slow 1/2, Slow 1/3, Fast 2x, Fast 3x. Slow banks detents and fires
+  once per N (resetting if you reverse); Fast makes one detent worth N steps.
+- **Acceleration**: optional, off by default. Turning at a normal pace behaves exactly as usual;
+  spinning the control ramps up to 10x. Speed is measured from the gap between detents, so the
+  first click of a turn is never accelerated and small corrections stay predictable.
+
+Defaults are calibrated against measured hand speeds on a CT side encoder (deliberate turning
+~189 ms between detents, a comfortable pace ~58 ms, a full spin ~8 ms). `scratch/probe_rotate.py`
+re-measures this and suggests thresholds if the defaults do not suit you.
+
+Acceleration pays off most on **scroll**, where the whole magnitude rides in one call. On a
+**hotkey** it is limited by how fast keystrokes can be delivered (see below), so it mainly helps at
+middling speeds.
 
 ### Workflow
 - Three-column dark UI (PySide6 + QML): action library · live device mirror · inspector.
@@ -61,7 +83,8 @@ The model is detected from the USB product id. The vendored device library repor
 - **Copy / paste** a control's entire function onto another compatible control.
 - **Dynamic mode**: switches the active profile when the focused desktop app changes (KDE Wayland,
   via KWin scripting).
-- JSON profiles (schema v4, backward compatible with older profiles).
+- JSON profiles (schema v5, backward compatible with older profiles; unknown fields
+  written by a newer build survive a load/save round-trip).
 
 ## Requirements
 
@@ -129,6 +152,41 @@ sudo systemctl enable --now ydotool       # runs ydotoold with access to /dev/ui
 .venv/bin/python app.py
 ```
 
+## Troubleshooting
+
+### An app only responds once to Fast 2x/3x or acceleration
+
+You turn one detent expecting 3 steps and the app moves 1. The keystrokes *are* all being
+delivered; some receivers deliberately collapse identical keypresses that arrive with no gap
+between them, treating the burst as a single press.
+
+We send repeats with a small gap for exactly this reason. If an app still under-delivers, that gap
+is too short for it. Raise `repeat_delay_ms` in [`input_backend.py`](input_backend.py):
+
+```python
+class YdotoolBackend(InputBackend):
+    repeat_delay_ms = 3      # try 8, then 15
+```
+
+It applies **only** when a repeat is sent, so raising it costs nothing on ordinary single presses.
+Measured against KDE's volume handler, 0 ms delivered 1 step of 3 every time and 1 ms delivered
+3 of 3 every time, so the threshold can be very small; other handlers may want more.
+
+The trade-off is throughput: a repeat costs two events at this delay, so 3 ms ceilings keystroke
+output near 167 steps/sec. Raising it lowers that ceiling, which matters only when spinning a
+control fast with Fast 3x or acceleration.
+
+### Actions do nothing in a Wayland session
+
+Check `ydotoold` is running (`systemctl status ydotool`) and that the socket is reachable by your
+user. `input_backend` picks ydotool automatically on Wayland; `xdotool`/`pyautogui` are X11-only
+and cannot inject into native Wayland clients.
+
+### The device is not found
+
+Another instance may be holding `/dev/ttyACM0` (including a `scratch/` probe script). Otherwise
+check the udev rule and group membership under [Device permissions](#device-permissions).
+
 ## Architecture
 
 The core is Qt-free and layered, so the UI sits on top of reusable services:
@@ -139,8 +197,8 @@ The core is Qt-free and layered, so the UI sits on top of reusable services:
 | `ct_support` | Runtime support for the CT wheel / dial / buttons over the vendored library. |
 | `input_backend` | OS input: ydotool → xdotool → pyautogui, auto-selected. |
 | `window_watcher` / `profile_manager` | Focused-app detection + per-app profile bindings (dynamic mode). |
-| `device_controller` | Connect, render a profile to the device, route events to actions. |
-| `LdConfiguration` | Profile data model + JSON persistence (schema v4). |
+| `device_controller` | Connect, render a profile to the device, route events to actions, and dispatch rotate events through a coalescing queue. |
+| `LdConfiguration` | Profile data model + JSON persistence (schema v5), incl. encoder tuning. |
 | `qml_app.py` + `qml/` | The PySide6 / QML front-end. |
 | `app.py` + `Ld*.py` | The legacy PyQt5 UI (kept during the migration). |
 
@@ -153,13 +211,17 @@ Agreed direction (detail in [`docs/PLAN.md`](docs/PLAN.md)):
 1. **Consistency**: QML as the only UI (retire legacy PyQt5); `AppPaths` (no CWD-relative
    profiles); explicit platform factories for input / focus / shortcut catalogs.
 2. **Ship Linux**: pinned deps; Flatpak and/or AppImage; udev + ydotool docs; starter profiles.
-3. **Product depth**: full dynamic-mode UX in QML, profile CRUD/import-export, real action search,
-   brightness/reconnect, Live/Live S mirror fidelity, macros, and UI polish. Plus **encoder
-   adjustments** (per-control invert, sensitivity, and acceleration curves) and a scroll action,
-   neither of which the official app offers.
+3. **Product depth**: full dynamic-mode UX in QML, profile CRUD/import-export, wiring up the
+   action-library search box, brightness/reconnect, Live/Live S mirror fidelity, macros, and UI
+   polish.
 4. **macOS**: native build targeting **macOS 10.14+**: device I/O first, then Quartz input,
    frontmost-app dynamic mode, then `.app` packaging. The core is already Qt-free; this is mostly
    adapters, permissions UX, and paths.
+
+**Done recently:** per-control encoder feel (invert, speed presets, acceleration on inter-detent
+interval), a scroll action, and a coalescing dispatch queue that keeps a fast spin from running on
+after your hand stops. Smaller known gaps: encoder tuning is scoped per workspace rather than per
+profile, and the inspector exposes the presets but not the raw integers behind them.
 
 ## Credits & license
 
