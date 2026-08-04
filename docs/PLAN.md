@@ -424,13 +424,32 @@ matter in use:
 * The interval is smoothed (EMA, alpha 0.5) because raw gaps are jittery: one laggy click mid-spin
   would otherwise collapse the multiplier to 1.
 * State is per control, and cleared on workspace switch and profile load alongside the accumulator.
-* `linear` ignores speed entirely and is never capped, so it cannot discard input.
+* `linear` ignores speed entirely. A single detent is never capped under any curve, so what one
+  click asks for is never discarded.
+* **A coalesced batch is capped at `max_steps` whatever the curve.** Measured: feeding 125
+  detents/sec into Fast 3x produced one dispatch per ~35 detents carrying `repeat` of ~105, which
+  blocked for over half a second and kept moving **1.56 s after the hand stopped**. Bounding the
+  backlog case brought that to 0.34 s. The rule is narrow on purpose: a single detent is literal
+  intent and is honoured, but a backlog is already asking for more than the rate can deliver.
 
-**The thresholds are still provisional** (`from 150 ms`, `full 30 ms`). They are the shape of a
-hand on a knob, and `scratch/probe_rotate.py` now measures the intervals a real turn produces and
-prints the pair they imply. Calibrate before advertising the feature. The UI stays an on/off
-checkbox until then: sliders for numbers known to be provisional invite tuning against the wrong
-curve.
+**Calibrated against a measured hand** (`scratch/probe_rotate.py`, CT side encoder):
+
+| turning | median gap | detents/sec | multiplier at from=40 / full=8 |
+|---------|-----------|-------------|-------------------------------|
+| deliberate | 189 ms | 5 | 1.0x |
+| comfortable working pace | 58 ms | 17 | 1.0x |
+| full spin | 8 ms | **126** | 10.0x |
+
+A full spin is **125 detents/sec**, five times the ~25/sec assumed throughout the earlier analysis.
+The probe's own suggested `from` was 151 ms, which would have put a comfortable working pace at
+6.7x; that is the wrong end to calibrate from. Acceleration should be something you opt into by
+spinning, not something ordinary turning triggers, so `from` sits just under the working pace.
+
+**Where acceleration actually pays.** A hotkey step costs two events at `repeat_delay_ms`, so
+keystroke output is ceilinged near 167 steps/sec, and a linear full spin already delivers ~124.
+Acceleration on a *hotkey* is therefore throughput-bound and mostly buys headroom at mid speeds. On
+a *scroll*, magnitude rides in a single call at any size, so the curve delivers in full. Scroll is
+the action this feature is really for.
 
 **Sequencing.** *(Revised after measurement: tier 3 was gated on a latency budget that no longer
 exists.)*

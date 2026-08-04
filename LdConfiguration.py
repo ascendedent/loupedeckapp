@@ -15,18 +15,15 @@ DIAL_KEY_R = "dial-r"
 # spans both directions and speed is a property of the encoder itself.
 ROTATE_CONTROLS = ("enc1L", "enc2L", "enc3L", "enc1R", "enc2R", "enc3R", DIAL_KEY)
 
-DEFAULT_TUNING = {"invert": False, "detents_per_step": 1, "steps_per_detent": 1,
-                  "curve": "linear", "accel_from_ms": 150, "accel_full_ms": 30,
-                  "max_steps": 10}
-
 # `curve` picks how a *fast* twist is treated. "linear" keeps one detent worth
 # of action per detent however fast you turn. "accel" scales the output by the
 # *interval between detents*, measured when each event arrives (see
 # DeviceController._enqueue_rotate).
 #
 # The earlier design used coalesced batch depth instead. That was measured dead
-# on real hardware: dispatch outruns a hand by roughly 70x, so a backlog never
-# forms and every batch is depth 1 whatever the speed (docs/PLAN.md 5.D.1).
+# on real hardware: with no action bound, every batch is depth 1 at every hand
+# speed, because dispatch outruns even a 125 detent/sec spin (docs/PLAN.md
+# 5.D.1).
 CURVES = ("linear", "accel")
 
 # Interval thresholds, in milliseconds between consecutive detents on one
@@ -34,11 +31,28 @@ CURVES = ("linear", "accel")
 # acceleration; at or below `full_ms` it is turning as fast as it usefully gets
 # and the multiplier is at `max_steps`; between them it ramps linearly.
 #
-# NOTE: these two defaults are provisional. They are the shape of a hand on a
-# physical knob and want calibrating against scratch/probe_rotate.py.
-DEFAULT_ACCEL_FROM_MS = 150
-DEFAULT_ACCEL_FULL_MS = 30
+# Calibrated against a measured hand on a CT side encoder (probe_rotate.py):
+# deliberate turning ~189 ms between detents, a comfortable working pace ~58 ms,
+# and a full spin ~8 ms (125 detents/sec, far faster than the 25/sec assumed
+# earlier). `from` sits just under the working pace so normal use is never
+# amplified; `full` sits at the spin rate.
+#
+# Note the probe's own suggestion was from=151, which would put a comfortable
+# pace at 6.7x. That is the wrong end to calibrate from: acceleration should be
+# something you opt into by spinning, not something normal turning triggers.
+DEFAULT_ACCEL_FROM_MS = 40
+DEFAULT_ACCEL_FULL_MS = 8
 DEFAULT_MAX_STEPS = 10
+
+# Single source of truth: built from the constants rather than repeating them,
+# which had already drifted once (the literal said 150/30 while normalisation
+# used 40/8, so a default entry never compared equal to a normalised one and
+# stopped being dropped).
+DEFAULT_TUNING = {"invert": False, "detents_per_step": 1, "steps_per_detent": 1,
+                  "curve": "linear",
+                  "accel_from_ms": DEFAULT_ACCEL_FROM_MS,
+                  "accel_full_ms": DEFAULT_ACCEL_FULL_MS,
+                  "max_steps": DEFAULT_MAX_STEPS}
 
 # The device reports direction only, never magnitude, so "sensitivity" is
 # synthesised in dispatch: detents_per_step divides (drop events), and
@@ -118,9 +132,11 @@ def accel_steps(steps, interval_ms, tuning):
     into an unbounded burst the target app has to absorb, with no way to take
     it back.
 
-    The cap deliberately does *not* apply to a linear curve: there, `steps` is
-    exactly the number of detents the user turned, and clamping it would
-    silently discard input they physically performed.
+    The cap deliberately does *not* apply to a linear curve here: `steps` is
+    then exactly the number of detents the user turned, and clamping it would
+    silently discard input they physically performed. (A *coalesced* linear
+    batch is capped separately in DeviceController.on_rotate, where being
+    behind the hand is already established.)
     """
     t = normalize_tuning(tuning)
     if t["curve"] != "accel":

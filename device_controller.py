@@ -593,6 +593,15 @@ class DeviceController:
 
         repeat = accel_steps(steps * tuning["steps_per_detent"],
                              self.detent_interval_ms(control), tuning)
+        if n > 1:
+            # A coalesced batch means dispatch is already behind the hand. Left
+            # unbounded, a fast spin on Fast 3x becomes a single repeat of ~100,
+            # which blocks for over half a second and keeps moving long after
+            # the hand stops (measured: 1.56s of overshoot). Capping only the
+            # backlog case is the compromise: what a *single* detent asks for is
+            # never discarded, because that is literal user intent, but what a
+            # backlog asks for is already unachievable at this rate.
+            repeat = min(repeat, tuning["max_steps"])
         self.run_bound_action(control + "-" + direction, repeat=repeat)
 
     # -- coalescing dispatch queue -----------------------------------------
