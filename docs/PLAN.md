@@ -345,10 +345,12 @@ exists. This follows directly from the latency measurement above and should have
 from it.
 
 The queue keeps its value (it still bounds a genuinely slow action, and cancellation still works),
-but acceleration needs a different signal: **timestamp each detent in `_enqueue_rotate`**, which
-runs on the message thread the instant the event arrives, before anything can block. Inter-detent
-interval measured there is a true reading of hand speed, and it sidesteps the original objection to
-the lib's `ts` (that `ts` is stamped only after waiting behind a blocking action).
+but acceleration was re-based on a different signal: **each detent is timestamped in
+`_enqueue_rotate`**, on the message thread the instant the event arrives, before anything can
+block. Inter-detent interval measured there is a true reading of hand speed, and it sidesteps the
+original objection to the lib's `ts` (that `ts` is stamped only after waiting behind a blocking
+action). Batch depth remains the right *quantity* of detents to act on; it is simply useless as a
+measure of speed.
 
 **Queue: built.** Rotate events go onto a `queue.Queue` consumed by one dispatch thread. The
 consumer takes an event, then drains whatever else is *already* waiting without ever waiting
@@ -406,27 +408,29 @@ is now one tunable value rather than a redesign.
 Combined with coalescing this is what stops a fast spin on a "next track" knob from queueing a
 dozen skips: the batch collapses to one call.
 
-**Acceleration shape: mechanism built, constants unresolved.** `curve` (`linear` | `accel`),
-`accel_gain` and `max_steps` are in schema v5 and wired into dispatch. The multiplier is
-`1 + gain * (depth - 1)` where `depth` is the coalesced batch size, so it is exactly 1 at depth 1
-and `linear` is a no-op at any speed. The cap applies only to `accel`: under `linear`, `steps` is
-the number of detents actually turned, and clamping it would discard real input.
+**Acceleration: rebuilt on inter-detent interval.** Speed is the gap between consecutive detents
+on one control, timed in `_enqueue_rotate` on the message thread the instant the event arrives, so
+it measures the hand rather than our own dispatch. This is what batch depth was supposed to be and
+was not.
 
-What is **not** settled is the shape. At the placeholder `gain = 1.0` the output is quadratic in
-depth and saturates `max_steps = 10` by a batch of four:
+Shape is a linear ramp between two thresholds: at or slower than `accel_from_ms` the multiplier is
+1, at or faster than `accel_full_ms` it is `max_steps`, and it interpolates between. Details that
+matter in use:
 
-| batch depth | 1 | 2 | 3 | 4 | 6 | 8 | 20 |
-|-------------|---|---|---|---|---|---|----|
-| linear | 1 | 2 | 3 | 4 | 6 | 8 | 20 |
-| accel, gain 1.0 | 1 | 4 | 9 | 10 | 10 | 10 | 10 |
-| accel, gain 0.4 | 1 | 3 | 5 | 9 | 10 | 10 | 10 |
+* The first detent of a turn has no interval to measure against, so it never accelerates. A turn
+  therefore always starts at 1:1, which is what makes small corrections predictable.
+* A pause longer than `IDLE_GAP_S` (0.4 s) ends the turn, so a fresh nudge does not inherit the
+  speed of a spin that already finished.
+* The interval is smoothed (EMA, alpha 0.5) because raw gaps are jittery: one laggy click mid-spin
+  would otherwise collapse the multiplier to 1.
+* State is per control, and cleared on workspace switch and profile load alongside the accumulator.
+* `linear` ignores speed entirely and is never capped, so it cannot discard input.
 
-Those numbers are arithmetic, not judgement. Whether saturating that fast feels responsive or
-uncontrollable is a question about a physical knob under a hand, and it also depends on batch depth
-being a decent proxy for hand speed on real hardware, which has never been observed. **Hold for
-hands-on testing before choosing gain, max_steps, or whether the curve should be per control or a
-single global feel.** The UI exposes only an on/off checkbox for now, deliberately: shipping
-sliders for constants known to be placeholders would invite tuning against the wrong curve.
+**The thresholds are still provisional** (`from 150 ms`, `full 30 ms`). They are the shape of a
+hand on a knob, and `scratch/probe_rotate.py` now measures the intervals a real turn produces and
+prints the pair they imply. Calibrate before advertising the feature. The UI stays an on/off
+checkbox until then: sliders for numbers known to be provisional invite tuning against the wrong
+curve.
 
 **Sequencing.** *(Revised after measurement: tier 3 was gated on a latency budget that no longer
 exists.)*
@@ -456,9 +460,9 @@ exists.)*
 5. **Confirmed on hardware:** Original / Slow / Fast all behave as intended, and the Slow reversal
    reset takes a fresh N detents rather than spending banked ones. Fast initially moved KDE volume
    1 step instead of 3; fixed by `repeat_delay_ms` (above).
-6. **Blocked, and now blocked differently:** the acceleration *shape*. Batch depth turned out to be
-   a dead signal (below), so the curve needs re-basing on inter-detent interval before gain and cap
-   can mean anything.
+6. **Built, pending calibration:** acceleration on inter-detent interval, after batch depth was
+   measured dead (below). What remains is choosing `accel_from_ms` / `accel_full_ms` from a real
+   hand; `scratch/probe_rotate.py` reports the numbers and suggests a pair.
 
 ### E. Profiles & dynamic mode
 

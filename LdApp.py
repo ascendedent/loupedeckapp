@@ -445,7 +445,9 @@ class LdApp(QApplication):
 
     action = menu.actions.get(control + "-" + direction)
     if action is not None:
-      action.execute(repeat=accel_steps(tuning["steps_per_detent"], 1, tuning))
+      # The PyQt5 tree has no dispatch queue and so no interval timing;
+      # None means "unknown speed", which never accelerates.
+      action.execute(repeat=accel_steps(tuning["steps_per_detent"], None, tuning))
 
   # -- CT-only controls -----------------------------------------------------
   # These map to config keys that the v1 schema does not yet define, so we look

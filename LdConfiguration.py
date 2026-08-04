@@ -16,19 +16,28 @@ DIAL_KEY_R = "dial-r"
 ROTATE_CONTROLS = ("enc1L", "enc2L", "enc3L", "enc1R", "enc2R", "enc3R", DIAL_KEY)
 
 DEFAULT_TUNING = {"invert": False, "detents_per_step": 1, "steps_per_detent": 1,
-                  "curve": "linear", "accel_gain": 1.0, "max_steps": 10}
+                  "curve": "linear", "accel_from_ms": 150, "accel_full_ms": 30,
+                  "max_steps": 10}
 
 # `curve` picks how a *fast* twist is treated. "linear" keeps one detent worth
-# of action per detent however fast you turn. "accel" scales the output by how
-# many detents arrived in one coalesced batch, which is the only trustworthy
-# speed signal available (the lib's timestamps are stamped consumer-side and
-# measure our own dispatch latency, see docs/PLAN.md 5.D.1).
+# of action per detent however fast you turn. "accel" scales the output by the
+# *interval between detents*, measured when each event arrives (see
+# DeviceController._enqueue_rotate).
+#
+# The earlier design used coalesced batch depth instead. That was measured dead
+# on real hardware: dispatch outruns a hand by roughly 70x, so a backlog never
+# forms and every batch is depth 1 whatever the speed (docs/PLAN.md 5.D.1).
 CURVES = ("linear", "accel")
 
-# NOTE: accel_gain and max_steps are deliberately conservative placeholders.
-# The right shape is a question about the feel of a physical knob and cannot be
-# settled by measurement here; see the "acceleration shape" note in 5.D.1.
-DEFAULT_ACCEL_GAIN = 1.0
+# Interval thresholds, in milliseconds between consecutive detents on one
+# control. At or above `from_ms` the control is turning slowly and there is no
+# acceleration; at or below `full_ms` it is turning as fast as it usefully gets
+# and the multiplier is at `max_steps`; between them it ramps linearly.
+#
+# NOTE: these two defaults are provisional. They are the shape of a hand on a
+# physical knob and want calibrating against scratch/probe_rotate.py.
+DEFAULT_ACCEL_FROM_MS = 150
+DEFAULT_ACCEL_FULL_MS = 30
 DEFAULT_MAX_STEPS = 10
 
 # The device reports direction only, never magnitude, so "sensitivity" is
@@ -65,39 +74,59 @@ def normalize_tuning(raw):
                 t[key] = 1
         curve = str(raw.get("curve", "linear")).strip().lower()
         t["curve"] = curve if curve in CURVES else "linear"
-        try:
-            t["accel_gain"] = max(0.0, float(raw.get("accel_gain",
-                                                     DEFAULT_ACCEL_GAIN)))
-        except (TypeError, ValueError):
-            t["accel_gain"] = DEFAULT_ACCEL_GAIN
-        try:
-            t["max_steps"] = max(1, int(raw.get("max_steps", DEFAULT_MAX_STEPS)))
-        except (TypeError, ValueError):
-            t["max_steps"] = DEFAULT_MAX_STEPS
+        for key, default in (("accel_from_ms", DEFAULT_ACCEL_FROM_MS),
+                             ("accel_full_ms", DEFAULT_ACCEL_FULL_MS),
+                             ("max_steps", DEFAULT_MAX_STEPS)):
+            try:
+                t[key] = max(1, int(raw.get(key, default)))
+            except (TypeError, ValueError):
+                t[key] = default
+        # A ramp needs from > full; an inverted or degenerate pair would make the
+        # interpolation meaningless, so fall back rather than compute nonsense.
+        if t["accel_from_ms"] <= t["accel_full_ms"]:
+            t["accel_from_ms"] = DEFAULT_ACCEL_FROM_MS
+            t["accel_full_ms"] = DEFAULT_ACCEL_FULL_MS
     return t
 
 
-def accel_steps(steps, depth, tuning):
+def accel_multiplier(interval_ms, tuning):
+    """How much to multiply one detent's worth of action by, from speed alone.
+
+    `interval_ms` is the gap between consecutive detents on this control, or
+    None when there is no previous detent to measure against (the first click
+    of a fresh turn). Returns 1.0 when not accelerating.
+    """
+    t = normalize_tuning(tuning)
+    if t["curve"] != "accel" or interval_ms is None:
+        return 1.0
+    hi, lo = float(t["accel_from_ms"]), float(t["accel_full_ms"])
+    if interval_ms >= hi:
+        return 1.0                      # turning slowly: leave it alone
+    if interval_ms <= lo:
+        return float(t["max_steps"])    # as fast as it usefully gets
+    ramp = (hi - interval_ms) / (hi - lo)
+    return 1.0 + ramp * (t["max_steps"] - 1)
+
+
+def accel_steps(steps, interval_ms, tuning):
     """Scale `steps` by how fast the control is turning.
 
-    `depth` is the number of detents the dispatcher coalesced into this batch:
-    1 means the control is idle enough to keep up, larger means the user is
-    spinning it. The multiplier is `1 + gain * (depth - 1)`, so it is exactly 1
-    at depth 1 and a "linear" curve is therefore a no-op at any speed.
+    Speed comes from the interval between detents, timed when each event
+    arrives, so it measures the hand rather than our own dispatch latency.
 
     The result is capped by `max_steps`. Without a cap a long fast spin turns
-    into an unbounded burst that the target app has to absorb, and there is no
-    way to take it back.
+    into an unbounded burst the target app has to absorb, with no way to take
+    it back.
 
     The cap deliberately does *not* apply to a linear curve: there, `steps` is
     exactly the number of detents the user turned, and clamping it would
     silently discard input they physically performed.
     """
     t = normalize_tuning(tuning)
-    if t["curve"] != "accel" or depth <= 1:
+    if t["curve"] != "accel":
         return max(1, steps)
-    factor = 1.0 + t["accel_gain"] * (depth - 1)
-    return max(1, min(int(round(steps * factor)), t["max_steps"]))
+    scaled = steps * accel_multiplier(interval_ms, t)
+    return max(1, min(int(round(scaled)), t["max_steps"]))
 
 
 def preset_to_tuning(preset_id, invert=False):

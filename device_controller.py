@@ -53,6 +53,11 @@ class DeviceController:
         self._rot_lock = threading.Lock()
         self._rot_q = queue.Queue()
         self._rot_thread = None
+        # Speed signal for the acceleration curve: when each detent arrived, and
+        # a smoothed interval between them, per control. Timed on the message
+        # thread at arrival so it measures the hand and not our dispatch.
+        self._rot_last_ts = {}
+        self._rot_interval = {}
         # Draft/staging: edits mutate the in-memory config (so the on-screen
         # mirror updates live) but are not written to disk or pushed to the
         # hardware until save(); revert() reloads the on-disk profile.
@@ -117,6 +122,8 @@ class DeviceController:
         self._drain_rotate_queue()
         with self._rot_lock:
             self._rot_accum.clear()
+            self._rot_last_ts.clear()
+            self._rot_interval.clear()
         self.submenu_stack.clear()
         self.selected_ws = WS_KEYS[0]
         self.dirty = False
@@ -463,6 +470,8 @@ class DeviceController:
         self._drain_rotate_queue()
         with self._rot_lock:
             self._rot_accum.clear()
+            self._rot_last_ts.clear()
+            self._rot_interval.clear()
         if self.submenu_stack:
             self.submenu_stack.clear()
         self.selected_ws = ws_key
@@ -582,9 +591,8 @@ class DeviceController:
                 self._rot_accum.pop(control, None)
                 steps = n
 
-        # `n` (raw detents in this batch), not `steps`, is the speed signal: the
-        # Slow presets divide steps down, but turning fast is still turning fast.
-        repeat = accel_steps(steps * tuning["steps_per_detent"], n, tuning)
+        repeat = accel_steps(steps * tuning["steps_per_detent"],
+                             self.detent_interval_ms(control), tuning)
         self.run_bound_action(control + "-" + direction, repeat=repeat)
 
     # -- coalescing dispatch queue -----------------------------------------
@@ -598,8 +606,39 @@ class DeviceController:
         message thread; coalescing keeps the backlog from being replayed
         detent-by-detent once it exists.
         """
+        self._note_detent(control)
         self._ensure_dispatcher()
         self._rot_q.put((control, direction))
+
+    # A pause longer than this ends the current turn: the next detent starts
+    # fresh rather than inheriting the speed of a spin that already finished.
+    IDLE_GAP_S = 0.4
+
+    # Smoothing on the inter-detent interval. Raw gaps are jittery enough that
+    # a single slow click mid-spin would otherwise drop the multiplier to 1.
+    _INTERVAL_ALPHA = 0.5
+
+    def _note_detent(self, control):
+        """Record when this detent arrived and update the smoothed interval."""
+        now = time.perf_counter()
+        with self._rot_lock:
+            last = self._rot_last_ts.get(control)
+            self._rot_last_ts[control] = now
+            if last is None or (now - last) > self.IDLE_GAP_S:
+                self._rot_interval.pop(control, None)   # new turn
+                return
+            gap = now - last
+            prev = self._rot_interval.get(control)
+            self._rot_interval[control] = (
+                gap if prev is None
+                else prev + self._INTERVAL_ALPHA * (gap - prev))
+
+    def detent_interval_ms(self, control):
+        """Smoothed ms between detents on `control`, or None if it is not
+        currently mid-turn."""
+        with self._rot_lock:
+            v = self._rot_interval.get(control)
+        return None if v is None else v * 1000.0
 
     def _ensure_dispatcher(self):
         if self._rot_thread is None or not self._rot_thread.is_alive():
