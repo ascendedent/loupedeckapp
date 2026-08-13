@@ -80,7 +80,9 @@ middling speeds.
 ### Workflow
 - Three-column dark UI (PySide6 + QML): action library · live device mirror · inspector.
 - **Draft editing**: edits update the on-screen mirror live and are pushed to the hardware only on
-  **Save**; **Revert** discards the draft.
+  **Save**; **Revert** discards the draft. Nothing throws a draft away without asking, and if
+  dynamic mode wants to switch profile mid-edit it waits (shown in the top bar) rather than
+  interrupting with a dialog or losing the work.
 - **Copy / paste** a control's entire function onto another compatible control.
 - **Dynamic mode**: switches the active profile when the focused desktop app changes (KDE Wayland,
   via KWin scripting).

@@ -495,6 +495,14 @@ exists.)*
 
 ### E. Profiles & dynamic mode
 
+**A draft is never discarded silently.** Switching profile, creating, duplicating, renaming and
+closing the window all route through one guard offering Save / Discard / Cancel.
+
+Dynamic mode is the interesting case, and it does **not** raise a dialog: focus has just moved to
+another app, so a modal would appear on a window the user is not looking at. Instead the switch is
+*held* until the draft is resolved, and applied on the next save or revert. The top bar shows the
+held profile, because a switch that silently fails to happen is worse than one that visibly waits.
+
 - [x] Schema + ProfileManager + KDE live switch verified
 - [x] Full QML management UI (bindings + default + CRUD)
       Binding uses the last focused window that was **not** this app. Both
@@ -514,6 +522,7 @@ exists.)*
 - [x] Dark theme, three columns, inspector, Save/Revert, copy/paste, submenus
 - [x] Functional library search (matches value and type as well as label)
 - [ ] Workspace name in header
+- [x] Unsaved-draft guards on every path that would discard one
 - [ ] Keyboard shortcuts (Ctrl/Cmd+S, copy/paste control, Esc)
 - [ ] Toasts / empty states / first-run drag-drop tip
 - [ ] Inspector collapsible sections (Action / Appearance / Advanced)
@@ -573,7 +582,7 @@ adapters are not reworked after installers exist.
 | **M2: Input** *(done)* | Actions on Wayland | input_backend | Hotkey/text into native Wayland clients |
 | **M3: Profiles** *(done)* | Per-app dynamic switch | schema, ProfileManager, kdotool | Live Chrome→blue / else→red verified |
 | **M4: QML UI** *(feature-complete; polish remains)* | Modern editor | Shell, mirror, inspector, draft, copy/paste, library DnD, submenus, labels/LEDs/bg | ✅ listed features work on-device; remaining items → Phase A / F |
-| **Phase A: Consistency** *(done bar polish)* | One product, portable core | QML bind-app + profile CRUD, search, PyQt5 removed, AppPaths, platform factories; dirty guards remain | QML alone is enough to use daily; profiles outside the source tree; Linux behaviour unchanged |
+| **Phase A: Consistency** *(done)* | One product, portable core | QML bind-app + profile CRUD, search, PyQt5 removed, AppPaths, platform factories, draft guards | QML alone is enough to use daily; profiles outside the source tree; Linux behaviour unchanged |
 | **M5: Ship Linux** | Installable by non-devs | Workstream G; starter profiles; udev/ydotool docs; optional defork | Flatpak and/or AppImage on clean KDE; pinned deps; smoke tests green |
 | **Phase C depth** *(ongoing after M5)* | Product depth | Macros, adjustments, side-display modes, Live S view, GNOME watcher optional, UI polish (F) | Documented per feature |
 | **M6: macOS** | Native Mac app, **10.14+** | M6a→M6d; Workstream C mac + I | CT configure + actions + optional dynamic mode from a 10.14-compatible `.app` |

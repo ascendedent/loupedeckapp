@@ -46,6 +46,8 @@ class Backend(QObject):
         # own window first, so polling at click time would always answer
         # "Loupedeck Config"; remember what you were actually in instead.
         self._last_app = ""
+        # A profile switch dynamic mode wanted to make while edits were unsaved.
+        self._pending_profile = ""
         self._ctl = DeviceController(on_state=lambda kind: self._marshal.emit(kind))
         self._pm = ProfileManager(app_paths.dynamic_profiles_path())
         self._watcher = window_watcher.get_watcher(
@@ -79,10 +81,28 @@ class Backend(QObject):
         if not self._pm.dynamic_mode:
             return
         name = self._pm.resolve(wm_class)
+        if not name or name == self._ctl.config.profile:
+            return
+        if self._ctl.dirty:
+            # Never discard unsaved edits for a switch the user did not ask
+            # for, and never raise a dialog either: they are looking at another
+            # app, not at us. Hold the switch until the draft is resolved.
+            if self._pending_profile != name:
+                self._pending_profile = name
+                print("dynamic: holding switch to '%s' (unsaved changes)" % name)
+                self.stateChanged.emit()
+            return
+        print("dynamic: %s -> profile '%s'" % (wm_class, name))
+        self._ctl.load_profile(name)
+        self.stateChanged.emit()
+
+    def _apply_pending_profile(self):
+        """Run a switch dynamic mode deferred, now that the draft is resolved."""
+        name = self._pending_profile
+        self._pending_profile = ""
         if name and name != self._ctl.config.profile:
-            print("dynamic: %s -> profile '%s'" % (wm_class, name))
+            print("dynamic: applying held switch to '%s'" % name)
             self._ctl.load_profile(name)
-            self.stateChanged.emit()
 
     # -- read properties ---------------------------------------------------
     @Property(str, notify=stateChanged)
@@ -732,14 +752,23 @@ class Backend(QObject):
         self._ctl.set_image(key, "")
         self.stateChanged.emit()
 
+    @Property(str, notify=stateChanged)
+    def pendingProfile(self):
+        """Profile that dynamic mode is waiting to switch to, or "". The UI
+        surfaces this so a held switch is visible rather than mysterious."""
+        return self._pending_profile
+
     @Slot()
     def save(self):
         self._ctl.save()
+        self._apply_pending_profile()
+        self.selectionChanged.emit()
         self.stateChanged.emit()
 
     @Slot()
     def revert(self):
         self._ctl.revert()
+        self._apply_pending_profile()
         self.selectionChanged.emit()
         self.stateChanged.emit()
 

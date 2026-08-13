@@ -20,3 +20,4 @@ the input backend is stubbed wherever a test would otherwise inject keystrokes.
 | `test_accel.py` | interval-based acceleration: curve shape, timing, backlog cap |
 | `test_paths.py` | user vs bundled assets, copy-on-write, migration, installed layout |
 | `test_platform.py` | session/desktop detection, factory selection, per-desktop library |
+| `test_drafts.py` | unsaved-edit guards, including held dynamic switches |

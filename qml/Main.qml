@@ -39,6 +39,40 @@ ApplicationWindow {
             labelPos.currentText, labelMode.currentText, selectedColor.toString())
     }
 
+    // ---- unsaved-changes guard -------------------------------------------
+    // Every action that would throw away a draft routes through withDraftCheck,
+    // so there is one place deciding what happens rather than a dialog bolted
+    // onto each call site.
+    Dialog {
+        id: discardDialog
+        property var pending: null
+        anchors.centerIn: parent
+        modal: true
+        width: 400
+        title: "Unsaved changes"
+        standardButtons: Dialog.Save | Dialog.Discard | Dialog.Cancel
+
+        function run() {
+            var fn = pending
+            pending = null
+            if (fn) fn()
+        }
+        onAccepted: { backend.save(); run() }        // Save
+        onDiscarded: { backend.revert(); run() }     // Discard
+        onRejected: pending = null                   // Cancel
+
+        Text {
+            text: "'" + backend.activeProfile + "' has changes that are not saved."
+            color: theme.text; font.pixelSize: 12; wrapMode: Text.WordWrap
+        }
+    }
+
+    function withDraftCheck(fn) {
+        if (!backend.dirty) { fn(); return }
+        discardDialog.pending = fn
+        discardDialog.open()
+    }
+
     // ---- profile name prompt ---------------------------------------------
     // mode: "create" | "duplicate" | "rename"
     Dialog {
@@ -107,6 +141,31 @@ ApplicationWindow {
         Text {
             text: "Delete '" + deleteDialog.target + "'?\n"
                   + "The file is removed and any app bindings to it are dropped."
+            color: theme.text; font.pixelSize: 12; wrapMode: Text.WordWrap
+        }
+    }
+
+    // Closing with a draft open would discard it with no warning at all.
+    property bool forceClose: false
+    onClosing: function(close) {
+        if (backend.dirty && !root.forceClose) {
+            close.accepted = false
+            closeDialog.open()
+        }
+    }
+
+    Dialog {
+        id: closeDialog
+        anchors.centerIn: parent
+        modal: true
+        width: 400
+        title: "Unsaved changes"
+        standardButtons: Dialog.Save | Dialog.Discard | Dialog.Cancel
+        function quit() { root.forceClose = true; root.close() }
+        onAccepted: { backend.save(); quit() }
+        onDiscarded: { backend.revert(); quit() }
+        Text {
+            text: "'" + backend.activeProfile + "' has changes that are not saved."
             color: theme.text; font.pixelSize: 12; wrapMode: Text.WordWrap
         }
     }
@@ -264,7 +323,24 @@ ApplicationWindow {
             // dynamic mode toggle
             RowLayout {
                 spacing: 8
-                Text { text: "Dynamic"; color: theme.muted; font.pixelSize: 13 }
+                // A held dynamic switch is invisible otherwise: the profile simply
+            // fails to change and the reason is not on screen anywhere.
+            Rectangle {
+                visible: backend.pendingProfile !== ""
+                Layout.preferredHeight: 26
+                Layout.preferredWidth: heldText.width + 20
+                radius: theme.radius
+                color: theme.panel2
+                border.color: theme.warn
+                Text {
+                    id: heldText
+                    anchors.centerIn: parent
+                    text: "⏸ " + backend.pendingProfile + " held"
+                    color: theme.warn; font.pixelSize: 11
+                }
+            }
+
+            Text { text: "Dynamic"; color: theme.muted; font.pixelSize: 13 }
                 Switch {
                     checked: backend.dynamicMode
                     onToggled: backend.setDynamicMode(checked)
@@ -463,7 +539,11 @@ ApplicationWindow {
                         opacity: modelData === backend.activeProfile ? 0.9 : 1.0
                         Behavior on color { ColorAnimation { duration: 120 } }
                         HoverHandler { id: hover; cursorShape: Qt.PointingHandCursor }
-                        TapHandler { onTapped: backend.loadProfile(modelData) }
+                        TapHandler {
+                            onTapped: root.withDraftCheck(function() {
+                                backend.loadProfile(modelData)
+                            })
+                        }
                         RowLayout {
                             anchors.fill: parent; anchors.leftMargin: 10; spacing: 8
                             Text { text: "▦"; color: theme.muted; font.pixelSize: 14 }
@@ -480,25 +560,27 @@ ApplicationWindow {
                     spacing: 6
                     ActionButton {
                         label: "New"
-                        onClicked: { nameDialog.mode = "create"; nameDialog.open() }
+                        onClicked: root.withDraftCheck(function() {
+                            nameDialog.mode = "create"; nameDialog.open()
+                        })
                     }
                     ActionButton {
                         label: "Duplicate"
                         enabledFlag: backend.activeProfile !== "(none)"
-                        onClicked: {
+                        onClicked: root.withDraftCheck(function() {
                             nameDialog.mode = "duplicate"
                             nameDialog.source = backend.activeProfile
                             nameDialog.open()
-                        }
+                        })
                     }
                     ActionButton {
                         label: "Rename"
                         enabledFlag: backend.activeProfile !== "(none)"
-                        onClicked: {
+                        onClicked: root.withDraftCheck(function() {
                             nameDialog.mode = "rename"
                             nameDialog.source = backend.activeProfile
                             nameDialog.open()
-                        }
+                        })
                     }
                     ActionButton {
                         label: "Delete"
