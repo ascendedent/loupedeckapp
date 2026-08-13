@@ -63,7 +63,7 @@ already Qt-free, so nothing outside those four files referenced them.
 ### Known gaps (ordered by agreed priority)
 
 1. **Ship Linux (M5)**: pin deps, packaging, udev/ydotool docs, starter profiles.
-2. **Functionality**: Live S mirror fidelity, macros.
+2. **Functionality**: Live S mirror fidelity.
 3. **UI polish**: workspace chrome, dirty guards, inspector structure, empty states.
 4. **macOS (M6)**: adapters, Accessibility UX, `.app`, support **10.14+**.
 
@@ -523,6 +523,23 @@ held profile, because a switch that silently fails to happen is worse than one t
 - [ ] Ship **starter profiles** (media, system, browser, empty scratch) with icons
 - [ ] Cross-platform match keys (§4.4)
 
+### D1. Macros
+
+- [x] A `macro` action: a sequence of steps on one control, written a step per line.
+
+      Text rather than a structured list, deliberately. A list would need a schema change *and* a
+      list editor before it was usable at all, whereas text keeps `LdAction.action` a plain string,
+      so macros save, load, import and export through everything that already exists.
+
+      Steps run on a worker thread. A button press arrives on the device's message thread, and a
+      macro containing waits would otherwise block that thread for its whole duration, delaying
+      every other device event behind it. The worker also serialises macros, so pressing a button
+      twice runs them one after the other instead of interleaved.
+
+      A failing step is logged and the macro continues: one bad step should not abandon the rest,
+      and an exception escaping the worker would silently break every later macro. Waits are
+      clamped, so `wait 999999` cannot wedge the worker.
+
 ### E1. CT function buttons
 
 - [x] `workspace` action type (jump to a workspace). Handled by the controller rather than
@@ -587,7 +604,7 @@ held profile, because a switch that silently fails to happen is worse than one t
 
 - [x] `pyproject.toml` with a `loupedeckapp` entry point and `[device]` / `[x11]` extras
 - [x] Ship udev rule, ydotool socket drop-in and desktop entry in `packaging/`
-- [x] Automated tests (`tests/`, 297 checks): schema load/migrate, profile resolution,
+- [x] Automated tests (`tests/`, 317 checks): schema load/migrate, profile resolution,
       tuning/dispatch, platform factories, installed-asset layout
 - [ ] **A properly installable application**, not a checkout you run by hand: a real install
       (Flatpak and/or AppImage, plus a distro-friendly path), the desktop entry registered, an

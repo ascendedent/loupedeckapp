@@ -20,6 +20,7 @@ CATEGORIES = ["General", "Adjustments", "Navigation", "Media", "System",
 PORTABLE = [
     ("General", "Type text…", "text", ""),
     ("General", "Run command…", "command", ""),
+    ("General", "Macro…", "macro", "hotkey ctrl+c\nwait 200\nhotkey ctrl+v"),
 
     ("Adjustments", "Scroll up", "scroll", "up"),
     ("Adjustments", "Scroll down", "scroll", "down"),

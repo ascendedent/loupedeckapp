@@ -48,14 +48,33 @@ The model is detected from the USB product id. The vendored device library repor
 - Everything renders both in the on-screen mirror and on the physical device.
 
 ### Actions
-- `command`/launch, `hotkey`, `text`, `scroll`, `media` (MPRIS), `keyboard` (the desktop's
-  on-screen keyboard), `workspace` (jump to a workspace), and `submenu` / `back` navigation.
+- `command`/launch, `hotkey`, `text`, `scroll`, `media` (MPRIS), `macro` (a sequence),
+  `keyboard` (the desktop's on-screen keyboard), `workspace` (jump to a workspace), and
+  `submenu` / `back` navigation.
 - **Hotkey recorder** that captures a key combination when you press it, plus a **presets** picker
   that includes your machine's configured KDE global shortcuts.
 - A searchable **action library** you drag onto controls, including scroll and volume. Search
   matches the action's value and type as well as its name, so `ctrl`, `scroll` or `vol up` all
   narrow the list. Dropping onto an encoder, the dial, or the wheel lets you pick the
   **press / rotate / touch** slot.
+
+### Macros
+
+Bind a sequence to one control. A macro is written a step per line:
+
+```
+hotkey ctrl+c
+wait 200
+hotkey alt+tab
+text hello world
+```
+
+Steps are `hotkey`, `text`, `wait <ms>`, `scroll <direction> [count]`, `media`, `keyboard` and
+`command`. Lines starting with `#` are comments. The editor reports the step count and points at
+any line it cannot read, so a typo is visible without pressing the button and wondering.
+
+Macros run on their own worker: pressing a button never blocks the device while a macro with waits
+in it plays out, and two macros run one after the other rather than interleaving.
 
 ### The fn layer
 

@@ -1060,6 +1060,7 @@ ApplicationWindow {
                                     Layout.fillWidth: true
                                     visible: typeBox.currentText !== "none"
                                              && typeBox.currentText !== "back"
+                                             && typeBox.currentText !== "macro"
                                              && !backend.valueOptions[typeBox.currentText]
                                     text: modelData.value
                                     color: theme.text
@@ -1076,6 +1077,72 @@ ApplicationWindow {
                                     }
                                     onEditingFinished: backend.setActionSlot(modelData.slot, typeBox.currentText, text)
                                 }
+                                // ---- macro editor ----
+                                // One step per line. A list editor would need a
+                                // schema change and a lot of UI; text keeps the
+                                // value a plain string and stays editable.
+                                ColumnLayout {
+                                    visible: typeBox.currentText === "macro"
+                                    Layout.fillWidth: true; spacing: 4
+
+                                    ScrollView {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 110
+                                        clip: true
+                                        TextArea {
+                                            id: macroField
+                                            text: modelData.value
+                                            color: theme.text
+                                            font.family: "monospace"
+                                            font.pixelSize: 12
+                                            wrapMode: TextArea.NoWrap
+                                            placeholderText: "hotkey ctrl+c\nwait 200\nhotkey ctrl+v"
+                                            placeholderTextColor: theme.muted
+                                            background: Rectangle {
+                                                radius: 6; color: theme.panel2
+                                                border.color: macroField.activeFocus
+                                                              ? theme.accent : theme.line
+                                            }
+                                            onEditingFinished: backend.setActionSlot(
+                                                modelData.slot, "macro", text)
+                                        }
+                                    }
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: backend.describeMacro(macroField.text)
+                                            color: backend.macroProblems(macroField.text).length > 0
+                                                   ? theme.warn : theme.muted
+                                            font.pixelSize: 10
+                                        }
+                                        ActionButton {
+                                            label: "Apply"
+                                            onClicked: backend.setActionSlot(
+                                                modelData.slot, "macro", macroField.text)
+                                        }
+                                    }
+
+                                    Repeater {
+                                        model: backend.macroProblems(macroField.text)
+                                        delegate: Text {
+                                            required property string modelData
+                                            Layout.fillWidth: true
+                                            text: modelData; color: theme.warn
+                                            font.pixelSize: 10; wrapMode: Text.WordWrap
+                                        }
+                                    }
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: "Steps: hotkey · text · wait <ms> · scroll <dir> [n] "
+                                              + "· media · keyboard · command"
+                                        color: theme.muted; font.pixelSize: 10
+                                        wrapMode: Text.WordWrap
+                                    }
+                                }
+
                                 // hotkey helpers: record a live combo or pick a known one
                                 RowLayout {
                                     visible: typeBox.currentText === "hotkey"

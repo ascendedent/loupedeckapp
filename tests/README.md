@@ -27,3 +27,4 @@ the input backend is stubbed wherever a test would otherwise inject keystrokes.
 | `test_inputhealth.py` | input backend health reporting and runtime failure capture |
 | `test_buttons.py` | CT button defaults, workspace and keyboard action types |
 | `test_fn.py` | the fn layer: hold vs latch, secondary dispatch, stuck-layer guards |
+| `test_macro.py` | macro parsing, worker execution, serialisation, failure handling |

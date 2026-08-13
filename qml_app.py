@@ -18,6 +18,7 @@ from PySide6.QtQml import QQmlApplicationEngine
 
 import action_library
 import app_paths
+import macro
 import input_backend
 import settings as settings_mod
 import platform_env
@@ -192,6 +193,18 @@ class Backend(QObject):
         return [{"category": c, "label": l, "type": t, "value": v}
                 for (c, l, t, v) in self.ACTION_LIBRARY]
 
+    @Slot(str, result=str)
+    def describeMacro(self, text):
+        """'3 steps, 1 problem' for the editor, so a typo is visible without
+        having to press the button and notice nothing happened."""
+        return macro.describe(text)
+
+    @Slot(str, result="QStringList")
+    def macroProblems(self, text):
+        """Human-readable problems, one per bad line."""
+        _steps, errors = macro.parse(text)
+        return ["line %d: %s" % (lineno, msg) for lineno, msg in errors]
+
     @Slot(str, result="QVariantList")
     def filterLibrary(self, query):
         """Library entries matching `query`, or all of them when it is empty.
@@ -277,11 +290,23 @@ class Backend(QObject):
 
     # -- control selection + action editing (inspector) --------------------
     ACTION_TYPES = ["none", "command", "hotkey", "text", "scroll", "media",
-                    "keyboard", "workspace"]
+                    "keyboard", "workspace", "macro"]
 
     # Per-platform, from action_library: the applications differ by desktop.
     ACTION_LIBRARY = action_library.default_library()
 
+    @Slot(str, result=str)
+    def describeMacro(self, text):
+        """'3 steps, 1 problem' for the editor, so a typo is visible without
+        having to press the button and notice nothing happened."""
+        return macro.describe(text)
+
+    @Slot(str, result="QStringList")
+    def macroProblems(self, text):
+        """Human-readable problems, one per bad line."""
+        _steps, errors = macro.parse(text)
+        return ["line %d: %s" % (lineno, msg) for lineno, msg in errors]
+
     @Slot(str, result="QVariantList")
     def filterLibrary(self, query):
         """Library entries matching `query`, or all of them when it is empty.
@@ -367,7 +392,7 @@ class Backend(QObject):
 
     # -- control selection + action editing (inspector) --------------------
     ACTION_TYPES = ["none", "command", "hotkey", "text", "scroll", "media",
-                    "keyboard", "workspace"]
+                    "keyboard", "workspace", "macro"]
 
     # Ready-to-use actions for the left-panel library (category, label, type,
     # value). Dragged onto a control to bind it; templates (empty value) are

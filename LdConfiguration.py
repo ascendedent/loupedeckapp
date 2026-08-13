@@ -1,6 +1,7 @@
 import json, os
 import app_paths
 import input_backend
+import macro
 import virtual_keyboard
 from DeviceProfile import CT_EXTRA_BUTTONS, WHEEL_DISPLAY, WS_KEYS
 
@@ -431,6 +432,11 @@ class LdAction:
         input_backend.scroll(self.action, amount=n)
       elif self.a_type == "media":
         input_backend.media(self.action)
+      elif self.a_type == "macro":
+        # Runs on the macro worker, not here: a macro with waits in it would
+        # otherwise block the device's message thread for its whole duration.
+        # Never repeats, since a repeat would interleave copies of itself.
+        macro.run_text(self.action)
       elif self.a_type == "keyboard":
         # The desktop's own on-screen keyboard, not one we draw. Never
         # repeats: toggling N times would just flap it.
