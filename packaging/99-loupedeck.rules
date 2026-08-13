@@ -1,0 +1,15 @@
+# Loupedeck devices: let a desktop user open the serial port without root.
+#
+# Install:
+#   sudo cp packaging/99-loupedeck.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules && sudo udevadm trigger
+#
+# Then make sure you are in the group named below and log back in:
+#   sudo usermod -aG dialout "$USER"
+#
+# Some distributions use plugdev rather than dialout for this. Check which one
+# owns your other serial devices (ls -l /dev/ttyACM*) and match it here.
+
+SUBSYSTEM=="tty", ATTRS{idVendor}=="2ec2", ATTRS{idProduct}=="0003", GROUP="dialout", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="2ec2", ATTRS{idProduct}=="0004", GROUP="dialout", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="2ec2", ATTRS{idProduct}=="0006", GROUP="dialout", MODE="0660", TAG+="uaccess"

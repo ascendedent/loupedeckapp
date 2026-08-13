@@ -22,8 +22,25 @@ import os
 import shutil
 import sys
 
-# Directory containing this module: the bundled assets sit beside it.
-BUNDLED_DIR = os.path.dirname(os.path.abspath(__file__))
+def _find_bundled_dir():
+    """Where the shipped assets (`qml/`, `Images/`, `Profiles/`) actually are.
+
+    Running from a checkout they sit beside this module. Installed from a
+    wheel, the modules land in site-packages while the assets go to
+    `<prefix>/share/loupedeckapp`, because a flat module layout has no package
+    for them to travel inside. Checking for `qml/` rather than trusting either
+    location means the same code works both ways.
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    if os.path.isdir(os.path.join(here, "qml")):
+        return here
+    installed = os.path.join(sys.prefix, "share", "loupedeckapp")
+    if os.path.isdir(os.path.join(installed, "qml")):
+        return installed
+    return here          # let the caller fail with a path that says where it looked
+
+
+BUNDLED_DIR = _find_bundled_dir()
 
 # Set LOUPEDECKAPP_CONFIG_DIR to relocate user data (tests use it, and it gives
 # anyone an escape hatch from the per-OS default).

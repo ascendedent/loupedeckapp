@@ -521,11 +521,22 @@ exists.)*
 
 ### G. Packaging & distribution (M5 Linux first)
 
-- [ ] `pyproject.toml` + pinned deps (replace ad-hoc pip lines)
-- [ ] Ship udev rule snippet; document dialout/plugdev + ydotool
+- [x] `pyproject.toml` with a `loupedeckapp` entry point and `[device]` / `[x11]` extras
+- [x] Ship udev rule, ydotool socket drop-in and desktop entry in `packaging/`
+- [x] Automated tests (`tests/`, 157 checks): schema load/migrate, profile resolution,
+      tuning/dispatch, platform factories, installed-asset layout
 - [ ] **Flatpak** and/or **AppImage**
-- [ ] Minimal automated tests: schema load/migrate, profile resolve, label compose
 - [ ] Promote useful `scratch/` probes to `scripts/verify/` smoke checks
+
+**Assets in a flat layout.** The modules sit at the repo root rather than in a package directory,
+so `package-data` has nothing to attach to and the first wheel shipped the code with no `qml/`,
+`Images/` or `Profiles/` at all: it would have died on a missing `Main.qml`. They install as
+data-files under `<prefix>/share/loupedeckapp` instead, and `app_paths` locates them by looking for
+`qml/` beside the module first and under the prefix second, so a checkout and an install both work.
+Verified by installing the wheel into a clean venv.
+
+**Flatpak's obstacle is input, not packaging.** `ydotool` writes to `/dev/uinput`, which a sandboxed
+app cannot reach, so a bundle needs a host-side daemon or a portal that does not exist yet.
 
 ### H. Project independence
 

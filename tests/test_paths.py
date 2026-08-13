@@ -100,5 +100,31 @@ c.eq("migration does not re-seed once the user has any profile",
 c.eq("the deleted one stays deleted",
      os.path.exists(os.path.join(mig, "Profiles", "old.json")), False)
 
+# -- installed layout ----------------------------------------------------------
+# From a checkout the assets sit beside the module; installed from a wheel the
+# modules land in site-packages and the assets under <prefix>/share. The finder
+# looks for qml/ rather than trusting either location.
+saved_prefix = sys.prefix
+try:
+    beside = os.path.join(tmp, "checkout")
+    os.makedirs(os.path.join(beside, "qml"))
+    app_paths.__file__ = os.path.join(beside, "app_paths.py")
+    c.eq("assets beside the module win", app_paths._find_bundled_dir(), beside)
+
+    bare = os.path.join(tmp, "sitepackages")
+    os.makedirs(bare)
+    app_paths.__file__ = os.path.join(bare, "app_paths.py")
+    prefix = os.path.join(tmp, "prefix")
+    os.makedirs(os.path.join(prefix, "share", "loupedeckapp", "qml"))
+    sys.prefix = prefix
+    c.eq("otherwise the install prefix is used", app_paths._find_bundled_dir(),
+         os.path.join(prefix, "share", "loupedeckapp"))
+
+    sys.prefix = os.path.join(tmp, "nowhere")
+    c.eq("with neither present it reports where it looked",
+         app_paths._find_bundled_dir(), bare)
+finally:
+    sys.prefix = saved_prefix
+
 shutil.rmtree(tmp, ignore_errors=True)
 sys.exit(c.done())

@@ -124,41 +124,48 @@ git clone https://github.com/ascendedent/loupedeckapp
 cd loupedeckapp
 
 python3 -m venv .venv
-.venv/bin/pip install pyserial pillow pyside6
-.venv/bin/pip install "git+https://github.com/devleaks/python-loupedeck-live.git"
+.venv/bin/pip install -e ".[device]"
 
-# optional: X11 input fallback (not needed on Wayland)
-.venv/bin/pip install pyautogui python-xlib
+# optional: X11 input fallback (unnecessary on Wayland)
+.venv/bin/pip install -e ".[x11]"
 ```
+
+The `device` extra pulls the device library from git, since it is not on PyPI.
+Installing normally (`pip install ".[device]"`) puts a `loupedeckapp` command on your PATH and the
+assets under `<prefix>/share/loupedeckapp`; the app finds them either way.
 
 ### Device permissions
 
-Let your user reach the device without `sudo`. Create `/etc/udev/rules.d/99-loupedeck.rules`:
-
-```
-# Loupedeck CT (0003); use 0004 for the Live, 0006 for the Live S
-SUBSYSTEM=="tty", ATTRS{idProduct}=="0003", ATTRS{idVendor}=="2ec2", GROUP="dialout", MODE="0660"
-```
-
-Then add yourself to the group and re-login:
+Let your user reach the device without `sudo`. The rule covers all three models:
 
 ```bash
-sudo usermod -aG dialout "$USER"     # some distros use `plugdev`; match GROUP= above
+sudo cp packaging/99-loupedeck.rules /etc/udev/rules.d/
+sudo udevadm control --reload-rules && sudo udevadm trigger
+sudo usermod -aG dialout "$USER"     # some distros use `plugdev`; match the rule
 ```
+
+Log back in for the group change to apply.
 
 ### Wayland input (ydotool)
 
 ```bash
 sudo dnf install ydotool playerctl        # or your distro's package manager
-sudo systemctl enable --now ydotool       # runs ydotoold with access to /dev/uinput
+
+# ydotoold stays root to open /dev/uinput, but its socket has to be reachable
+# by you. This drop-in puts it somewhere predictable and hands it over:
+sudo mkdir -p /etc/systemd/system/ydotool.service.d
+sudo cp packaging/ydotool-user-socket.conf /etc/systemd/system/ydotool.service.d/override.conf
+sudo systemctl daemon-reload && sudo systemctl enable --now ydotool
 ```
 
-`input_backend` auto-discovers the ydotool socket and falls back to `xdotool` / `pyautogui` on X11.
+`input_backend` discovers that socket automatically, and falls back to `xdotool` / `pyautogui` on
+X11. See [`packaging/`](packaging/) for the files and what each one is for.
 
 ## Running
 
 ```bash
-.venv/bin/python qml_app.py
+loupedeckapp                  # if installed
+.venv/bin/python qml_app.py   # from a checkout
 
 # If Qt doesn't pick a platform on your session, set one explicitly:
 #   QT_QPA_PLATFORM=wayland .venv/bin/python qml_app.py     # or =xcb for XWayland

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Loupedeck Config
+GenericName=Loupedeck configuration
+Comment=Assign images, labels and actions to a Loupedeck CT, Live or Live S
+Exec=loupedeckapp
+Icon=loupedeckapp
+Terminal=false
+Categories=Settings;HardwareSettings;
+Keywords=loupedeck;macropad;shortcut;
+StartupNotify=true
