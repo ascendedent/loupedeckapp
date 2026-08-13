@@ -59,8 +59,17 @@ class Backend(QObject):
         self._focusSig.connect(self._on_focus_main, Qt.QueuedConnection)
 
     # -- lifecycle ---------------------------------------------------------
-    # Our own window, which is never a useful thing to bind.
+    # Our own window is never a useful thing to bind. It cannot be recognised
+    # by name: the class is whatever the toolkit reports, which is
+    # "Loupedeck Config" under XWayland but "python3" on native Wayland, and
+    # would be something else again once packaged. The PID is unambiguous.
     SELF_WM_CLASS = "loupedeck config"
+
+    def _is_self_window(self, wm_class):
+        pid = getattr(self._watcher, "last_pid", 0)
+        if pid and pid == os.getpid():
+            return True
+        return bool(wm_class) and wm_class.strip().lower() == self.SELF_WM_CLASS
 
     def start(self):
         # Supervised: connects when the device appears and reconnects after an
@@ -79,7 +88,7 @@ class Backend(QObject):
         self.stateChanged.emit()
 
     def _on_focus_main(self, wm_class, title):
-        if wm_class and wm_class.strip().lower() != self.SELF_WM_CLASS:
+        if wm_class and not self._is_self_window(wm_class):
             if wm_class != self._last_app:
                 self._last_app = wm_class
                 self.stateChanged.emit()      # refresh the bind button's label

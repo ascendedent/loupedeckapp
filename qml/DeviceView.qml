@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Effects
 
 // CT-accurate device mock that MIRRORS the loaded profile and lets you SELECT a
 // control (tap it) to edit in the right-hand inspector. Images come from
@@ -344,8 +345,12 @@ Item {
                     Repeater {
                         model: [
                             {l: "⌂", k: "home"}, {l: "↺", k: "undo"},
-                            {l: "⌨", k: "keyboard"}, {l: "↵", k: "enter"},
-                            {l: "fn", k: "fnL"}, {l: "▤", k: "save"}
+                            // save sits in the middle row, keyboard below it;
+                            // and fn is the *second* column on this cluster.
+                            {l: "save", k: "save"}, {l: "↵", k: "enter"},
+                            // "⌨" (U+2328) has no glyph in the UI font and
+                            // renders as a box, so this one is spelled out.
+                            {l: "kbd", k: "keyboard"}, {l: "fn", k: "fnL"}
                         ]
                         RoundBtn { label: modelData.l; ctlKey: modelData.k
                             active: dv.bound(modelData.k); ledColor: dv.led(modelData.k) }
@@ -375,10 +380,39 @@ Item {
                         clip: true
                         Behavior on border.color { ColorAnimation { duration: 130 } }
                         TapHandler { onTapped: backend.selectControl("wheel") }
-                        Image {
-                            anchors.centerIn: parent; width: 106; height: 106
-                            source: dv.img("wheel"); visible: source != ""
-                            fillMode: Image.PreserveAspectFit; asynchronous: true
+                        // The wheel screen is physically round, so the preview
+                        // masks to a circle and fills it. Rectangle.clip only
+                        // clips to the bounding box, not the radius, so a plain
+                        // clip would still show square corners; and the image
+                        // used to be inset to 106px, which drew a small square
+                        // floating in a black circle.
+                        Item {
+                            id: wheelImageArea
+                            anchors.fill: parent
+                            anchors.margins: 2       // stay inside the border
+                            visible: dv.img("wheel") != ""
+                            layer.enabled: true
+                            layer.effect: MultiEffect {
+                                maskEnabled: true
+                                maskSource: wheelMask
+                            }
+                            Image {
+                                anchors.fill: parent
+                                source: dv.img("wheel")
+                                fillMode: Image.PreserveAspectCrop
+                                asynchronous: true
+                            }
+                        }
+                        Item {
+                            id: wheelMask
+                            anchors.fill: wheelImageArea
+                            layer.enabled: true
+                            visible: false
+                            Rectangle {
+                                anchors.fill: parent
+                                radius: width / 2
+                                color: "black"
+                            }
                         }
                         Text {
                             anchors.centerIn: parent; text: "WHEEL"
@@ -422,7 +456,9 @@ Item {
                     Repeater {
                         model: [
                             {l: "A", k: "a"}, {l: "B", k: "b"}, {l: "C", k: "c"},
-                            {l: "D", k: "d"}, {l: "E", k: "e"}, {l: "fn", k: "fnR"}
+                            {l: "D", k: "d"},
+                            // and the *first* column on the right cluster
+                            {l: "fn", k: "fnR"}, {l: "E", k: "e"}
                         ]
                         RoundBtn { label: modelData.l; ctlKey: modelData.k
                             active: dv.bound(modelData.k); ledColor: dv.led(modelData.k) }

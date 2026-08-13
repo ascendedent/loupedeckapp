@@ -60,6 +60,10 @@ class KdotoolWatcher(WindowWatcher):
         self._thread = None
         self._stop = threading.Event()
         self._last_class = None
+        # PID of the window seen in the most recent poll. Callers use it to
+        # recognise their own window, which cannot be done by name: the class
+        # is the toolkit's ("python3" on native Wayland), not the app's.
+        self.last_pid = 0
 
     def available(self):
         return bool(self.bin)
@@ -72,6 +76,10 @@ class KdotoolWatcher(WindowWatcher):
             return ("", "")
         wm_class = _run([self.bin, "getwindowclassname", wid])
         title = _run([self.bin, "getwindowname", wid])
+        try:
+            self.last_pid = int(_run([self.bin, "getwindowpid", wid]) or 0)
+        except (TypeError, ValueError):
+            self.last_pid = 0
         return (wm_class, title)
 
     def _loop(self):

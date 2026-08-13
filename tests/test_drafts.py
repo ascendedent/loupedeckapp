@@ -83,6 +83,35 @@ b._on_focus_main("firefox", "")        # firefox maps to beta, already active
 c.eq("no hold when the target is already active", get("pendingProfile"), "")
 c.eq("and the draft is untouched", get("dirty"), True)
 
+# -- our own window is never offered as a binding target ----------------------
+# The class cannot identify us: it is "Loupedeck Config" under XWayland but
+# "python3" on native Wayland. The PID can.
+class FakeWatcher:
+    last_pid = 0
+    def start(self): pass
+    def stop(self): pass
+    def poll_once(self): return ("", "")
+
+b._watcher = FakeWatcher()
+b._last_app = ""
+
+b._watcher.last_pid = os.getpid()
+b._on_focus_main("python3", "Loupedeck Config")
+c.eq("our own window is skipped even when the class looks foreign",
+     get("focusedApp"), "")
+
+b._on_focus_main("Loupedeck Config", "Loupedeck Config")
+c.eq("and skipped by name too, when the pid is unavailable", get("focusedApp"), "")
+
+b._watcher.last_pid = os.getpid() + 1
+b._on_focus_main("firefox", "a page")
+c.eq("another app is recorded", get("focusedApp"), "firefox")
+
+b._watcher.last_pid = 0            # pid unknown: fall back to the name check
+b._on_focus_main("python3", "some other python app")
+c.eq("with no pid, an unrelated python app is not mistaken for us",
+     get("focusedApp"), "python3")
+
 b.revert()
 b._ctl.close()
 shutil.rmtree(tmp, ignore_errors=True)

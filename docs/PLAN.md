@@ -558,6 +558,13 @@ held profile, because a switch that silently fails to happen is worse than one t
 - [x] Ship udev rule, ydotool socket drop-in and desktop entry in `packaging/`
 - [x] Automated tests (`tests/`, 245 checks): schema load/migrate, profile resolution,
       tuning/dispatch, platform factories, installed-asset layout
+- [ ] **A properly installable application**, not a checkout you run by hand: a real install
+      (Flatpak and/or AppImage, plus a distro-friendly path), the desktop entry registered, an
+      icon, and first-run setup that does not require reading the README.
+- [ ] **System tray**: run in the tray with the window closable without quitting, since the app is
+      only useful while it is running. Wants: show/hide, current profile, dynamic-mode toggle,
+      quit. Note this interacts with the close-with-unsaved-changes guard, which should minimise
+      to tray rather than prompt when tray mode is on.
 - [ ] **Flatpak** and/or **AppImage**
 - [ ] Promote useful `scratch/` probes to `scripts/verify/` smoke checks
 

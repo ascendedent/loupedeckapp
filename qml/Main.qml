@@ -624,12 +624,47 @@ ApplicationWindow {
 
         // ---------- RIGHT: profiles + inspector ----------
         Rectangle {
+            id: rightPanel
             Layout.preferredWidth: 300; Layout.fillHeight: true
             radius: theme.radius; color: theme.panel; border.color: theme.line
+            // Without this the column lays out at its natural height and draws
+            // straight over the window edge when the window is made smaller.
+            clip: true
+
+            // Profiles is a big fixed block; with a control selected it leaves
+            // the inspector a sliver. Collapse it when the user starts editing
+            // a control, expand again when they clear the selection.
+            property bool profilesCollapsed: false
+            Connections {
+                target: backend
+                function onSelectionChanged() {
+                    rightPanel.profilesCollapsed = backend.selectedControl !== ""
+                }
+            }
+
             ColumnLayout {
                 anchors.fill: parent; anchors.margins: 12; spacing: 10
-                Text { text: "Profiles"; color: theme.text; font.pixelSize: 15; font.bold: true }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Text {
+                        text: "Profiles"; color: theme.text
+                        font.pixelSize: 15; font.bold: true
+                        Layout.fillWidth: true
+                    }
+                    Text {
+                        text: rightPanel.profilesCollapsed
+                              ? backend.activeProfile + "  ▸" : "▾"
+                        color: theme.muted; font.pixelSize: 12
+                    }
+                    HoverHandler { cursorShape: Qt.PointingHandCursor }
+                    TapHandler {
+                        onTapped: rightPanel.profilesCollapsed = !rightPanel.profilesCollapsed
+                    }
+                }
+
                 ListView {
+                    visible: !rightPanel.profilesCollapsed
                     Layout.fillWidth: true; Layout.preferredHeight: 150; clip: true; spacing: 4
                     model: backend.profiles
                     delegate: Rectangle {
@@ -656,6 +691,7 @@ ApplicationWindow {
                 // on one line, and a RowLayout pushed the whole column wider
                 // than its parent instead of wrapping.
                 Flow {
+                    visible: !rightPanel.profilesCollapsed
                     Layout.fillWidth: true
                     spacing: 6
                     ActionButton {
@@ -706,8 +742,12 @@ ApplicationWindow {
                 }
 
                 // -------- Dynamic mode: focused app -> profile --------
-                Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
+                Rectangle {
+                    visible: !rightPanel.profilesCollapsed
+                    Layout.fillWidth: true; height: 1; color: theme.line
+                }
                 ColumnLayout {
+                    visible: !rightPanel.profilesCollapsed
                     Layout.fillWidth: true; spacing: 6
 
                     RowLayout {
