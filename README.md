@@ -87,6 +87,20 @@ middling speeds.
 - JSON profiles (schema v5, backward compatible with older profiles; unknown fields
   written by a newer build survive a load/save round-trip).
 
+### Where your data lives
+
+| | |
+|---|---|
+| Profiles you edit, and app bindings | `~/.config/loupedeckapp/` (`$XDG_CONFIG_HOME` is respected) |
+| Profiles and images shipped with the app | beside the code, never written to |
+
+Profiles resolve **your copy first, then the bundled one**, so anything shipped with the app
+appears in the list and editing it writes a copy rather than modifying the installation. Delete
+that copy and the original comes back. Profiles left in the source tree by earlier versions are
+copied across on first run, and the originals are left alone.
+
+Set `LOUPEDECKAPP_CONFIG_DIR` to put user data somewhere else.
+
 ## Requirements
 
 - **Linux**; Python 3 (developed on Fedora 44 / Python 3.14, KDE Plasma on **Wayland**).
@@ -199,6 +213,7 @@ The core is Qt-free and layered, so the UI sits on top of reusable services:
 | `window_watcher` / `profile_manager` | Focused-app detection + per-app profile bindings (dynamic mode). |
 | `device_controller` | Connect, render a profile to the device, route events to actions, and dispatch rotate events through a coalescing queue. |
 | `LdConfiguration` | Profile data model + JSON persistence (schema v5), incl. encoder tuning. |
+| `app_paths` | Bundled assets vs. user data; profile resolution and legacy migration. |
 | `qml_app.py` + `qml/` | The PySide6 / QML front-end. |
 
 See [`docs/PLAN.md`](docs/PLAN.md) for the full design notes and roadmap.
@@ -207,8 +222,7 @@ See [`docs/PLAN.md`](docs/PLAN.md) for the full design notes and roadmap.
 
 Agreed direction (detail in [`docs/PLAN.md`](docs/PLAN.md)):
 
-1. **Consistency**: `AppPaths` (user-writable profile location); explicit platform factories for
-   input / focus / shortcut catalogs.
+1. **Consistency**: explicit platform factories for input / focus / shortcut catalogs.
 2. **Ship Linux**: pinned deps; Flatpak and/or AppImage; udev + ydotool docs; starter profiles.
 3. **Product depth**: profile import/export, brightness and reconnect handling, Live/Live S mirror
    fidelity, macros, and UI polish.
@@ -221,6 +235,9 @@ interval), a scroll action, and a coalescing dispatch queue that keeps a fast sp
 after your hand stops. Plus the QML UI reaching parity and the legacy PyQt5 tree being
 removed: binding a focused app to a profile, profile
 create/duplicate/rename/delete, and a working library search.
+
+Plus a user-writable config location, so the app no longer stores your profiles inside its own
+source tree.
 
 Smaller known gaps: encoder tuning is scoped per workspace rather than per profile, and the
 inspector exposes the speed presets but not the raw integers behind them.

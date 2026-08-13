@@ -502,8 +502,11 @@ ApplicationWindow {
                     }
                     ActionButton {
                         label: "Delete"
-                        // never delete the last profile: nothing would be left to load
-                        enabledFlag: backend.activeProfile !== "(none)" && backend.profiles.length > 1
+                        // never the last one (nothing would be left to load), and
+                        // never a profile that ships with the app
+                        enabledFlag: backend.activeProfile !== "(none)"
+                                     && backend.profiles.length > 1
+                                     && backend.activeProfileIsUser
                         onClicked: {
                             deleteDialog.target = backend.activeProfile
                             deleteDialog.open()

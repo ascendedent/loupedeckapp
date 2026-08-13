@@ -7,7 +7,8 @@ it just *resolves* a focused window's ``wm_class`` to a profile name, and the ap
 (the QML Backend) performs the actual switch. Pairs with
 `window_watcher.WindowWatcher`.
 
-Persisted to ``dynamic_profiles.json`` at the repo root:
+Persisted to ``dynamic_profiles.json`` in the user config directory
+(see ``app_paths``):
 
     {
       "dynamic_mode": true,
@@ -21,6 +22,8 @@ Persisted to ``dynamic_profiles.json`` at the repo root:
 import json
 import os
 
+# Callers normally pass app_paths.dynamic_profiles_path(); this bare default is
+# only a fallback for a ProfileManager built without one.
 DEFAULT_PATH = "dynamic_profiles.json"
 
 

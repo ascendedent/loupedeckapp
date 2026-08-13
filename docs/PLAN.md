@@ -62,7 +62,7 @@ already Qt-free, so nothing outside those four files referenced them.
 
 ### Known gaps (ordered by agreed priority)
 
-1. **Platform adapters + paths**: explicit factories; user-writable profile location (`AppPaths`).
+1. **Platform adapters**: explicit factories for input / focus / shortcut catalogs.
 2. **Ship Linux (M5)**: pin deps, packaging, udev/ydotool docs, starter profiles.
 3. **Functionality**: profile import/export, device polish, Live S fidelity, macros.
 4. **UI polish**: workspace chrome, dirty guards, inspector structure, empty states.
@@ -124,14 +124,25 @@ already Qt-free, so nothing outside those four files referenced them.
 
 ### 4.3 Paths (`AppPaths`)
 
+*(Implemented in `app_paths`.)*
+
 | Role | Dev (repo) | Linux install | macOS |
 |------|------------|---------------|--------|
 | Bundled assets (starter profiles, default images) | repo `Profiles/`, `Images/` | package share dir | `.app` Resources |
-| User profiles + dynamic bindings | `~/.config/loupedeckapp/` (migrate from repo-local when present) | same | `~/Library/Application Support/LoupedeckApp/` |
+| User profiles + dynamic bindings | `~/.config/loupedeckapp/` (`$XDG_CONFIG_HOME` honoured) | same | `~/Library/Application Support/LoupedeckApp/` |
 
-`LdConfiguration` no longer uses `./Profiles/...`: paths anchor to the module via `PROFILES_DIR`,
-so the app works from any working directory. Repointing that one attribute is what `AppPaths`
-will do when the user-writable location lands.
+Profiles resolve **user first, then bundled**, and writes always land in the user directory. That
+one rule gives starter profiles, copy-on-write editing of them, and recovery by deleting the user
+copy, without a separate "restore defaults" mechanism. Deleting is refused for a profile that has
+no user copy, since the app must not remove files from its own installation.
+
+`migrate_legacy()` copies pre-AppPaths data out of the source tree once, and only seeds profiles
+when the user has **none** at all: copying them individually would resurrect a profile the user had
+deliberately deleted. It copies rather than moves, so an existing checkout keeps working.
+
+`LOUPEDECKAPP_CONFIG_DIR` overrides the location (the tests use it).
+
+
 
 ### 4.4 Profile match schema (cross-platform)
 
@@ -172,7 +183,7 @@ Future schema bumps only when needed (e.g. macros, named workspaces, side-displa
 ### A. Consistency & single product UI ✅ direction locked
 
 - [x] Qt-free core + QML front-end driving `DeviceController`
-- [ ] **AppPaths**: user dir + bundled assets; fix all profile/image I/O
+- [x] **AppPaths**: user dir + bundled assets; all profile/image I/O routed through it
 - [ ] **Platform factory stubs**: re-home existing Linux backends behind `get_input_backend()` /
       `get_window_watcher()` / OS action defaults (behaviour unchanged on KDE)
 - [ ] QML: **bind focused app → profile**, list/edit/remove bindings, show current focus class
@@ -550,7 +561,7 @@ adapters are not reworked after installers exist.
 | **M2: Input** *(done)* | Actions on Wayland | input_backend | Hotkey/text into native Wayland clients |
 | **M3: Profiles** *(done)* | Per-app dynamic switch | schema, ProfileManager, kdotool | Live Chrome→blue / else→red verified |
 | **M4: QML UI** *(feature-complete; polish remains)* | Modern editor | Shell, mirror, inspector, draft, copy/paste, library DnD, submenus, labels/LEDs/bg | ✅ listed features work on-device; remaining items → Phase A / F |
-| **Phase A: Consistency** *(in progress)* | One product, portable core | ~~QML bind-app + profile CRUD, search, remove PyQt5~~ done; AppPaths, platform factories, dirty guards remain | QML alone is enough to use daily; no CWD-relative profiles; Linux behaviour unchanged |
+| **Phase A: Consistency** *(in progress)* | One product, portable core | ~~QML bind-app + profile CRUD, search, remove PyQt5, AppPaths~~ done; platform factories and dirty guards remain | QML alone is enough to use daily; profiles outside the source tree; Linux behaviour unchanged |
 | **M5: Ship Linux** | Installable by non-devs | Workstream G; starter profiles; udev/ydotool docs; optional defork | Flatpak and/or AppImage on clean KDE; pinned deps; smoke tests green |
 | **Phase C depth** *(ongoing after M5)* | Product depth | Macros, adjustments, side-display modes, Live S view, GNOME watcher optional, UI polish (F) | Documented per feature |
 | **M6: macOS** | Native Mac app, **10.14+** | M6a→M6d; Workstream C mac + I | CT configure + actions + optional dynamic mode from a 10.14-compatible `.app` |

@@ -17,6 +17,7 @@ from PySide6.QtCore import QObject, Property, Signal, Slot, QUrl, Qt
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
+import app_paths
 import window_watcher
 import system_shortcuts
 from profile_manager import ProfileManager
@@ -25,8 +26,6 @@ from LdConfiguration import LdConfiguration
 from DeviceProfile import WHEEL_DISPLAY, WS_KEYS
 from LdConfiguration import (ROTATE_CONTROLS, TUNING_PRESETS, DEFAULT_TUNING,
                              preset_to_tuning, tuning_to_preset)
-
-APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 class Backend(QObject):
@@ -46,7 +45,7 @@ class Backend(QObject):
         # "Loupedeck Config"; remember what you were actually in instead.
         self._last_app = ""
         self._ctl = DeviceController(on_state=lambda kind: self._marshal.emit(kind))
-        self._pm = ProfileManager(os.path.join(APP_DIR, "dynamic_profiles.json"))
+        self._pm = ProfileManager(app_paths.dynamic_profiles_path())
         self._watcher = window_watcher.get_watcher(
             on_change=lambda c, t: self._focusSig.emit(c, t))
         self._marshal.connect(self._on_state_main, Qt.QueuedConnection)
@@ -114,8 +113,7 @@ class Backend(QObject):
 
     @Property("QStringList", notify=stateChanged)
     def profiles(self):
-        files = glob.glob(os.path.join(APP_DIR, "Profiles", "*.json"))
-        return sorted(os.path.splitext(os.path.basename(f))[0] for f in files)
+        return app_paths.list_profiles()
 
     @Property("QStringList", constant=True)
     def actionCategories(self):
@@ -185,8 +183,7 @@ class Backend(QObject):
         for key, path in menu.images.items():
             if not path:
                 continue
-            ap = path if os.path.isabs(path) else os.path.join(APP_DIR, path)
-            out[key] = QUrl.fromLocalFile(ap).toString()
+            out[key] = QUrl.fromLocalFile(app_paths.asset_path(path)).toString()
         return out
 
     @Property("QVariantMap", notify=stateChanged)
@@ -743,7 +740,8 @@ class Backend(QObject):
         return name
 
     def _profile_path(self, name):
-        return os.path.join(APP_DIR, "Profiles", name + ".json")
+        """Where a profile *would* be read from, user copy preferred."""
+        return app_paths.profile_read_path(name)
 
     @Property("QStringList", constant=True)
     def profileNameRules(self):
@@ -767,7 +765,7 @@ class Backend(QObject):
         if not clean or os.path.exists(self._profile_path(clean)):
             return
         cfg = LdConfiguration(profile=clean)
-        with open(self._profile_path(clean), "w") as f:
+        with open(app_paths.profile_write_path(clean), "w") as f:
             json.dump(cfg.to_JSON(), f, indent=True)
         self._ctl.load_profile(clean)
         self.stateChanged.emit()
@@ -786,7 +784,7 @@ class Backend(QObject):
         with open(src) as f:
             data = json.load(f)
         data["profile"] = clean
-        with open(self._profile_path(clean), "w") as f:
+        with open(app_paths.profile_write_path(clean), "w") as f:
             json.dump(data, f, indent=True)
         self._ctl.load_profile(clean)
         self.stateChanged.emit()
@@ -796,15 +794,18 @@ class Backend(QObject):
         clean = self._clean_profile_name(name)
         if not clean or not old or clean == old:
             return
-        src, dst = self._profile_path(old), self._profile_path(clean)
-        if not os.path.exists(src) or os.path.exists(dst):
+        src = self._profile_path(old)
+        if not os.path.exists(src) or os.path.exists(self._profile_path(clean)):
             return
         with open(src) as f:
             data = json.load(f)
         data["profile"] = clean
-        with open(dst, "w") as f:
+        with open(app_paths.profile_write_path(clean), "w") as f:
             json.dump(data, f, indent=True)
-        os.remove(src)
+        # Only a user copy can be removed; a bundled original stays put, so a
+        # renamed starter profile leaves the original still available.
+        if app_paths.is_user_profile(old):
+            os.remove(app_paths.profile_write_path(old))
         self._repoint_bindings(old, clean)
         if self._ctl.config.profile == old:
             self._ctl.load_profile(clean)
@@ -816,10 +817,12 @@ class Backend(QObject):
         dynamic mode cannot resolve to a profile that no longer exists."""
         if not name:
             return
-        path = self._profile_path(name)
-        if not os.path.exists(path):
+        if not app_paths.is_user_profile(name):
+            # Nothing writable to delete: this is a bundled profile, which the
+            # app must not remove from its own installation.
+            print("profiles: '%s' ships with the app and cannot be deleted" % name)
             return
-        os.remove(path)
+        os.remove(app_paths.profile_write_path(name))
         self._repoint_bindings(name, None)
         if self._ctl.config.profile == name:
             remaining = self.profiles
@@ -854,6 +857,12 @@ class Backend(QObject):
                 "profile": b.get("profile", "")}
                for b in self._pm.app_profiles]
         return sorted(out, key=lambda b: b["app"].lower())
+
+    @Property(bool, notify=stateChanged)
+    def activeProfileIsUser(self):
+        """False for a profile that ships with the app: it can be edited (which
+        writes a user copy) but never deleted from the installation."""
+        return app_paths.is_user_profile(self._ctl.config.profile or "")
 
     @Property(str, notify=stateChanged)
     def defaultProfile(self):
@@ -918,10 +927,14 @@ class Backend(QObject):
 def main():
     app = QGuiApplication(sys.argv)
     app.setApplicationName("Loupedeck Config")
+    moved = app_paths.migrate_legacy()
+    if moved:
+        print("migrated to %s: %s" % (app_paths.user_dir(), ", ".join(moved)))
+    print(app_paths.describe())
     engine = QQmlApplicationEngine()
     backend = Backend()
     engine.rootContext().setContextProperty("backend", backend)
-    engine.load(QUrl.fromLocalFile(os.path.join(APP_DIR, "qml", "Main.qml")))
+    engine.load(QUrl.fromLocalFile(app_paths.asset_path(os.path.join("qml", "Main.qml"))))
     if not engine.rootObjects():
         sys.exit("Failed to load QML")
     app.aboutToQuit.connect(backend.shutdown)
