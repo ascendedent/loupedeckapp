@@ -145,6 +145,13 @@ middling speeds.
   dynamic mode wants to switch profile mid-edit it waits (shown in the top bar) rather than
   interrupting with a dialog or losing the work.
 - **Copy / paste** a control's entire function onto another compatible control.
+- **Name your workspaces**. The header shows the name of the one on the device and falls back to
+  "Workspace 3"; eight numbered keys say nothing about what is on them.
+- **Switch workspace from the app** by clicking a round key or pressing `Ctrl+1`..`Ctrl+8`, rather
+  than reaching over to the device.
+- **Keyboard shortcuts**: `Ctrl+S` save, `Ctrl+R` revert, `Ctrl+F` search actions, `Ctrl+C` /
+  `Ctrl+V` copy and paste a control, `Esc` leave a submenu or clear the selection. They stay out of
+  the way while you are typing in a field.
 - **Import / export** profiles as JSON. Importing checks the file before adding it, and never
   overwrites an existing profile: a name that is taken gets a numbered suffix.
 - **Dynamic mode**: switches the active profile when the focused desktop app changes (KDE Wayland,
@@ -154,7 +161,7 @@ middling speeds.
   re-check button.
 - **Survives unplugging**: the app connects when the device appears and reconnects when it comes
   back, returning to the workspace you were on. No restart needed.
-- JSON profiles (schema v6, backward compatible with older profiles; unknown fields
+- JSON profiles (schema v7, backward compatible with older profiles; unknown fields
   written by a newer build survive a load/save round-trip).
 
 ### Where your data lives

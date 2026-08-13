@@ -12,6 +12,14 @@ Each file prints one line per check and exits non-zero if any failed. They need
 no Loupedeck device: `DeviceController` is constructed without connecting, and
 the input backend is stubbed wherever a test would otherwise inject keystrokes.
 
+`test_ui.py` is the one exception to "no Qt": it loads `Main.qml` into an
+offscreen window to check that a control is wired to the slot it claims to
+call, which nothing below the UI can see. It forces `QT_QPA_PLATFORM=offscreen`
+and drives keys through Qt, so it never puts a window on the desktop and no
+other application can receive its input. Driving the UI by clicking at screen
+coordinates is not an option: the keystrokes land wherever the pointer actually
+went, which on a multi-monitor desktop is not where the arithmetic said.
+
 | File | Covers |
 |------|--------|
 | `test_tuning.py` | schema v5 tuning: normalisation, presets, persistence, per-type repeat |
@@ -28,3 +36,6 @@ the input backend is stubbed wherever a test would otherwise inject keystrokes.
 | `test_buttons.py` | CT button defaults, workspace and keyboard action types |
 | `test_fn.py` | the fn layer: hold vs latch, secondary dispatch, stuck-layer guards |
 | `test_macro.py` | macro parsing, worker execution, serialisation, failure handling |
+| `test_models.py` | per-model control inventory (CT / Live / Live S) and the model override |
+| `test_workspaces.py` | schema v7 workspace names, switching, and the label fallback |
+| `test_ui.py` | the real QML offscreen: control-to-slot wiring and keyboard shortcuts |

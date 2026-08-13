@@ -1,3 +1,4 @@
+import QtQml
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
@@ -12,6 +13,44 @@ ApplicationWindow {
     minimumHeight: 600
     title: "Loupedeck Config"
     color: theme.bg
+
+    // ---- keyboard shortcuts ----------------------------------------------
+    // Text fields keep the editing keys: a Shortcut is application-wide, so
+    // without this guard Ctrl+C in the search box would copy a device control
+    // instead of the text, and Esc would clear the selection instead of the
+    // field. TextInput and TextEdit both carry inputMethodComposing; nothing
+    // else in the window does.
+    readonly property bool typing: root.activeFocusItem !== null
+        && root.activeFocusItem.hasOwnProperty("inputMethodComposing")
+
+    Shortcut { sequences: [StandardKey.Save]; onActivated: if (backend.dirty) backend.save() }
+    Shortcut { sequence: "Ctrl+R"; onActivated: if (backend.dirty) backend.revert() }
+    Shortcut { sequences: [StandardKey.Find]; onActivated: librarySearch.forceActiveFocus() }
+    Shortcut {
+        sequences: [StandardKey.Copy]; enabled: !root.typing
+        onActivated: if (backend.selectedControl !== "") backend.copyControl()
+    }
+    Shortcut {
+        sequences: [StandardKey.Paste]; enabled: !root.typing && backend.canPaste
+        onActivated: backend.pasteControl()
+    }
+    Shortcut {
+        sequences: [StandardKey.Cancel]; enabled: !root.typing
+        onActivated: backend.menuDepth > 0 ? backend.goBack() : backend.deselect()
+    }
+    // Ctrl+1..8 puts a workspace on the device, so editing workspace 5 does not
+    // mean reaching over to press the physical button. Instantiator rather than
+    // Repeater because a Shortcut is not an Item and has nothing to be laid out
+    // in; the count follows the model, so a Live S gets four of these.
+    Instantiator {
+        model: backend.workspaceButtons
+        delegate: Shortcut {
+            required property int index
+            required property string modelData
+            sequence: "Ctrl+" + (index + 1)
+            onActivated: backend.showWorkspace(modelData)
+        }
+    }
 
     FileDialog {
         id: imageDialog
@@ -37,6 +76,33 @@ ApplicationWindow {
         title: "Label bar colour for " + backend.selectedLabel
         onAccepted: backend.setLabel(backend.selectedControl, labelField.text,
             labelPos.currentText, labelMode.currentText, selectedColor.toString())
+    }
+
+    Dialog {
+        id: wsNameDialog
+        anchors.centerIn: Overlay.overlay
+        modal: true
+        width: 360
+        title: "Name this workspace"
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        onOpened: { wsNameField.text = backend.workspaceName; wsNameField.forceActiveFocus() }
+        onAccepted: backend.setWorkspaceName(backend.selectedWs, wsNameField.text)
+        ColumnLayout {
+            width: parent.width
+            spacing: 8
+            TextField {
+                id: wsNameField
+                objectName: "wsNameField"
+                Layout.fillWidth: true
+                placeholderText: "Streaming, Editing, ..."
+                onAccepted: wsNameDialog.accept()
+            }
+            Text {
+                Layout.fillWidth: true
+                text: "Leave blank to go back to the number. Saved with the profile."
+                color: theme.muted; font.pixelSize: 11; wrapMode: Text.WordWrap
+            }
+        }
     }
 
     // ---- import / export --------------------------------------------------
@@ -346,6 +412,30 @@ ApplicationWindow {
                         visible: backend.dirty }   // unsaved-changes dot
                     Text { text: backend.activeProfile; color: theme.text; font.pixelSize: 13 }
                 }
+            }
+
+            // Which of the eight workspaces is on the device. Numbered
+            // buttons alone say nothing about what is on them, so this shows
+            // the name when one has been given and can set one.
+            Rectangle {
+                Layout.preferredHeight: 34
+                Layout.preferredWidth: Math.min(190, wsLabel.implicitWidth + 26)
+                radius: theme.radius
+                color: wsHover.hovered ? theme.cell : theme.panel2
+                border.color: theme.line
+                Behavior on color { ColorAnimation { duration: 120 } }
+                Text {
+                    id: wsLabel
+                    anchors.centerIn: parent
+                    width: parent.width - 20
+                    text: backend.workspaceLabel
+                    color: theme.text; font.pixelSize: 13
+                    horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight
+                }
+                HoverHandler { id: wsHover; cursorShape: Qt.PointingHandCursor }
+                TapHandler { onTapped: wsNameDialog.open() }
+                ToolTip.visible: wsHover.hovered
+                ToolTip.text: "Rename this workspace"
             }
 
             // save / revert staged edits
@@ -1492,6 +1582,32 @@ ApplicationWindow {
                                     text: "Off"; enabled: backend.selectedBg !== ""
                                     onClicked: backend.setBg(backend.selectedControl, "")
                                 }
+                            }
+                        }
+
+                        // Workspace name (the eight round keys). Same field as
+                        // the header chip, reachable from wherever you are.
+                        ColumnLayout {
+                            visible: backend.selectedIsWorkspace
+                            Layout.fillWidth: true; spacing: 6
+                            Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
+                            Text { text: "Workspace name"; color: theme.muted; font.pixelSize: 12 }
+                            TextField {
+                                id: wsInspectorName
+                                objectName: "wsInspectorName"   // lets UI checks drive it
+                                Layout.fillWidth: true
+                                text: backend.workspaceNameOf(backend.selectedControl)
+                                placeholderText: "Unnamed"
+                                color: theme.text
+                                placeholderTextColor: theme.muted
+                                font.pixelSize: 13
+                                leftPadding: 8
+                                background: Rectangle {
+                                    radius: theme.radius; color: theme.panel2
+                                    border.color: wsInspectorName.activeFocus ? theme.accent : theme.line
+                                }
+                                onEditingFinished:
+                                    backend.setWorkspaceName(backend.selectedControl, text)
                             }
                         }
 

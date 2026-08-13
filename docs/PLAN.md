@@ -166,9 +166,10 @@ Exact match preferred; then case-insensitive substring (existing behaviour for `
 
 ### 4.5 Config schema
 
-**Current:** schema **v6** (actions, fn_actions, images, labels, led_colors, bg_colors, tuning; CT
-dial/wheel/buttons). Older profiles load with migration-by-overlay (missing keys default to
-unbound).
+**Current:** schema **v7** (actions, fn_actions, images, labels, led_colors, bg_colors, tuning, a
+per-workspace `name`; CT dial/wheel/buttons). Older profiles load with migration-by-overlay
+(missing keys default to unbound). Touch keys are stored for five columns whatever the device, so a
+profile written on a CT opens on a Live S with its fifth column bindable.
 
 **v5 (landed):** a per-workspace `tuning` map for rotary controls (§5.D.1), keyed like the existing
 `labels` / `led_colors` / `bg_colors` maps so the same overlay migration applies. `LdAction` gained
@@ -176,7 +177,10 @@ only an optional `repeat` argument on `execute()`. Entries are keyed by *control
 `dial`), not by rotate slot, and pass through `normalize_tuning()` on load so a partial or
 hand-edited entry can never reach dispatch.
 
-Future schema bumps only when needed (e.g. macros, named workspaces, side-display mode).
+**v7 (landed):** an optional `name` per workspace. Absent in older profiles, which read back as
+unnamed and display as "Workspace <n>".
+
+Future schema bumps only when needed (e.g. side-display mode).
 
 ---
 
@@ -599,9 +603,9 @@ held profile, because a switch that silently fails to happen is worse than one t
 
 - [x] Dark theme, three columns, inspector, Save/Revert, copy/paste, submenus
 - [x] Functional library search (matches value and type as well as label)
-- [ ] Workspace name in header
+- [x] Workspace name in header
 - [x] Unsaved-draft guards on every path that would discard one
-- [ ] Keyboard shortcuts (Ctrl/Cmd+S, copy/paste control, Esc)
+- [x] Keyboard shortcuts (Ctrl/Cmd+S, copy/paste control, Esc, Ctrl+1..8)
 - [ ] Toasts / empty states / first-run drag-drop tip
 - [ ] Inspector collapsible sections (Action / Appearance / Advanced)
 - [ ] Optional later: split fat `Backend` QObject; photoreal device chrome
@@ -610,8 +614,9 @@ held profile, because a switch that silently fails to happen is worse than one t
 
 - [x] `pyproject.toml` with a `loupedeckapp` entry point and `[device]` / `[x11]` extras
 - [x] Ship udev rule, ydotool socket drop-in and desktop entry in `packaging/`
-- [x] Automated tests (`tests/`, 330 checks): schema load/migrate, profile resolution,
-      tuning/dispatch, platform factories, installed-asset layout
+- [x] Automated tests (`tests/`, 397 checks): schema load/migrate, profile resolution,
+      tuning/dispatch, platform factories, installed-asset layout, per-model control inventory,
+      and an offscreen pass over the real QML (`test_ui.py`) for the wiring the core cannot see
 - [ ] **A properly installable application**, not a checkout you run by hand: a real install
       (Flatpak and/or AppImage, plus a distro-friendly path), the desktop entry registered, an
       icon, and first-run setup that does not require reading the README.
@@ -708,9 +713,9 @@ Medium-term (Phase C):
 ## 8. UI checklist (agreed)
 
 - [ ] Wire action search; filter chips optional
-- [ ] Workspace indicator / name in header
+- [x] Workspace indicator / name in header
 - [ ] Dirty-state safety on switch / quit
-- [ ] Keyboard shortcuts (platform-native modifier)
+- [x] Keyboard shortcuts (platform-native modifier)
 - [ ] Empty states, error toasts, first-run tip
 - [ ] Inspector sections (Action / Appearance / Advanced)
 - [ ] Rotary tuning row: Invert checkbox + speed preset dropdown (§5.D.1)

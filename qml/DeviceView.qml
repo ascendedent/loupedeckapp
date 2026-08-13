@@ -120,8 +120,12 @@ Item {
     }
 
     component RoundBtn: Rectangle {
+        id: rb
         property string label: ""
         property bool active: false
+        // Workspace keys switch as well as select, the way pressing the key on
+        // the device does; every other button only selects.
+        property bool switchesWorkspace: false
         property color activeColor: theme.accent
         property string ctlKey: ""
         property string ledColor: ""
@@ -135,7 +139,11 @@ Item {
         border.width: rbDrop.containsDrag ? 3 : 2
         Text { anchors.centerIn: parent; text: label
             color: (active || sel || ledColor !== "") ? theme.text : theme.muted; font.pixelSize: 11 }
-        TapHandler { enabled: ctlKey !== ""; onTapped: backend.selectControl(ctlKey) }
+        TapHandler {
+            enabled: rb.ctlKey !== ""
+            onTapped: rb.switchesWorkspace ? backend.showWorkspace(rb.ctlKey)
+                                           : backend.selectControl(rb.ctlKey)
+        }
         DropArea {
             id: rbDrop; anchors.fill: parent
             onDropped: (drop) => { if (ctlKey !== "" && drop.source)
@@ -335,6 +343,7 @@ Item {
                         ctlKey: modelData
                         ledColor: dv.led(modelData)
                         active: backend.selectedWs === modelData
+                        switchesWorkspace: true
                     }
                 }
             }

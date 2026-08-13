@@ -356,6 +356,10 @@ class DeviceController:
         ct_support.draw_wheel(self.device, image)
 
     def render_workspace(self, ws):
+        # The UI can switch workspace on its own now, and it stays usable while
+        # the device is unplugged: without this that is an AttributeError.
+        if not self.device:
+            return
         self.device.reset()
         for key in ws.images.keys():   # every image-bearing control (tb/dis/wheel)
             path = ws.images.get(key, "")
@@ -535,6 +539,24 @@ class DeviceController:
         else:
             menu.led_colors.pop(key, None)
         self.dirty = True
+
+    def workspace_name(self, key=None):
+        """This workspace's own name, or "" if it has never been given one."""
+        ws = self.get_ws(key) if key else self.current_ws()
+        return getattr(ws, "name", "") or ""
+
+    def workspace_label(self, key=None):
+        """What to show for a workspace: its name, or 'Workspace <n>'."""
+        key = key or self.selected_ws
+        return self.workspace_name(key) or ("Workspace %d" % (WS_KEYS.index(key) + 1))
+
+    def set_workspace_name(self, key, name):
+        """Name a workspace (blank clears it). Staged until save()."""
+        if key not in WS_KEYS:
+            return
+        self.get_ws(key).name = str(name).strip()
+        self.dirty = True
+        self._emit("workspace-name")
 
     def set_fn_action(self, slot_key, a_type, value):
         """Set or clear a control's secondary binding. Staged until save()."""

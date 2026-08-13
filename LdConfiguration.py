@@ -5,7 +5,7 @@ import macro
 import virtual_keyboard
 from DeviceProfile import CT_EXTRA_BUTTONS, WHEEL_DISPLAY, WS_KEYS
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 # Profile locations come from app_paths: reads prefer the user's copy and fall
 # back to the bundled one, writes always go to the user directory. This was once
@@ -267,6 +267,10 @@ class LdWorkspace:
 
   def __init__(self, ws_profile="default"):
     self.profile = ws_profile
+    # schema v7: an optional name for this workspace. Eight numbered buttons
+    # give no clue what is on them; the header shows this when it is set and
+    # falls back to "Workspace <n>" when it is not.
+    self.name = ""
     action_keys = ["enc1L" , "enc1L-l", "enc1L-r",
                    "enc2L", "enc2L-l", "enc2L-r",
                    "enc3L", "enc3L-l", "enc3L-r",
@@ -367,6 +371,7 @@ class LdWorkspace:
       
   def to_JSON(self):
     s = {"profile": self.profile,
+          "name": self.name,
           "actions": {key: action.to_JSON() for key, action in self.actions.items()},
           "images": {key: image for key, image in self.images.items()},
           "labels": {key: dict(v) for key, v in self.labels.items()},
@@ -378,6 +383,7 @@ class LdWorkspace:
 
   def from_JSON(json_data):
     ldw = LdWorkspace(ws_profile=json_data["profile"])
+    ldw.name = json_data.get("name", "")                    # v7
     for key, action in json_data["actions"].items():
       ldw.actions[key] = LdAction.from_JSON(action)
     for key, image in json_data["images"].items():

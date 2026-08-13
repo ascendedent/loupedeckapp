@@ -216,116 +216,6 @@ class Backend(QObject):
         return [{"category": c, "label": l, "type": t, "value": v}
                 for (c, l, t, v) in self.ACTION_LIBRARY]
 
-    @Slot(str, result=str)
-    def describeMacro(self, text):
-        """'3 steps, 1 problem' for the editor, so a typo is visible without
-        having to press the button and notice nothing happened."""
-        return macro.describe(text)
-
-    @Slot(str, result="QStringList")
-    def macroProblems(self, text):
-        """Human-readable problems, one per bad line."""
-        _steps, errors = macro.parse(text)
-        return ["line %d: %s" % (lineno, msg) for lineno, msg in errors]
-
-    @Property("QStringList", constant=True)
-    def macroStepKinds(self):
-        return list(macro.STEP_KINDS)
-
-    @Slot(str, result="QVariantList")
-    def macroSteps(self, text):
-        """The macro as a list of {kind, value}, for the list editor. The text
-        remains the stored form; this is a second view of it."""
-        return macro.steps_for_ui(text)
-
-    @Slot("QVariantList", result=str)
-    def macroText(self, steps):
-        """The list editor's steps back as text, which is what gets stored."""
-        return macro.to_text(steps)
-
-    @Slot(str, result="QVariantList")
-    def filterLibrary(self, query):
-        """Library entries matching `query`, or all of them when it is empty.
-
-        Every whitespace-separated term must appear somewhere in the entry, so
-        "vol up" narrows the way you would expect. Matching covers the value and
-        type as well as the label, which is what makes "ctrl" or "scroll" useful
-        searches."""
-        terms = [t for t in str(query or "").lower().split() if t]
-        if not terms:
-            return self.actionLibrary
-        out = []
-        for entry in self.actionLibrary:
-            hay = " ".join((entry["label"], entry["category"],
-                            entry["type"], entry["value"])).lower()
-            if all(t in hay for t in terms):
-                out.append(entry)
-        return out
-
-    @Slot(str, str, str, str)
-    def applyLibraryAction(self, key, a_type, value, label=""):
-        """Bind a library action onto a control (drag-drop target). Nav actions
-        (submenu/back) only apply to single-action 'key' controls; a plain
-        action dropped on an encoder/dial/knob binds its press slot. ``label`` is
-        the library's friendly name, used for the auto-label."""
-        if not key:
-            return
-        if a_type in ("submenu", "back") and self._kind(key) != "key":
-            return
-        self._ctl.set_action(key, a_type, value, summary=label)
-        # select the base control (encoders/dial expose all their slots there)
-        self._selected = key[:-2] if key.endswith(("-l", "-r")) else key
-        self.selectionChanged.emit()
-        self.stateChanged.emit()
-
-    @Property("QStringList", constant=True)
-    def ctExtraButtons(self):
-        return list(self._ctl.profile.extra_buttons)
-
-    # -- on-screen mirror of the currently displayed menu ------------------
-    def _menu(self):
-        """The workspace or submenu whose images/actions are live on the
-        device right now. Works before connect too (empty default config)."""
-        try:
-            return self._ctl.current_menu()
-        except Exception:
-            return None
-
-    @Property("QVariantMap", notify=stateChanged)
-    def keyImages(self):
-        """control-key -> file:// URL for every slot with an image (touch
-        buttons, side-display cells, wheel), for the DeviceView mirror."""
-        menu = self._menu()
-        out = {}
-        if not menu:
-            return out
-        for key, path in menu.images.items():
-            if not path:
-                continue
-            out[key] = QUrl.fromLocalFile(app_paths.asset_path(path)).toString()
-        return out
-
-    @Property("QVariantMap", notify=stateChanged)
-    def boundActions(self):
-        """control-key -> action summary for every bound (non-'none') control,
-        so the mirror can highlight encoders/dial/CT-buttons that do something."""
-        menu = self._menu()
-        out = {}
-        if not menu:
-            return out
-        for key, action in menu.actions.items():
-            if action is not None and getattr(action, "a_type", "none") != "none":
-                out[key] = getattr(action, "summary", "") or action.a_type
-        return out
-
-    @Property(str, notify=stateChanged)
-    def selectedWs(self):
-        return self._ctl.selected_ws
-
-    @Property(int, notify=stateChanged)
-    def menuDepth(self):
-        return len(self._ctl.submenu_stack)
-
     # -- control selection + action editing (inspector) --------------------
     ACTION_TYPES = ["none", "command", "hotkey", "text", "scroll", "media",
                     "keyboard", "workspace", "macro"]
@@ -439,6 +329,35 @@ class Backend(QObject):
     def selectedWs(self):
         return self._ctl.selected_ws
 
+    @Property(str, notify=stateChanged)
+    def workspaceLabel(self):
+        """Name of the workspace on screen, or 'Workspace <n>'. Eight numbered
+        buttons say nothing about what is on them."""
+        return self._ctl.workspace_label()
+
+    @Property(str, notify=stateChanged)
+    def workspaceName(self):
+        """The raw name (blank when unnamed), for the editor field."""
+        return self._ctl.workspace_name()
+
+    @Slot(str)
+    def showWorkspace(self, key):
+        """Put a workspace on the device and select it. Editing workspace 5
+        otherwise meant reaching over and pressing the physical button."""
+        if key in WS_KEYS:
+            self._ctl.on_workspace_press(key)
+            self.selectControl(key)
+        self.stateChanged.emit()
+
+    @Slot(str, str)
+    def setWorkspaceName(self, key, name):
+        self._ctl.set_workspace_name(key or self._ctl.selected_ws, name)
+        self.stateChanged.emit()
+
+    @Slot(str, result=str)
+    def workspaceNameOf(self, key):
+        return self._ctl.workspace_name(key) if key in WS_KEYS else ""
+
     @Property(int, notify=stateChanged)
     def menuDepth(self):
         return len(self._ctl.submenu_stack)
@@ -502,6 +421,11 @@ class Backend(QObject):
             return "Dial"
         if key == WHEEL_DISPLAY:
             return "Wheel"
+        if key in WS_KEYS:
+            # Numbered from 1 like the device view, not by the firmware name:
+            # the button drawn "3" was reading "Button 2" here, because the
+            # first one is called 'circle'.
+            return self._ctl.workspace_label(key)
         return "Button %s" % key.upper()
 
     @Property(str, notify=selectionChanged)
@@ -511,6 +435,10 @@ class Backend(QObject):
     @Property(str, notify=selectionChanged)
     def selectedLabel(self):
         return self._label(self._selected) if self._selected else ""
+
+    @Property(bool, notify=selectionChanged)
+    def selectedIsWorkspace(self):
+        return self._selected in WS_KEYS
 
     @Property(bool, notify=selectionChanged)
     def selectedHasImage(self):
