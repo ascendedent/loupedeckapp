@@ -389,29 +389,42 @@ Item {
                         Item {
                             id: wheelImageArea
                             anchors.fill: parent
-                            anchors.margins: 2       // stay inside the border
+                            anchors.margins: 3       // sit inside the bezel
                             visible: dv.img("wheel") != ""
                             layer.enabled: true
+                            // Multisampling matters here: without it the mask is
+                            // a hard cutout and the circle comes out visibly
+                            // stair-stepped.
+                            layer.smooth: true
+                            layer.samples: 8
                             layer.effect: MultiEffect {
                                 maskEnabled: true
                                 maskSource: wheelMask
+                                // Soften the last fraction of the mask edge so
+                                // the rim is not a single hard pixel step.
+                                maskThresholdMin: 0.45
+                                maskSpreadAtMin: 0.9
                             }
                             Image {
                                 anchors.fill: parent
                                 source: dv.img("wheel")
                                 fillMode: Image.PreserveAspectCrop
                                 asynchronous: true
+                                smooth: true; mipmap: true
                             }
                         }
                         Item {
                             id: wheelMask
                             anchors.fill: wheelImageArea
                             layer.enabled: true
+                            layer.smooth: true
+                            layer.samples: 8
                             visible: false
                             Rectangle {
                                 anchors.fill: parent
                                 radius: width / 2
                                 color: "black"
+                                antialiasing: true
                             }
                         }
                         Text {
