@@ -88,6 +88,9 @@ middling speeds.
   overwrites an existing profile: a name that is taken gets a numbered suffix.
 - **Dynamic mode**: switches the active profile when the focused desktop app changes (KDE Wayland,
   via KWin scripting).
+- **Brightness** control, remembered between runs and re-applied on reconnect.
+- **Survives unplugging**: the app connects when the device appears and reconnects when it comes
+  back, returning to the workspace you were on. No restart needed.
 - JSON profiles (schema v5, backward compatible with older profiles; unknown fields
   written by a newer build survive a load/save round-trip).
 
@@ -95,7 +98,7 @@ middling speeds.
 
 | | |
 |---|---|
-| Profiles you edit, and app bindings | `~/.config/loupedeckapp/` (`$XDG_CONFIG_HOME` is respected) |
+| Profiles you edit, app bindings, preferences | `~/.config/loupedeckapp/` (`$XDG_CONFIG_HOME` is respected) |
 | Profiles and images shipped with the app | beside the code, never written to |
 
 Profiles resolve **your copy first, then the bundled one**, so anything shipped with the app
@@ -227,6 +230,7 @@ The core is Qt-free and layered, so the UI sits on top of reusable services:
 | `platform_env` | The only module that reads `sys.platform` / `XDG_*` / `DISPLAY`. |
 | `action_library` | Ready-to-use actions, with per-desktop application entries. |
 | `app_paths` | Bundled assets vs. user data; profile resolution and legacy migration. |
+| `settings` | Small persistent app preferences (brightness), separate from profile data. |
 | `qml_app.py` + `qml/` | The PySide6 / QML front-end. |
 
 See [`docs/PLAN.md`](docs/PLAN.md) for the full design notes and roadmap.
@@ -236,8 +240,7 @@ See [`docs/PLAN.md`](docs/PLAN.md) for the full design notes and roadmap.
 Agreed direction (detail in [`docs/PLAN.md`](docs/PLAN.md)):
 
 1. **Ship Linux**: pinned deps; Flatpak and/or AppImage; udev + ydotool docs; starter profiles.
-2. **Product depth**: brightness and reconnect handling, Live/Live S mirror fidelity, macros,
-   and UI polish.
+2. **Product depth**: Live/Live S mirror fidelity, macros, and UI polish.
 3. **macOS**: native build targeting **macOS 10.14+**: device I/O first, then Quartz input,
    frontmost-app dynamic mode, then `.app` packaging. The core is already Qt-free; this is mostly
    adapters, permissions UX, and paths.

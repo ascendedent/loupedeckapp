@@ -11,7 +11,6 @@ import os
 import sys
 import glob
 import json
-import threading
 
 from PySide6.QtCore import QObject, Property, Signal, Slot, QUrl, Qt
 from PySide6.QtGui import QGuiApplication
@@ -19,6 +18,7 @@ from PySide6.QtQml import QQmlApplicationEngine
 
 import action_library
 import app_paths
+import settings as settings_mod
 import platform_env
 import window_watcher
 import system_shortcuts
@@ -50,6 +50,8 @@ class Backend(QObject):
         self._pending_profile = ""
         self._ctl = DeviceController(on_state=lambda kind: self._marshal.emit(kind))
         self._pm = ProfileManager(app_paths.dynamic_profiles_path())
+        self._settings = settings_mod.Settings()
+        self._ctl.brightness = self._settings.brightness
         self._watcher = window_watcher.get_watcher(
             on_change=lambda c, t: self._focusSig.emit(c, t))
         self._marshal.connect(self._on_state_main, Qt.QueuedConnection)
@@ -60,7 +62,9 @@ class Backend(QObject):
     SELF_WM_CLASS = "loupedeck config"
 
     def start(self):
-        threading.Thread(target=self._ctl.connect, daemon=True).start()
+        # Supervised: connects when the device appears and reconnects after an
+        # unplug, rather than a single attempt at launch.
+        self._ctl.start()
         # Always watch, even with dynamic mode off: the watcher is what records
         # which app you were last in, which the bind button needs. Acting on a
         # focus change is still gated on dynamic_mode below.
@@ -124,6 +128,19 @@ class Backend(QObject):
     @Property(int, notify=stateChanged)
     def rows(self):
         return self._ctl.profile.rows
+
+    @Property(int, notify=stateChanged)
+    def brightness(self):
+        return self._ctl.brightness
+
+    @Slot(int)
+    def setBrightness(self, value):
+        """Apply and remember. The device quantises to steps of 10, so small
+        slider movements legitimately show no change."""
+        self._ctl.set_brightness(value)
+        self._settings.brightness = self._ctl.brightness
+        self._settings.save()
+        self.stateChanged.emit()
 
     @Property(bool, notify=stateChanged)
     def dynamicMode(self):

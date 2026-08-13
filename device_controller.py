@@ -12,6 +12,7 @@ Callbacks fire on the devleaks reader thread for device-driven events; the UI
 must marshal to its own main thread.
 """
 
+import os
 import queue
 import threading
 import time
@@ -46,6 +47,8 @@ class DeviceController:
         self.submenu_stack = []
         self.connected = False
         self.on_state = on_state
+        # Device brightness (0-100), re-applied on every connect.
+        self.brightness = 40
         # Banked detents per rotate control for the Slow presets:
         # control -> (direction, count). Runtime feel, not persisted state.
         # Written by the dispatch thread, cleared from the message thread.
@@ -58,6 +61,9 @@ class DeviceController:
         # thread at arrival so it measures the hand and not our dispatch.
         self._rot_last_ts = {}
         self._rot_interval = {}
+        # Connection supervisor: connects, and reconnects after an unplug.
+        self._watch_thread = None
+        self._watch_stop = threading.Event()
         # Draft/staging: edits mutate the in-memory config (so the on-screen
         # mirror updates live) but are not written to disk or pushed to the
         # hardware until save(); revert() reloads the on-disk profile.
@@ -72,37 +78,130 @@ class DeviceController:
 
     # -- connection --------------------------------------------------------
     def connect(self, retries=10):
-        LoupedeckLive.BAUD_RATE = 460800
-        devs = []
+        """Blocking connect with retries. Kept for callers that want to wait;
+        `start()` is the usual entry point."""
         for attempt in range(retries):
-            devs = DeviceManager().enumerate()
-            if devs:
-                break
+            if self._try_connect():
+                return True
             time.sleep(0.5 + attempt / 10.0)
-        if not devs:
-            print("DeviceController: no device found")
+        print("DeviceController: no device found")
+        return False
+
+    def _try_connect(self):
+        """One attempt. Returns True once the device is live and rendered."""
+        LoupedeckLive.BAUD_RATE = 460800
+        try:
+            devs = DeviceManager().enumerate()
+        except Exception as e:
+            print("DeviceController: enumerate failed: %s" % e)
             return False
-        self.device = devs[0]
-        self.profile, pid = DeviceProfile.detect(self.device)
-        print("connected %s (PID %s) -> %s" % (
-            self.device.DECK_TYPE, ("0x%04x" % pid) if pid else "?", self.profile.describe()))
-        if self.profile.has_wheel or self.profile.has_dial:
-            ct_support.install_ct_handlers(self.device)
-        self.device.set_callback(self.device_callback)
-        self.init_device()
-        self.connected = True
-        self.on_workspace_press(WS_KEYS[0])
+        if not devs:
+            return False
+        try:
+            self.device = devs[0]
+            self.profile, pid = DeviceProfile.detect(self.device)
+            print("connected %s (PID %s) -> %s" % (
+                self.device.DECK_TYPE, ("0x%04x" % pid) if pid else "?",
+                self.profile.describe()))
+            if self.profile.has_wheel or self.profile.has_dial:
+                ct_support.install_ct_handlers(self.device)
+            self.device.set_callback(self.device_callback)
+            self.init_device()
+            self.connected = True
+            # Restore the workspace that was on screen, not workspace 1: after a
+            # cable knock you want back where you were.
+            self.on_workspace_press(self.selected_ws)
+        except Exception as e:
+            print("DeviceController: connect failed: %s: %s" % (type(e).__name__, e))
+            self.device = None
+            self.connected = False
+            return False
         self._emit("connected")
         return True
+
+    # -- connection supervision --------------------------------------------
+    # How often to look for a device, whether waiting for the first one or
+    # noticing that one went away. Cheap: a path check, or an enumerate.
+    WATCH_INTERVAL_S = 2.0
+
+    def start(self):
+        """Connect, and keep trying. Also notices the device going away and
+        reconnects when it comes back, so unplugging is not a restart."""
+        if self._watch_thread is not None and self._watch_thread.is_alive():
+            return
+        self._watch_stop.clear()
+        self._watch_thread = threading.Thread(
+            target=self._supervise, name="ld-connection", daemon=True)
+        self._watch_thread.start()
+
+    def _device_present(self):
+        """Is the device we think we have still there?
+
+        The serial node vanishing is the reliable signal; the lib's reader
+        thread exiting is the other. Neither raises anywhere we would see it,
+        which is why nothing noticed a disconnect before.
+        """
+        dev = self.device
+        if dev is None:
+            return False
+        path = getattr(dev, "path", None)
+        if path and not os.path.exists(path):
+            return False
+        thread = getattr(dev, "reading_thread", None)
+        if thread is not None and not thread.is_alive():
+            return False
+        return True
+
+    def _handle_loss(self):
+        print("DeviceController: device disconnected")
+        dev, self.device = self.device, None
+        self.connected = False
+        if dev is not None:
+            try:
+                dev.stop()
+            except Exception:
+                pass          # it is already gone; nothing useful to do
+        self._drain_rotate_queue()
+        self._emit("connected")
+
+    def _supervise(self):
+        while not self._watch_stop.is_set():
+            try:
+                if not self.connected:
+                    self._try_connect()
+                elif not self._device_present():
+                    self._handle_loss()
+            except Exception as e:
+                print("DeviceController: supervisor error: %s: %s"
+                      % (type(e).__name__, e))
+            self._watch_stop.wait(self.WATCH_INTERVAL_S)
 
     def init_device(self):
         self.device.reset()
         self.device.set_button_color("circle", "green")
         for i in range(1, 8):
             self.device.set_button_color(str(i), (63, 63, 63))
-        self.device.set_brightness(40)
+        self.device.set_brightness(self.brightness)
+
+    def set_brightness(self, value):
+        """0-100. Applied immediately and remembered, so a reconnect comes back
+        at the brightness you chose rather than the default."""
+        try:
+            value = max(0, min(100, int(value)))
+        except (TypeError, ValueError):
+            return
+        self.brightness = value
+        if self.device:
+            try:
+                self.device.set_brightness(value)
+            except Exception as e:
+                print("set_brightness failed: %s: %s" % (type(e).__name__, e))
 
     def close(self):
+        self._watch_stop.set()
+        if self._watch_thread is not None and self._watch_thread.is_alive():
+            self._watch_thread.join(timeout=3.0)
+        self._watch_thread = None
         if self._rot_thread is not None and self._rot_thread.is_alive():
             self._rot_q.put(self._ROT_STOP)
             self._rot_thread.join(timeout=2.0)

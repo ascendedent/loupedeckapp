@@ -63,7 +63,7 @@ already Qt-free, so nothing outside those four files referenced them.
 ### Known gaps (ordered by agreed priority)
 
 1. **Ship Linux (M5)**: pin deps, packaging, udev/ydotool docs, starter profiles.
-2. **Functionality**: device polish (brightness, reconnect), Live S fidelity, macros.
+2. **Functionality**: Live S mirror fidelity, macros.
 3. **UI polish**: workspace chrome, dirty guards, inspector structure, empty states.
 4. **macOS (M6)**: adapters, Accessibility UX, `.app`, support **10.14+**.
 
@@ -523,6 +523,19 @@ held profile, because a switch that silently fails to happen is worse than one t
 - [ ] Ship **starter profiles** (media, system, browser, empty scratch) with icons
 - [ ] Cross-platform match keys (§4.4)
 
+### E2. Device robustness
+
+- [x] **Connection supervisor**: one thread handles both waiting for a device and noticing one
+      leave, so the two cases cannot disagree. Presence is judged by the serial node existing and
+      the lib's reader thread being alive; neither raises anywhere visible, which is why nothing
+      noticed a disconnect before. On reconnect it restores the workspace that was on screen
+      rather than resetting to the first, and drops any queued rotate events, which were aimed at
+      a device that is no longer there.
+- [x] **Brightness**, persisted in `settings.json` and re-applied on every connect, so a reconnect
+      does not silently revert to the default. The device quantises to steps of 10, so the slider
+      is stepped to match rather than pretending to be continuous.
+- [ ] Surface the input backend's health (ydotoold down is currently silent)
+
 ### F. UI polish
 
 - [x] Dark theme, three columns, inspector, Save/Revert, copy/paste, submenus
@@ -538,7 +551,7 @@ held profile, because a switch that silently fails to happen is worse than one t
 
 - [x] `pyproject.toml` with a `loupedeckapp` entry point and `[device]` / `[x11]` extras
 - [x] Ship udev rule, ydotool socket drop-in and desktop entry in `packaging/`
-- [x] Automated tests (`tests/`, 196 checks): schema load/migrate, profile resolution,
+- [x] Automated tests (`tests/`, 228 checks): schema load/migrate, profile resolution,
       tuning/dispatch, platform factories, installed-asset layout
 - [ ] **Flatpak** and/or **AppImage**
 - [ ] Promote useful `scratch/` probes to `scripts/verify/` smoke checks

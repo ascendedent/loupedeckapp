@@ -22,3 +22,5 @@ the input backend is stubbed wherever a test would otherwise inject keystrokes.
 | `test_platform.py` | session/desktop detection, factory selection, per-desktop library |
 | `test_drafts.py` | unsaved-edit guards, including held dynamic switches |
 | `test_importexport.py` | profile import/export, validation and name collisions |
+| `test_reconnect.py` | connection supervision: connect, loss, reconnect, teardown |
+| `test_settings.py` | app preferences: persistence, clamping, brightness on device |

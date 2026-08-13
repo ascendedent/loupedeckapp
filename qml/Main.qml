@@ -378,6 +378,19 @@ ApplicationWindow {
                 }
             }
 
+            // Brightness: the device quantises to steps of 10, so the slider
+            // is stepped to match rather than pretending to be continuous.
+            Text { text: "☀"; color: theme.muted; font.pixelSize: 14 }
+            Slider {
+                id: brightnessSlider
+                Layout.preferredWidth: 90
+                from: 0; to: 100; stepSize: 10; snapMode: Slider.SnapAlways
+                value: backend.brightness
+                onMoved: backend.setBrightness(value)
+                ToolTip.visible: hovered
+                ToolTip.text: "Brightness " + Math.round(value) + "%"
+            }
+
             Text { text: "Dynamic"; color: theme.muted; font.pixelSize: 13 }
                 Switch {
                     checked: backend.dynamicMode
