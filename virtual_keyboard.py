@@ -82,6 +82,13 @@ class KdeKeyboard(VirtualKeyboard):
             return False
         return r.returncode == 0 and "true" in r.stdout
 
+    def is_visible(self):
+        try:
+            r = self._prop("get-property", "visible")
+        except (OSError, subprocess.SubprocessError):
+            return False
+        return r.returncode == 0 and "true" in r.stdout
+
     def set_active(self, on):
         try:
             r = self._prop("set-property", "active", "b",
@@ -92,6 +99,19 @@ class KdeKeyboard(VirtualKeyboard):
         if r.returncode != 0:
             print("[keyboard] %s" % (r.stderr or "").strip())
             return False
+        if on:
+            # Ask it to come forward as well. This succeeds even when the panel
+            # cannot appear, so the visibility check below is what actually
+            # tells us whether anything happened.
+            try:
+                self._prop("call", "forceActivate")
+            except (OSError, subprocess.SubprocessError):
+                pass
+            if not self.is_visible():
+                print("[keyboard] enabled, but KDE only shows the panel once a "
+                      "text field has focus. For a keyboard that appears on "
+                      "demand, install one of: %s"
+                      % ", ".join(_PROCESS_KEYBOARDS))
         return True
 
 
@@ -134,15 +154,17 @@ _keyboard = None
 
 
 def detect():
-    """KDE's interface first where it is present, then any keyboard binary."""
-    if platform_env.desktop() == platform_env.KDE:
-        k = KdeKeyboard()
-        if k.available():
-            return k
+    """A standalone keyboard first, then KDE's.
+
+    This order is deliberate and was chosen after testing: KDE's keyboard is an
+    input-method panel, so `active` only *enables* it and the panel appears when
+    a text field takes focus. Pressing a button and seeing nothing looks broken.
+    A standalone keyboard is a window, so pressing the button shows it, which is
+    what the CT's keyboard button is for.
+    """
     k = ProcessKeyboard()
     if k.available():
         return k
-    # KDE's interface works even when XDG_CURRENT_DESKTOP says otherwise.
     k = KdeKeyboard()
     if k.available():
         return k
