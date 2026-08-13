@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Schematic Loupedeck CT: key grid, side strips, and the wheel. Drawn rather
+     than photographed so it stays legible at 16px. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b2b38"/>
+      <stop offset="1" stop-color="#16161e"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="6" y="10" width="116" height="108" rx="14" fill="url(#body)" stroke="#3d3d4d" stroke-width="2"/>
+
+  <!-- side strips -->
+  <rect x="14" y="22" width="8" height="38" rx="3" fill="#4a4a5c"/>
+  <rect x="106" y="22" width="8" height="38" rx="3" fill="#4a4a5c"/>
+
+  <!-- 4x3 key grid -->
+  <g fill="#5b8cff">
+    <rect x="28" y="22" width="16" height="11" rx="3"/>
+    <rect x="48" y="22" width="16" height="11" rx="3"/>
+    <rect x="68" y="22" width="16" height="11" rx="3"/>
+    <rect x="88" y="22" width="14" height="11" rx="3"/>
+    <rect x="28" y="36" width="16" height="11" rx="3"/>
+    <rect x="48" y="36" width="16" height="11" rx="3"/>
+    <rect x="68" y="36" width="16" height="11" rx="3"/>
+    <rect x="88" y="36" width="14" height="11" rx="3"/>
+    <rect x="28" y="50" width="16" height="11" rx="3"/>
+    <rect x="48" y="50" width="16" height="11" rx="3"/>
+    <rect x="68" y="50" width="16" height="11" rx="3"/>
+    <rect x="88" y="50" width="14" height="11" rx="3"/>
+  </g>
+
+  <!-- round keys -->
+  <g fill="#4a4a5c">
+    <circle cx="30" cy="72" r="4"/>
+    <circle cx="44" cy="72" r="4"/>
+    <circle cx="58" cy="72" r="4"/>
+    <circle cx="70" cy="72" r="4"/>
+    <circle cx="84" cy="72" r="4"/>
+    <circle cx="98" cy="72" r="4"/>
+  </g>
+
+  <!-- the CT wheel -->
+  <circle cx="64" cy="97" r="17" fill="#101018" stroke="#5b8cff" stroke-width="3"/>
+  <circle cx="64" cy="97" r="7" fill="#5b8cff" opacity="0.35"/>
+</svg>

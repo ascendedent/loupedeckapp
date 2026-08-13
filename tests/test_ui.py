@@ -103,6 +103,51 @@ c.eq("focus can leave the search box",
 QTest.keyClick(window, Qt.Key_C, Qt.ControlModifier)
 c.eq("Ctrl+C outside a text field copies the control", backend.canPaste, True)
 
+# -- tray / close behaviour --------------------------------------------------
+# Offscreen has no tray, which is the case worth pinning: hiding the window
+# with nothing to restore it from would strand the app.
+c.eq("no tray offscreen", backend.traySupported, False)
+c.eq("so closing the window cannot mean hiding it", backend.closeToTray, False)
+c.eq("and starting hidden is off too", backend.startHidden, False)
+
+c.eq("the window reports itself visible", backend.windowVisible, True)
+backend.setWindowVisible(False)
+c.eq("and follows what QML tells it", backend.windowVisible, False)
+backend.setWindowVisible(True)
+
+# Quit from the tray with a draft open: it must ask, not take. The window comes
+# back (it may have been hidden) and the same dialog as a manual close opens.
+close_dialog = find("closeDialog")
+c.eq("the unsaved-changes dialog exists", close_dialog is not None, True)
+c.eq("it starts closed", close_dialog.property("opened"), False)
+
+backend.setWorkspaceName(WS_KEYS[0], "draft")     # anything to make it dirty
+c.eq("there is now an unsaved change", backend.dirty, True)
+backend.quitRequested.emit()
+c.eq("quitting from the tray with a draft asks first",
+     close_dialog.property("opened"), True)
+c.eq("and puts the window back on screen so the question is visible",
+     backend.windowVisible, True)
+
+backend.revert()
+c.eq("reverting clears the draft", backend.dirty, False)
+
+# -- preferences popup -------------------------------------------------------
+prefs = find("prefsPopup")
+c.eq("the preferences popup exists", prefs is not None, True)
+if prefs is not None:
+    c.eq("it starts closed", prefs.property("opened"), False)
+    prefs.setProperty("visible", True)
+    c.eq("and opens", prefs.property("opened"), True)
+    prefs.setProperty("visible", False)
+
+# Brightness moved in there when the top bar ran out of room, so it has to
+# still reach the device settings from its new home.
+before = backend.brightness
+backend.setBrightness(70)
+c.eq("brightness is settable from preferences", backend.brightness, 70)
+backend.setBrightness(before)
+
 backend.shutdown()
 window.close()
 

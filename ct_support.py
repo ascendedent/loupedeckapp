@@ -17,14 +17,12 @@ All of this is verified/tuned against the physical device (see
 ``scratch/ct_capture.py``). Cross-referenced with the foxxyz `loupedeck` JS lib.
 """
 
-import importlib
 from PIL import Image
 
-# BUTTONS / DISPLAYS live as module-level globals in this submodule; the
-# package binds the *class* of the same name to `Loupedeck.Devices.LoupedeckLive`,
-# so grab the module object explicitly rather than via `from ... import`.
-_mod = importlib.import_module("Loupedeck.Devices.LoupedeckLive")
-from Loupedeck.Devices.LoupedeckLive import CALLBACK_KEYWORD as CBC
+# Through device_lib so a missing device library is a message rather than a
+# traceback at import (see that module). Everything here runs only once a device
+# has been found, which cannot happen without the library.
+from device_lib import CBC, module as _mod
 
 from DeviceProfile import CT_EXTRA_BUTTONS, DIAL_ID, WHEEL_DISPLAY, WHEEL_SIZE
 

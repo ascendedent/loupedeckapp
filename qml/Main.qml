@@ -250,24 +250,78 @@ ApplicationWindow {
     }
 
     // Closing with a draft open would discard it with no warning at all.
+    // Unless it is not being discarded: with close-to-tray on, the window is
+    // only being hidden, the draft is still there, and a prompt would be an
+    // interruption asking about nothing.
     property bool forceClose: false
+    // A quit was asked for (tray menu), as opposed to the window being closed.
+    // Closing the window with the tray on does not end the app.
+    property bool quitting: false
+    function reallyQuit() {
+        root.forceClose = true
+        root.close()
+        Qt.quit()
+    }
     onClosing: function(close) {
+        if (backend.closeToTray && !root.forceClose) {
+            close.accepted = false
+            root.hide()
+            backend.setWindowVisible(false)
+            return
+        }
         if (backend.dirty && !root.forceClose) {
             close.accepted = false
             closeDialog.open()
         }
     }
 
+    // The tray asks for the window back through here.
+    Connections {
+        target: backend
+        function onWindowShowRequested() {
+            root.show()
+            root.raise()
+            root.requestActivate()
+            backend.setWindowVisible(true)
+        }
+        function onWindowHideRequested() {
+            root.hide()
+            backend.setWindowVisible(false)
+        }
+        // The tray asks rather than quits: a draft is still a draft with the
+        // window hidden, and there would be nowhere to warn about it.
+        function onQuitRequested() {
+            root.quitting = true
+            if (backend.dirty) {
+                root.show()
+                root.raise()
+                root.requestActivate()
+                backend.setWindowVisible(true)
+                closeDialog.open()
+                return
+            }
+            root.reallyQuit()
+        }
+    }
+
     Dialog {
         id: closeDialog
+        objectName: "closeDialog"
         anchors.centerIn: parent
         modal: true
         width: 400
         title: "Unsaved changes"
         standardButtons: Dialog.Save | Dialog.Discard | Dialog.Cancel
-        function quit() { root.forceClose = true; root.close() }
-        onAccepted: { backend.save(); quit() }
-        onDiscarded: { backend.revert(); quit() }
+        // Reached either by closing the window or by Quit from the tray; only
+        // the second one should end the app.
+        function finish() {
+            if (root.quitting) { root.reallyQuit(); return }
+            root.forceClose = true
+            root.close()
+        }
+        onAccepted: { backend.save(); finish() }
+        onDiscarded: { backend.revert(); finish() }
+        onRejected: root.quitting = false
         Text {
             text: "'" + backend.activeProfile + "' has changes that are not saved."
             color: theme.text; font.pixelSize: 12; wrapMode: Text.WordWrap
@@ -383,13 +437,14 @@ ApplicationWindow {
         Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: theme.line }
         RowLayout {
             anchors.fill: parent
-            anchors.leftMargin: 16
-            anchors.rightMargin: 16
-            spacing: 14
+            anchors.leftMargin: 14
+            anchors.rightMargin: 14
+            spacing: 10
 
             // device pill
             Rectangle {
-                Layout.preferredWidth: 190; Layout.preferredHeight: 34
+                Layout.preferredWidth: 170; Layout.preferredHeight: 34
+                Layout.minimumWidth: 110
                 radius: theme.radius; color: theme.panel2; border.color: theme.line
                 RowLayout {
                     anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10; spacing: 8
@@ -402,9 +457,9 @@ ApplicationWindow {
 
             Item { Layout.fillWidth: true }
 
-            Text { text: "Profile:"; color: theme.muted; font.pixelSize: 13 }
             Rectangle {
-                Layout.preferredWidth: 160; Layout.preferredHeight: 34
+                Layout.preferredWidth: 150; Layout.preferredHeight: 34
+                Layout.minimumWidth: 90
                 radius: theme.radius; color: theme.panel2; border.color: theme.line
                 RowLayout {
                     anchors.centerIn: parent; spacing: 8
@@ -419,7 +474,8 @@ ApplicationWindow {
             // the name when one has been given and can set one.
             Rectangle {
                 Layout.preferredHeight: 34
-                Layout.preferredWidth: Math.min(190, wsLabel.implicitWidth + 26)
+                Layout.preferredWidth: Math.min(160, wsLabel.implicitWidth + 26)
+                Layout.minimumWidth: 80
                 radius: theme.radius
                 color: wsHover.hovered ? theme.cell : theme.panel2
                 border.color: theme.line
@@ -465,6 +521,45 @@ ApplicationWindow {
                     anchors.centerIn: parent
                     text: "⏸ " + backend.pendingProfile + " held"
                     color: theme.warn; font.pixelSize: 11
+                }
+            }
+
+            // No device library: nothing can be enumerated, so the device pill
+            // would say "not connected" forever with no way to learn why.
+            Rectangle {
+                visible: !backend.deviceHealth.ok
+                Layout.preferredHeight: 26
+                Layout.preferredWidth: devWarn.width + 20
+                radius: theme.radius
+                color: theme.panel2
+                border.color: theme.warn
+                Text {
+                    id: devWarn
+                    anchors.centerIn: parent
+                    text: "⚠ device library"
+                    color: theme.warn; font.pixelSize: 11
+                }
+                HoverHandler { id: devHover; cursorShape: Qt.PointingHandCursor }
+                TapHandler { onTapped: deviceDialog.open() }
+                ToolTip.visible: devHover.hovered
+                ToolTip.text: "Click for the install command"
+            }
+
+            Dialog {
+                id: deviceDialog
+                anchors.centerIn: Overlay.overlay
+                modal: true
+                width: 460
+                title: "Device library missing"
+                standardButtons: Dialog.Ok
+                ColumnLayout {
+                    width: parent.width
+                    spacing: 8
+                    Text {
+                        Layout.fillWidth: true
+                        text: backend.deviceHealth.detail
+                        color: theme.text; font.pixelSize: 12; wrapMode: Text.WordWrap
+                    }
                 }
             }
 
@@ -641,23 +736,135 @@ ApplicationWindow {
                                                 selectedColor.toString())
             }
 
-            // Brightness: the device quantises to steps of 10, so the slider
-            // is stepped to match rather than pretending to be continuous.
-            Text { text: "☀"; color: theme.muted; font.pixelSize: 14 }
-            Slider {
-                id: brightnessSlider
-                Layout.preferredWidth: 90
-                from: 0; to: 100; stepSize: 10; snapMode: Slider.SnapAlways
-                value: backend.brightness
-                onMoved: backend.setBrightness(value)
-                ToolTip.visible: hovered
-                ToolTip.text: "Brightness " + Math.round(value) + "%"
-            }
-
             Text { text: "Dynamic"; color: theme.muted; font.pixelSize: 13 }
                 Switch {
                     checked: backend.dynamicMode
                     onToggled: backend.setDynamicMode(checked)
+                }
+
+                // App preferences. Only the tray lives here so far; it is the
+                // one setting that changes what closing the window means.
+                Rectangle {
+                    Layout.preferredHeight: 26
+                    Layout.preferredWidth: 26
+                    radius: theme.radius
+                    color: prefsHover.hovered ? theme.cell : theme.panel2
+                    border.color: theme.line
+                    Behavior on color { ColorAnimation { duration: 120 } }
+                    Text {
+                        anchors.centerIn: parent
+                        text: "⚙"; color: theme.muted; font.pixelSize: 14
+                    }
+                    HoverHandler { id: prefsHover; cursorShape: Qt.PointingHandCursor }
+                    TapHandler { onTapped: prefsPopup.open() }
+                    ToolTip.visible: prefsHover.hovered
+                    ToolTip.text: "App preferences"
+
+                    Popup {
+                        id: prefsPopup
+                        objectName: "prefsPopup"
+                        x: parent.width - width
+                        y: parent.height + 6
+                        width: 290
+                        modal: false
+                        focus: true
+                        background: Rectangle {
+                            radius: theme.radius; color: theme.panel
+                            border.color: theme.line
+                        }
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 10
+                            spacing: 8
+
+                            Text {
+                                text: "Preferences"; color: theme.text
+                                font.pixelSize: 13; font.bold: true
+                            }
+
+                            // Brightness lived in the top bar until the bar ran
+                            // out of room. The device quantises to steps of 10,
+                            // so the slider is stepped to match rather than
+                            // pretending to be continuous.
+                            RowLayout {
+                                Layout.fillWidth: true; spacing: 6
+                                Text {
+                                    text: "Brightness"; color: theme.muted
+                                    font.pixelSize: 11
+                                }
+                                Slider {
+                                    id: brightnessSlider
+                                    Layout.fillWidth: true
+                                    from: 0; to: 100; stepSize: 10
+                                    snapMode: Slider.SnapAlways
+                                    value: backend.brightness
+                                    onMoved: backend.setBrightness(value)
+                                }
+                                Text {
+                                    text: Math.round(brightnessSlider.value) + "%"
+                                    color: theme.muted; font.pixelSize: 11
+                                    Layout.preferredWidth: 34
+                                    horizontalAlignment: Text.AlignRight
+                                }
+                            }
+
+                            Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
+
+                            RowLayout {
+                                Layout.fillWidth: true; spacing: 6
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: "System tray"; color: theme.muted; font.pixelSize: 11
+                                }
+                                Switch {
+                                    enabled: backend.traySupported
+                                    checked: backend.trayEnabled
+                                    onToggled: backend.setTrayEnabled(checked)
+                                }
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                visible: !backend.traySupported
+                                text: "This desktop has no system tray for the app to sit in."
+                                color: theme.warn; font.pixelSize: 10; wrapMode: Text.WordWrap
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true; spacing: 6
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: "Close to tray"; color: theme.muted; font.pixelSize: 11
+                                }
+                                Switch {
+                                    enabled: backend.trayEnabled
+                                    checked: backend.closeToTray
+                                    onToggled: backend.setCloseToTray(checked)
+                                }
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true; spacing: 6
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: "Start hidden"; color: theme.muted; font.pixelSize: 11
+                                }
+                                Switch {
+                                    enabled: backend.trayEnabled
+                                    checked: backend.startHidden
+                                    onToggled: backend.setStartHidden(checked)
+                                }
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: backend.closeToTray
+                                      ? "Closing the window leaves the app running in the tray. "
+                                        + "Quit from the tray menu."
+                                      : "Closing the window quits the app."
+                                color: theme.muted; font.pixelSize: 10; wrapMode: Text.WordWrap
+                            }
+                        }
+                    }
                 }
             }
         }

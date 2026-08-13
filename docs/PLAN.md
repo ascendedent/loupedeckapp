@@ -614,16 +614,20 @@ held profile, because a switch that silently fails to happen is worse than one t
 
 - [x] `pyproject.toml` with a `loupedeckapp` entry point and `[device]` / `[x11]` extras
 - [x] Ship udev rule, ydotool socket drop-in and desktop entry in `packaging/`
-- [x] Automated tests (`tests/`, 397 checks): schema load/migrate, profile resolution,
+- [x] Automated tests (`tests/`, 450 checks): schema load/migrate, profile resolution,
       tuning/dispatch, platform factories, installed-asset layout, per-model control inventory,
       and an offscreen pass over the real QML (`test_ui.py`) for the wiring the core cannot see
-- [ ] **A properly installable application**, not a checkout you run by hand: a real install
-      (Flatpak and/or AppImage, plus a distro-friendly path), the desktop entry registered, an
-      icon, and first-run setup that does not require reading the README.
-- [ ] **System tray**: run in the tray with the window closable without quitting, since the app is
-      only useful while it is running. Wants: show/hide, current profile, dynamic-mode toggle,
-      quit. Note this interacts with the close-with-unsaved-changes guard, which should minimise
-      to tray rather than prompt when tray mode is on.
+- [x] **Installable from a wheel**: `pip install ".[device]"` gives a `loupedeckapp` command, the
+      assets under the prefix, and a desktop entry plus icon in the menu. Verified by installing
+      into a clean venv with the checkout off `sys.path`. Without the `device` extra the app now
+      starts and says so in the top bar instead of dying on `ModuleNotFoundError` (`device_lib`).
+- [ ] **A distro-friendly path** (Flatpak and/or AppImage) and first-run setup that does not
+      require reading the README (udev rule, ydotool socket).
+- [x] **System tray** (`tray.py`): show/hide, live profile with a switcher, dynamic-mode toggle,
+      quit. Closing the window hides it; the unsaved-changes guard does not prompt on close (the
+      draft is not being discarded, only hidden) but Quit from the tray does ask, bringing the
+      window back to do it. Disabled with no tray available, where hiding would strand the app.
+      Settings: tray on/off, close-to-tray, start-hidden.
 - [ ] **Flatpak** and/or **AppImage**
 - [ ] Promote useful `scratch/` probes to `scripts/verify/` smoke checks
 
@@ -705,7 +709,7 @@ Medium-term (Phase C):
 - [ ] Encoder adjustments: Fast presets, acceleration curve, scroll action (§5.D.1)
 - [ ] Async action dispatch (off the message/callback thread) + rotate coalescing (§5.D.1)
 - [ ] Configurable side-display layout
-- [ ] Optional tray / autostart / always-on runtime split
+- [x] Tray (`tray.py`); autostart and an always-on runtime split still open
 - [ ] Plugin hooks (later)
 
 ---

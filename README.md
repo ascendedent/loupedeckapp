@@ -208,8 +208,23 @@ python3 -m venv .venv
 ```
 
 The `device` extra pulls the device library from git, since it is not on PyPI.
-Installing normally (`pip install ".[device]"`) puts a `loupedeckapp` command on your PATH and the
-assets under `<prefix>/share/loupedeckapp`; the app finds them either way.
+Installing normally (`pip install ".[device]"`) puts a `loupedeckapp` command on your PATH, the
+assets under `<prefix>/share/loupedeckapp`, and a desktop entry and icon where your menu will find
+them; the app finds its own files either way.
+
+Leave the `device` extra off and the app still runs: it opens, edits and saves profiles, and says
+in the top bar that the device library is missing along with the command to install it. It just
+cannot find a device until you do.
+
+### System tray
+
+The app sits in the tray by default, because it is only useful while it is running. Closing the
+window hides it rather than quitting; the tray menu has the live profile, a profile switcher,
+dynamic mode, show/hide and quit. Quitting from the tray with unsaved edits brings the window back
+and asks first.
+
+All of that is under the gear in the top bar, along with brightness. If your desktop has no tray,
+the toggles are disabled and closing the window quits, since hiding it would leave no way back.
 
 ### Device permissions
 

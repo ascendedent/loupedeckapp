@@ -48,9 +48,13 @@ loupedeckapp = "qml_app:main"
 
 [tool.setuptools]
 # Flat layout: the modules sit at the repo root rather than in a package dir.
+# This list has to be kept in step by hand, and a module missing from it does
+# not fail the build: it fails at first import, on someone else's machine.
+# tests/test_packaging.py compares it against what the app actually imports.
 py-modules = [
     "qml_app",
     "device_controller",
+    "device_lib",
     "LdConfiguration",
     "DeviceProfile",
     "ct_support",
@@ -62,13 +66,29 @@ py-modules = [
     "platform_env",
     "action_library",
     "app_paths",
+    "macro",
+    "tray",
+    "settings",
+    "virtual_keyboard",
 ]
 
 # Flat module layout means there is no package for package-data to attach to,
 # so the assets install as data files under the prefix instead. app_paths looks
 # for them beside the code first (running from a checkout) and falls back here.
+# Listed file by file, not globbed. A glob ships whatever happens to be in the
+# working tree, so a build made on a machine with local profiles lying around
+# put those in the wheel, one of them referencing an image outside the repo.
+# tests/test_packaging.py checks every path here is a tracked file.
 [tool.setuptools.data-files]
-"share/loupedeckapp/qml" = ["qml/*.qml"]
-"share/loupedeckapp/Images" = ["Images/*.png"]
-"share/loupedeckapp/Profiles" = ["Profiles/*.json"]
+"share/loupedeckapp/qml" = [
+    "qml/Main.qml",
+    "qml/DeviceView.qml",
+]
+"share/loupedeckapp/Images" = [
+    "Images/emoji_laugh.png",
+    "Images/emoji_laugh_90x90.png",
+    "Images/submenu_back_button.png",
+]
+"share/loupedeckapp/Profiles" = ["Profiles/testbothactions.json"]
 "share/applications" = ["packaging/loupedeckapp.desktop"]
+"share/icons/hicolor/scalable/apps" = ["packaging/icons/loupedeckapp.svg"]

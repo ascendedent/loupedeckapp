@@ -39,3 +39,5 @@ went, which on a multi-monitor desktop is not where the arithmetic said.
 | `test_models.py` | per-model control inventory (CT / Live / Live S) and the model override |
 | `test_workspaces.py` | schema v7 workspace names, switching, and the label fallback |
 | `test_ui.py` | the real QML offscreen: control-to-slot wiring and keyboard shortcuts |
+| `test_tray.py` | tray settings and the menu built from backend state |
+| `test_packaging.py` | what a wheel would contain: module manifest, assets, desktop entry |

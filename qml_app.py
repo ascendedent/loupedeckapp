@@ -20,7 +20,9 @@ import action_library
 import app_paths
 import macro
 import input_backend
+import device_lib
 import settings as settings_mod
+import tray
 import platform_env
 import window_watcher
 import system_shortcuts
@@ -39,6 +41,12 @@ class Backend(QObject):
     # private cross-thread marshals -> delivered on the Qt main thread
     _marshal = Signal(str)
     _focusSig = Signal(str, str)
+    # the tray asking the window to do something (QML holds the window)
+    windowShowRequested = Signal()
+    windowHideRequested = Signal()
+    quitRequested = Signal()
+    # tray turned on or off: main() creates or tears the icon down
+    trayConfigChanged = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -51,6 +59,9 @@ class Backend(QObject):
         self._last_app = ""
         # A profile switch dynamic mode wanted to make while edits were unsaved.
         self._pending_profile = ""
+        # Whether the window is on screen. QML owns the window and tells us; the
+        # tray needs to know which of show/hide to offer.
+        self._window_visible = True
         self._ctl = DeviceController(on_state=lambda kind: self._marshal.emit(kind))
         self._pm = ProfileManager(app_paths.dynamic_profiles_path())
         self._settings = settings_mod.Settings()
@@ -164,6 +175,61 @@ class Backend(QObject):
     def sideCellsRight(self):
         return self._ctl.profile.side_cell_keys("R")
 
+    # -- window / tray -----------------------------------------------------
+    @Property(bool, notify=stateChanged)
+    def windowVisible(self):
+        return self._window_visible
+
+    @Slot(bool)
+    def setWindowVisible(self, visible):
+        self._window_visible = bool(visible)
+        self.stateChanged.emit()
+
+    @Slot()
+    def showWindow(self):
+        self.windowShowRequested.emit()
+
+    @Slot()
+    def hideWindow(self):
+        self.windowHideRequested.emit()
+
+    @Property(bool, constant=True)
+    def traySupported(self):
+        return tray.available()
+
+    @Property(bool, notify=stateChanged)
+    def trayEnabled(self):
+        return self._settings.tray_enabled and tray.available()
+
+    @Property(bool, notify=stateChanged)
+    def closeToTray(self):
+        """Whether closing the window should hide it instead of quitting. False
+        with no tray to close to: hiding the window then leaves no way back."""
+        return self._settings.close_to_tray and tray.available()
+
+    @Property(bool, notify=stateChanged)
+    def startHidden(self):
+        return self._settings.start_hidden and tray.available()
+
+    @Slot(bool)
+    def setStartHidden(self, enabled):
+        self._settings.start_hidden = bool(enabled)
+        self._settings.save()
+        self.stateChanged.emit()
+
+    @Slot(bool)
+    def setCloseToTray(self, enabled):
+        self._settings.close_to_tray = bool(enabled)
+        self._settings.save()
+        self.stateChanged.emit()
+
+    @Slot(bool)
+    def setTrayEnabled(self, enabled):
+        self._settings.tray_enabled = bool(enabled)
+        self._settings.save()
+        self.stateChanged.emit()
+        self.trayConfigChanged.emit()
+
     @Property("QStringList", notify=stateChanged)
     def workspaceButtons(self):
         return self._ctl.profile.visible_workspace_keys
@@ -175,6 +241,14 @@ class Backend(QObject):
         and the only clue is on stderr."""
         ok, name, detail = input_backend.health()
         return {"ok": bool(ok), "name": name, "detail": detail}
+
+    @Property("QVariantMap", notify=stateChanged)
+    def deviceHealth(self):
+        """{ok, detail} for the device library. Without it nothing can be found
+        and the device pill would just say "not connected" forever, with the
+        real reason only on stderr."""
+        ok, detail = device_lib.health()
+        return {"ok": bool(ok), "detail": detail}
 
     @Slot()
     def recheckInput(self):
@@ -1228,9 +1302,33 @@ class Backend(QObject):
         self.stateChanged.emit()
 
 
+DESKTOP_ENTRY = "loupedeckapp.desktop"
+
+
+def _desktop_entry_installed():
+    home = os.path.expanduser("~/.local/share")
+    dirs = [os.environ.get("XDG_DATA_HOME") or home]
+    dirs += (os.environ.get("XDG_DATA_DIRS")
+             or "/usr/local/share:/usr/share").split(":")
+    return any(os.path.exists(os.path.join(d, "applications", DESKTOP_ENTRY))
+               for d in dirs if d)
+
+
 def main():
-    app = QGuiApplication(sys.argv)
+    # QApplication rather than QGuiApplication: the tray icon and its menu come
+    # from QtWidgets. It is a QGuiApplication subclass, so QML is unaffected.
+    try:
+        from PySide6.QtWidgets import QApplication
+        app = QApplication(sys.argv)
+    except ImportError:                    # PySide6 without QtWidgets: no tray
+        app = QGuiApplication(sys.argv)
     app.setApplicationName("Loupedeck Config")
+    # Only claim the desktop entry when one is actually installed. Setting it
+    # regardless makes the portal complain ("App info not found") on every
+    # launch from a checkout, which is where most of the development happens.
+    if _desktop_entry_installed():
+        app.setDesktopFileName("loupedeckapp")
+    app.setWindowIcon(tray.icon())
     moved = app_paths.migrate_legacy()
     if moved:
         print("migrated to %s: %s" % (app_paths.user_dir(), ", ".join(moved)))
@@ -1241,9 +1339,56 @@ def main():
     engine.load(QUrl.fromLocalFile(app_paths.asset_path(os.path.join("qml", "Main.qml"))))
     if not engine.rootObjects():
         sys.exit("Failed to load QML")
+
+    # With a tray, closing the window only hides it, so the app must not quit
+    # when the last window goes. Without one it must, or the close button would
+    # leave a process running with no way to reach it.
+    holder = _TrayHolder(app, backend)
+    holder.apply()
+    backend.trayConfigChanged.connect(holder.apply)
+
     app.aboutToQuit.connect(backend.shutdown)
     backend.start()
+    if backend.startHidden:
+        backend.hideWindow()
     sys.exit(app.exec())
+
+
+class _TrayHolder:
+    """Creates and tears down the tray icon as the setting changes.
+
+    Kept out of Backend so the Qt-widgets dependency stays at the entry point:
+    Backend is loaded by the offscreen UI test, which has no tray to talk to.
+    """
+
+    def __init__(self, app, backend):
+        self._app = app
+        self._backend = backend
+        self._tray = None
+
+    def apply(self):
+        want = self._backend.trayEnabled
+        if want and self._tray is None:
+            self._tray = tray.Tray(
+                self._backend,
+                on_show=self._backend.showWindow,
+                on_hide=self._backend.hideWindow,
+                on_quit=self._quit)
+            self._backend.stateChanged.connect(self._tray.refresh)
+        elif not want and self._tray is not None:
+            self._backend.stateChanged.disconnect(self._tray.refresh)
+            self._tray.close()
+            self._tray = None
+            # Nothing is holding the app up any more, and the window may be
+            # hidden: bring it back rather than stranding the process.
+            self._backend.showWindow()
+        self._app.setQuitOnLastWindowClosed(self._tray is None)
+
+    def _quit(self):
+        """Ask, do not take. Quitting from the tray with a draft open would
+        throw it away silently, and there is no window on screen to notice.
+        QML brings the window back, prompts, and calls Qt.quit() itself."""
+        self._backend.quitRequested.emit()
 
 
 if __name__ == "__main__":

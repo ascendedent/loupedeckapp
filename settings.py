@@ -27,6 +27,14 @@ DEFAULTS = {
     # Colour when it is not. Blank means "whatever the workspace's LED colour
     # says", falling back to the same dim grey as the other buttons.
     "fn_inactive_color": "",
+    # Sit in the system tray. The app is only useful while it is running, so
+    # closing the window should not have to mean quitting.
+    "tray_enabled": True,
+    # With the tray on, closing the window hides it instead of quitting. Off
+    # means the close button really does quit, tray or no tray.
+    "close_to_tray": True,
+    # Start with the window hidden (tray only). For autostart.
+    "start_hidden": False,
 }
 
 
@@ -92,6 +100,32 @@ class Settings:
     @property
     def fn_inactive_color(self):
         return str(self.get("fn_inactive_color") or "")
+
+    @property
+    def tray_enabled(self):
+        return bool(self.get("tray_enabled"))
+
+    @tray_enabled.setter
+    def tray_enabled(self, value):
+        self.set("tray_enabled", bool(value))
+
+    @property
+    def close_to_tray(self):
+        """Only meaningful with the tray on: without one there is nothing to
+        close to, and hiding the window would leave no way back to it."""
+        return bool(self.get("close_to_tray")) and self.tray_enabled
+
+    @close_to_tray.setter
+    def close_to_tray(self, value):
+        self.set("close_to_tray", bool(value))
+
+    @property
+    def start_hidden(self):
+        return bool(self.get("start_hidden")) and self.tray_enabled
+
+    @start_hidden.setter
+    def start_hidden(self, value):
+        self.set("start_hidden", bool(value))
 
     @property
     def fn_mode(self):

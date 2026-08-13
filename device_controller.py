@@ -28,9 +28,8 @@ from LdConfiguration import (LdConfiguration, LdAction, LdSubmenu,
                              DEFAULT_TUNING, DIAL_KEY, ROTATE_CONTROLS,
                              accel_steps, apply_default_bindings)
 
-from Loupedeck import DeviceManager
-from Loupedeck.Devices import LoupedeckLive
-from Loupedeck.Devices.LoupedeckLive import CALLBACK_KEYWORD as CBC
+import device_lib
+from device_lib import CBC, DeviceManager, LoupedeckLive
 
 BACK_BUTTON_PATH = "Images/submenu_back_button.png"
 
@@ -97,12 +96,17 @@ class DeviceController:
         for attempt in range(retries):
             if self._try_connect():
                 return True
+            if not device_lib.available():
+                print("DeviceController: %s" % device_lib.health()[1])
+                return False
             time.sleep(0.5 + attempt / 10.0)
         print("DeviceController: no device found")
         return False
 
     def _try_connect(self):
         """One attempt. Returns True once the device is live and rendered."""
+        if not device_lib.available():
+            return False          # nothing to enumerate with; see device_lib
         LoupedeckLive.BAUD_RATE = 460800
         try:
             devs = DeviceManager().enumerate()
