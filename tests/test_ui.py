@@ -51,6 +51,18 @@ def find(name):
     return window.findChild(object, name)
 
 
+# -- first run ---------------------------------------------------------------
+# A fresh config directory is a first run, so the setup dialog should be up
+# already. It is modal, which is why it has to be closed before anything below
+# can send a key to the window.
+setup = find("setupDialog")
+c.eq("the setup dialog exists", setup is not None, True)
+c.eq("and opens by itself on a first run", setup.property("opened"), True)
+c.eq("opening it counts as seen", backend.setupFirstRun, False)
+setup.setProperty("visible", False)
+c.eq("it closes", setup.property("opened"), False)
+
+
 # -- the workspace name field ------------------------------------------------
 backend.showWorkspace(WS_KEYS[4])
 c.eq("selecting a workspace makes it the current one",

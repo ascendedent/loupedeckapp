@@ -35,6 +35,9 @@ DEFAULTS = {
     "close_to_tray": True,
     # Start with the window hidden (tray only). For autostart.
     "start_hidden": False,
+    # Whether the setup dialog has been shown once. It opens by itself on a
+    # first run, then only when something is actually wrong.
+    "setup_seen": False,
 }
 
 
@@ -126,6 +129,14 @@ class Settings:
     @start_hidden.setter
     def start_hidden(self, value):
         self.set("start_hidden", bool(value))
+
+    @property
+    def setup_seen(self):
+        return bool(self.get("setup_seen"))
+
+    @setup_seen.setter
+    def setup_seen(self, value):
+        self.set("setup_seen", bool(value))
 
     @property
     def fn_mode(self):

@@ -216,6 +216,17 @@ Leave the `device` extra off and the app still runs: it opens, edits and saves p
 in the top bar that the device library is missing along with the command to install it. It just
 cannot find a device until you do.
 
+### First run
+
+The app checks the machine when it starts and shows what is still missing: the udev rule and group
+for device access, the input backend, and the optional helpers (`kdotool` for dynamic mode,
+`playerctl` for media). Each one comes with the exact commands, which you copy and run yourself,
+because they need root and an app that asks for your password to run something you cannot read
+first is not one to trust with it.
+
+It opens once on a first run. After that a **Setup** chip appears in the top bar only when
+something is wrong, and it is always under the gear.
+
 ### System tray
 
 The app sits in the tray by default, because it is only useful while it is running. Closing the

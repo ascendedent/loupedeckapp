@@ -114,4 +114,15 @@ c.eq("and the themed name it falls back to matches the installed file",
 c.eq("asking whether a tray exists never raises",
      isinstance(tray.available(), bool), True)
 
+# setup_check tells the user to copy these by path. An install that leaves them
+# behind points at a file that is not there, which is worse than no advice.
+import setup_check                                                # noqa: E402
+
+referenced = ["packaging/99-loupedeck.rules", "packaging/ydotool-user-socket.conf"]
+c.eq("the files setup advice points at all ship",
+     sorted(p for p in referenced if p not in shipped), [])
+c.eq("and setup_check resolves them through app_paths",
+     all(os.path.exists(setup_check._packaged(os.path.basename(p)))
+         for p in referenced), True)
+
 sys.exit(c.done())

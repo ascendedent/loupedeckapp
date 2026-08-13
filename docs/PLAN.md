@@ -212,7 +212,8 @@ Future schema bumps only when needed (e.g. side-display mode).
 
 - [x] ydotool / xdotool / pyautogui; playerctl media
 - [x] KDE `kdotool` watcher
-- [ ] Surface “input backend unavailable” in UI (not only console)
+- [x] Surface “input backend unavailable” in UI (not only console), now part of the first-run
+      setup checks rather than its own chip
 - [ ] Optional later: GNOME / X11 `_NET_ACTIVE_WINDOW` watchers
 
 **macOS (M6). Support floor: 10.14 Mojave**
@@ -606,6 +607,7 @@ held profile, because a switch that silently fails to happen is worse than one t
 - [x] Workspace name in header
 - [x] Unsaved-draft guards on every path that would discard one
 - [x] Keyboard shortcuts (Ctrl/Cmd+S, copy/paste control, Esc, Ctrl+1..8)
+- [x] First-run setup dialog (`setup_check`)
 - [ ] Toasts / empty states / first-run drag-drop tip
 - [ ] Inspector collapsible sections (Action / Appearance / Advanced)
 - [ ] Optional later: split fat `Backend` QObject; photoreal device chrome
@@ -621,8 +623,12 @@ held profile, because a switch that silently fails to happen is worse than one t
       assets under the prefix, and a desktop entry plus icon in the menu. Verified by installing
       into a clean venv with the checkout off `sys.path`. Without the `device` extra the app now
       starts and says so in the top bar instead of dying on `ModuleNotFoundError` (`device_lib`).
-- [ ] **A distro-friendly path** (Flatpak and/or AppImage) and first-run setup that does not
-      require reading the README (udev rule, ydotool socket).
+- [x] **First-run setup** (`setup_check.py`): udev rule and group, input backend, and the optional
+      helpers, each with the commands to fix it. Shown once on a first run, then only when
+      something is wrong. The commands are selectable text rather than a button that runs them:
+      they need root, and an app that asks for a password to run something the user has not read
+      is not one to hand a password to.
+- [ ] **A distro-friendly path** (Flatpak and/or AppImage).
 - [x] **System tray** (`tray.py`): show/hide, live profile with a switcher, dynamic-mode toggle,
       quit. Closing the window hides it; the unsaved-changes guard does not prompt on close (the
       draft is not being discarded, only hidden) but Quit from the tray does ask, bringing the
@@ -720,7 +726,8 @@ Medium-term (Phase C):
 - [x] Workspace indicator / name in header
 - [ ] Dirty-state safety on switch / quit
 - [x] Keyboard shortcuts (platform-native modifier)
-- [ ] Empty states, error toasts, first-run tip
+- [x] First-run setup checks
+- [ ] Empty states, error toasts, first-run drag-drop tip
 - [ ] Inspector sections (Action / Appearance / Advanced)
 - [ ] Rotary tuning row: Invert checkbox + speed preset dropdown (§5.D.1)
 - [ ] Hide empty library categories

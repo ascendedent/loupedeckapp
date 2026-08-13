@@ -105,6 +105,111 @@ ApplicationWindow {
         }
     }
 
+    // ---- machine setup ----------------------------------------------------
+    // Everything here was a paragraph in the README you had to know to look
+    // for. A first run where nothing happens and nothing says why is the worst
+    // version of that, so this opens by itself the first time.
+    Dialog {
+        id: setupDialog
+        objectName: "setupDialog"
+        anchors.centerIn: Overlay.overlay
+        modal: true
+        width: Math.min(620, root.width - 80)
+        title: "Setup"
+        standardButtons: Dialog.Close
+        onOpened: backend.markSetupSeen()
+
+        ColumnLayout {
+            width: parent.width
+            spacing: 10
+
+            Text {
+                Layout.fillWidth: true
+                text: backend.setupOk
+                      ? "Everything this app needs is in place."
+                      : "Run the commands below for anything marked red. Amber "
+                        + "means an optional feature is unavailable; the app "
+                        + "works without it."
+                color: theme.muted; font.pixelSize: 11; wrapMode: Text.WordWrap
+            }
+
+            Repeater {
+                model: backend.setupChecks
+                ColumnLayout {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    spacing: 4
+
+                    RowLayout {
+                        Layout.fillWidth: true; spacing: 8
+                        Rectangle {
+                            width: 9; height: 9; radius: 5
+                            color: modelData.ok ? theme.ok
+                                 : (modelData.optional ? theme.warn : "#e05252")
+                        }
+                        Text {
+                            text: modelData.title
+                            color: theme.text; font.pixelSize: 13; font.bold: true
+                        }
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 17
+                        text: modelData.detail
+                        color: theme.muted; font.pixelSize: 11; wrapMode: Text.WordWrap
+                    }
+                    // The commands are selectable rather than a button that
+                    // runs them: these need root, and an app that asks for a
+                    // password to run something you cannot read first is not
+                    // one to trust with it.
+                    Rectangle {
+                        visible: modelData.fix !== ""
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 17
+                        Layout.preferredHeight: fixText.implicitHeight + 14
+                        radius: theme.radius
+                        color: theme.panel2
+                        border.color: theme.line
+                        TextEdit {
+                            id: fixText
+                            anchors.fill: parent
+                            anchors.margins: 7
+                            text: modelData.fix
+                            readOnly: true
+                            selectByMouse: true
+                            wrapMode: TextEdit.Wrap
+                            color: theme.text
+                            font.family: "monospace"
+                            font.pixelSize: 11
+                        }
+                    }
+                    Rectangle {
+                        Layout.fillWidth: true; Layout.topMargin: 4
+                        height: 1; color: theme.line
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true; spacing: 8
+                ActionButton {
+                    label: "Check again"
+                    onClicked: backend.recheckSetup()
+                }
+                Text {
+                    Layout.fillWidth: true
+                    text: "A group change (dialout) only takes effect after you "
+                          + "log back in."
+                    color: theme.muted; font.pixelSize: 10; wrapMode: Text.WordWrap
+                }
+            }
+        }
+    }
+
+    // First run: open it once, unprompted. After that the chip in the top bar
+    // is the way in, and only appears when something is actually wrong.
+    Component.onCompleted: if (backend.setupFirstRun) setupDialog.open()
+
     // ---- import / export --------------------------------------------------
     property string ioError: ""
 
@@ -524,92 +629,30 @@ ApplicationWindow {
                 }
             }
 
-            // No device library: nothing can be enumerated, so the device pill
-            // would say "not connected" forever with no way to learn why.
+            // One entry point for everything the machine still needs: the udev
+            // rule, the input backend, the helper tools. Each of these used to
+            // be its own chip, which crowded the bar and told you about one
+            // problem at a time.
             Rectangle {
-                visible: !backend.deviceHealth.ok
+                visible: !backend.setupOk
                 Layout.preferredHeight: 26
-                Layout.preferredWidth: devWarn.width + 20
+                Layout.preferredWidth: setupWarn.width + 20
                 radius: theme.radius
                 color: theme.panel2
-                border.color: theme.warn
+                border.color: backend.setupBlocking ? theme.warn : theme.line
                 Text {
-                    id: devWarn
+                    id: setupWarn
                     anchors.centerIn: parent
-                    text: "⚠ device library"
-                    color: theme.warn; font.pixelSize: 11
+                    text: backend.setupBlocking ? "⚠ Setup" : "Setup"
+                    color: backend.setupBlocking ? theme.warn : theme.muted
+                    font.pixelSize: 11
                 }
-                HoverHandler { id: devHover; cursorShape: Qt.PointingHandCursor }
-                TapHandler { onTapped: deviceDialog.open() }
-                ToolTip.visible: devHover.hovered
-                ToolTip.text: "Click for the install command"
-            }
-
-            Dialog {
-                id: deviceDialog
-                anchors.centerIn: Overlay.overlay
-                modal: true
-                width: 460
-                title: "Device library missing"
-                standardButtons: Dialog.Ok
-                ColumnLayout {
-                    width: parent.width
-                    spacing: 8
-                    Text {
-                        Layout.fillWidth: true
-                        text: backend.deviceHealth.detail
-                        color: theme.text; font.pixelSize: 12; wrapMode: Text.WordWrap
-                    }
-                }
-            }
-
-            // Input backend trouble, e.g. ydotoold not running. Without this the
-            // failure is invisible: every action silently does nothing.
-            Rectangle {
-                visible: !backend.inputHealth.ok
-                Layout.preferredHeight: 26
-                Layout.preferredWidth: inputWarn.width + 20
-                radius: theme.radius
-                color: theme.panel2
-                border.color: theme.warn
-                Text {
-                    id: inputWarn
-                    anchors.centerIn: parent
-                    text: "⚠ input"
-                    color: theme.warn; font.pixelSize: 11
-                }
-                HoverHandler { id: inputHover; cursorShape: Qt.PointingHandCursor }
-                TapHandler { onTapped: inputDialog.open() }
-                ToolTip.visible: inputHover.hovered
-                ToolTip.text: backend.inputHealth.detail
-            }
-
-            Dialog {
-                id: inputDialog
-                anchors.centerIn: Overlay.overlay
-                modal: true
-                width: 440
-                title: "Input is not working"
-                standardButtons: Dialog.Ok
-                ColumnLayout {
-                    width: parent.width
-                    spacing: 8
-                    Text {
-                        Layout.fillWidth: true
-                        text: backend.inputHealth.detail
-                        color: theme.text; font.pixelSize: 12; wrapMode: Text.WordWrap
-                    }
-                    Text {
-                        Layout.fillWidth: true
-                        text: "Actions that send keystrokes will do nothing until this is "
-                              + "fixed. See the Troubleshooting section of the README."
-                        color: theme.muted; font.pixelSize: 11; wrapMode: Text.WordWrap
-                    }
-                    ActionButton {
-                        label: "Check again"
-                        onClicked: backend.recheckInput()
-                    }
-                }
+                HoverHandler { id: setupHover; cursorShape: Qt.PointingHandCursor }
+                TapHandler { onTapped: setupDialog.open() }
+                ToolTip.visible: setupHover.hovered
+                ToolTip.text: backend.setupBlocking
+                    ? "Something needed is not set up. Click for the commands."
+                    : "An optional feature is unavailable. Click for details."
             }
 
             // fn layer: which mode, and whether it is engaged right now.
@@ -853,6 +896,15 @@ ApplicationWindow {
                                     checked: backend.startHidden
                                     onToggled: backend.setStartHidden(checked)
                                 }
+                            }
+
+                            Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
+
+                            // Always reachable, not only when something breaks.
+                            ActionButton {
+                                Layout.fillWidth: true
+                                label: "Setup…"
+                                onClicked: { prefsPopup.close(); setupDialog.open() }
                             }
 
                             Text {

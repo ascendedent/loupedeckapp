@@ -22,6 +22,7 @@ import macro
 import input_backend
 import device_lib
 import settings as settings_mod
+import setup_check
 import tray
 import platform_env
 import window_watcher
@@ -47,6 +48,7 @@ class Backend(QObject):
     quitRequested = Signal()
     # tray turned on or off: main() creates or tears the icon down
     trayConfigChanged = Signal()
+    setupChanged = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -62,6 +64,10 @@ class Backend(QObject):
         # Whether the window is on screen. QML owns the window and tells us; the
         # tray needs to know which of show/hide to offer.
         self._window_visible = True
+        # Machine setup (udev rule, input backend, helper tools). Run once at
+        # startup and on demand: these are all things the user changes outside
+        # the app, so a cached answer is fine until they say they fixed it.
+        self._setup = setup_check.run()
         self._ctl = DeviceController(on_state=lambda kind: self._marshal.emit(kind))
         self._pm = ProfileManager(app_paths.dynamic_profiles_path())
         self._settings = settings_mod.Settings()
@@ -241,6 +247,41 @@ class Backend(QObject):
         and the only clue is on stderr."""
         ok, name, detail = input_backend.health()
         return {"ok": bool(ok), "name": name, "detail": detail}
+
+    # -- machine setup -----------------------------------------------------
+    @Property("QVariantList", notify=setupChanged)
+    def setupChecks(self):
+        return self._setup
+
+    @Property(bool, notify=setupChanged)
+    def setupOk(self):
+        return setup_check.summary(self._setup)[0]
+
+    @Property(bool, notify=setupChanged)
+    def setupBlocking(self):
+        """Something is wrong that stops the app doing its job, as opposed to
+        losing an optional feature."""
+        return bool(setup_check.summary(self._setup)[1])
+
+    @Property(bool, notify=setupChanged)
+    def setupFirstRun(self):
+        return not self._settings.setup_seen
+
+    @Slot()
+    def recheckSetup(self):
+        """Re-run after the user has gone and fixed something. The input
+        backend is re-detected too: it caches which one it picked, and starting
+        ydotoold would otherwise not be noticed."""
+        input_backend.reset_backend()
+        self._setup = setup_check.run()
+        self.setupChanged.emit()
+        self.stateChanged.emit()
+
+    @Slot()
+    def markSetupSeen(self):
+        self._settings.setup_seen = True
+        self._settings.save()
+        self.setupChanged.emit()
 
     @Property("QVariantMap", notify=stateChanged)
     def deviceHealth(self):

@@ -69,6 +69,7 @@ py-modules = [
     "macro",
     "tray",
     "settings",
+    "setup_check",
     "virtual_keyboard",
 ]
 
@@ -90,5 +91,11 @@ py-modules = [
     "Images/submenu_back_button.png",
 ]
 "share/loupedeckapp/Profiles" = ["Profiles/testbothactions.json"]
+# setup_check points at these by path, so an install that leaves them out
+# tells the user to copy a file that is not there.
+"share/loupedeckapp/packaging" = [
+    "packaging/99-loupedeck.rules",
+    "packaging/ydotool-user-socket.conf",
+]
 "share/applications" = ["packaging/loupedeckapp.desktop"]
 "share/icons/hicolor/scalable/apps" = ["packaging/icons/loupedeckapp.svg"]
