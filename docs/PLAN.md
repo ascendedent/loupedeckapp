@@ -534,7 +534,12 @@ held profile, because a switch that silently fails to happen is worse than one t
 - [x] **Brightness**, persisted in `settings.json` and re-applied on every connect, so a reconnect
       does not silently revert to the default. The device quantises to steps of 10, so the slider
       is stepped to match rather than pretending to be continuous.
-- [ ] Surface the input backend's health (ydotoold down is currently silent)
+- [x] Surface the input backend's health. A dead `ydotoold` used to fail completely silently:
+      every action did nothing, the exception was caught by the action layer, and the only trace
+      was on a stderr nobody reads. The backend now reports (ok, detail) covering the three
+      distinguishable cases (not installed, no socket, daemon refused the connection) and
+      remembers a runtime failure so a daemon that dies *after* startup is caught too. Shown as a
+      top-bar warning with the reason and a re-check.
 
 ### F. UI polish
 
@@ -551,7 +556,7 @@ held profile, because a switch that silently fails to happen is worse than one t
 
 - [x] `pyproject.toml` with a `loupedeckapp` entry point and `[device]` / `[x11]` extras
 - [x] Ship udev rule, ydotool socket drop-in and desktop entry in `packaging/`
-- [x] Automated tests (`tests/`, 228 checks): schema load/migrate, profile resolution,
+- [x] Automated tests (`tests/`, 245 checks): schema load/migrate, profile resolution,
       tuning/dispatch, platform factories, installed-asset layout
 - [ ] **Flatpak** and/or **AppImage**
 - [ ] Promote useful `scratch/` probes to `scripts/verify/` smoke checks

@@ -18,6 +18,7 @@ from PySide6.QtQml import QQmlApplicationEngine
 
 import action_library
 import app_paths
+import input_backend
 import settings as settings_mod
 import platform_env
 import window_watcher
@@ -128,6 +129,20 @@ class Backend(QObject):
     @Property(int, notify=stateChanged)
     def rows(self):
         return self._ctl.profile.rows
+
+    @Property("QVariantMap", notify=stateChanged)
+    def inputHealth(self):
+        """{ok, name, detail} for the input backend. A backend that cannot
+        inject otherwise fails invisibly: every action appears to do nothing
+        and the only clue is on stderr."""
+        ok, name, detail = input_backend.health()
+        return {"ok": bool(ok), "name": name, "detail": detail}
+
+    @Slot()
+    def recheckInput(self):
+        """Re-detect after the user fixes things (starting ydotoold, say)."""
+        input_backend.reset_backend()
+        self.stateChanged.emit()
 
     @Property(int, notify=stateChanged)
     def brightness(self):

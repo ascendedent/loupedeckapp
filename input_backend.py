@@ -87,6 +87,13 @@ class InputBackend:
     def available(self):
         return False
 
+    def health(self):
+        """(ok, detail). `detail` explains the problem and, where there is one,
+        the fix. Reported in the UI: a backend that cannot inject otherwise
+        fails completely silently, with every action appearing to do nothing.
+        """
+        return False, "No input backend"
+
     def send_hotkey(self, combo, repeat=1):
         raise NotImplementedError
 
@@ -103,6 +110,10 @@ class NullBackend(InputBackend):
 
     def available(self):
         return True
+
+    def health(self):
+        return False, ("No usable input backend for this session. On Wayland "
+                       "install ydotool; on X11 install xdotool.")
 
     def send_hotkey(self, combo, repeat=1):
         print("[input] no working backend; would send hotkey: %s (x%d)" % (combo, repeat))
@@ -143,19 +154,58 @@ class YdotoolBackend(InputBackend):
     # handler receives them too and chooses to collapse them.
     repeat_delay_ms = 3
 
+    SOCKET_CANDIDATES = ("/run/user/%d/.ydotool_socket", "/tmp/.ydotool_socket",
+                        "/run/.ydotool_socket")
+
     def __init__(self):
         self.bin = shutil.which("ydotool")
         self.env = dict(os.environ)
+        self.last_error = ""
         # Help the client find the daemon socket if the user didn't export it.
         if "YDOTOOL_SOCKET" not in self.env:
-            for cand in ("/run/user/%d/.ydotool_socket" % os.getuid(),
-                         "/tmp/.ydotool_socket", "/run/.ydotool_socket"):
+            for cand in self._socket_candidates():
                 if os.path.exists(cand):
                     self.env["YDOTOOL_SOCKET"] = cand
                     break
 
+    def _socket_candidates(self):
+        return [c % os.getuid() if "%d" in c else c
+                for c in self.SOCKET_CANDIDATES]
+
     def available(self):
         return bool(self.bin)
+
+    def health(self):
+        if not self.bin:
+            return False, "ydotool is not installed"
+        socket = self.env.get("YDOTOOL_SOCKET")
+        if not socket or not os.path.exists(socket):
+            return False, ("ydotoold is not running, or its socket is not "
+                           "readable by you. Looked in: %s"
+                           % ", ".join(self._socket_candidates()))
+        if self.last_error:
+            # The daemon can be running yet refuse the connection, e.g. when
+            # the socket belongs to another user.
+            return False, "ydotool failed: %s" % self.last_error
+        return True, "ydotool via %s" % socket
+
+    def _run(self, args):
+        """Run ydotool, remembering a failure so health() can report it.
+
+        Without this a dead daemon is invisible: the action layer catches the
+        exception and logs it to a terminal nobody is looking at.
+        """
+        try:
+            subprocess.run([self.bin] + args, env=self.env, check=True,
+                           capture_output=True)
+            self.last_error = ""
+        except subprocess.CalledProcessError as e:
+            detail = (e.stderr or b"").decode(errors="replace").strip()
+            self.last_error = detail.splitlines()[-1] if detail else "exit %d" % e.returncode
+            raise
+        except OSError as e:
+            self.last_error = str(e)
+            raise
 
     def send_hotkey(self, combo, repeat=1):
         """Send `combo`, repeating the non-modifier key `repeat` times.
@@ -177,11 +227,10 @@ class YdotoolBackend(InputBackend):
             args += ["%d:1" % key, "%d:0" % key]
         args += ["%d:0" % c for c in reversed(mods)]
         delay = self.key_delay_ms if n == 1 else self.repeat_delay_ms
-        subprocess.run([self.bin, "key", "-d", str(delay), *args],
-                       env=self.env, check=True)
+        self._run(["key", "-d", str(delay), *args])
 
     def type_text(self, text):
-        subprocess.run([self.bin, "type", "--", text], env=self.env, check=True)
+        self._run(["type", "--", text])
 
     def scroll(self, direction, amount=1):
         """One invocation carrying the whole magnitude, not `amount` clicks."""
@@ -189,9 +238,7 @@ class YdotoolBackend(InputBackend):
         n = max(1, int(amount))
         if not (dx or dy):
             return
-        subprocess.run([self.bin, "mousemove", "-w",
-                        "-x", str(dx * n), "-y", str(dy * n)],
-                       env=self.env, check=True)
+        self._run(["mousemove", "-w", "-x", str(dx * n), "-y", str(dy * n)])
 
 
 class XdotoolBackend(InputBackend):
@@ -203,6 +250,11 @@ class XdotoolBackend(InputBackend):
 
     def available(self):
         return bool(self.bin) and platform_env.session_type() == platform_env.X11
+
+    def health(self):
+        if not self.bin:
+            return False, "xdotool is not installed"
+        return True, "xdotool"
 
     def send_hotkey(self, combo, repeat=1):
         # xdotool uses '+' combos with names like ctrl/shift/super/Return.
@@ -237,6 +289,9 @@ class PyAutoGuiBackend(InputBackend):
             return True
         except Exception:
             return False
+
+    def health(self):
+        return True, "pyautogui (X11)"
 
     def send_hotkey(self, combo, repeat=1):
         import pyautogui
@@ -307,6 +362,13 @@ def send_hotkey(combo, repeat=1):
 
 def type_text(text):
     get_backend().type_text(text)
+
+
+def health():
+    """(ok, name, detail) for the active backend."""
+    b = get_backend()
+    ok, detail = b.health()
+    return ok, b.name, detail
 
 
 def scroll(direction, amount=1):

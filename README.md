@@ -89,6 +89,8 @@ middling speeds.
 - **Dynamic mode**: switches the active profile when the focused desktop app changes (KDE Wayland,
   via KWin scripting).
 - **Brightness** control, remembered between runs and re-applied on reconnect.
+- **Tells you when input is broken** rather than silently doing nothing, with the reason and a
+  re-check button.
 - **Survives unplugging**: the app connects when the device appears and reconnects when it comes
   back, returning to the workspace you were on. No restart needed.
 - JSON profiles (schema v5, backward compatible with older profiles; unknown fields
@@ -206,9 +208,18 @@ control fast with Fast 3x or acceleration.
 
 ### Actions do nothing in a Wayland session
 
-Check `ydotoold` is running (`systemctl status ydotool`) and that the socket is reachable by your
-user. `input_backend` picks ydotool automatically on Wayland; `xdotool`/`pyautogui` are X11-only
-and cannot inject into native Wayland clients.
+The app shows a **⚠ input** warning in the top bar when it cannot inject keystrokes; click it for
+the reason and a re-check button. Usually `ydotoold` is not running, or its socket is not readable
+by your user:
+
+```bash
+systemctl status ydotool
+ls -l /run/.ydotool_socket        # should be owned by you
+```
+
+See the ydotool setup above for the drop-in that fixes socket ownership. `input_backend` picks
+ydotool automatically on Wayland; `xdotool`/`pyautogui` are X11-only and cannot inject into native
+Wayland clients.
 
 ### The device is not found
 

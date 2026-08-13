@@ -378,6 +378,55 @@ ApplicationWindow {
                 }
             }
 
+            // Input backend trouble, e.g. ydotoold not running. Without this the
+            // failure is invisible: every action silently does nothing.
+            Rectangle {
+                visible: !backend.inputHealth.ok
+                Layout.preferredHeight: 26
+                Layout.preferredWidth: inputWarn.width + 20
+                radius: theme.radius
+                color: theme.panel2
+                border.color: theme.warn
+                Text {
+                    id: inputWarn
+                    anchors.centerIn: parent
+                    text: "⚠ input"
+                    color: theme.warn; font.pixelSize: 11
+                }
+                HoverHandler { id: inputHover; cursorShape: Qt.PointingHandCursor }
+                TapHandler { onTapped: inputDialog.open() }
+                ToolTip.visible: inputHover.hovered
+                ToolTip.text: backend.inputHealth.detail
+            }
+
+            Dialog {
+                id: inputDialog
+                anchors.centerIn: Overlay.overlay
+                modal: true
+                width: 440
+                title: "Input is not working"
+                standardButtons: Dialog.Ok
+                ColumnLayout {
+                    width: parent.width
+                    spacing: 8
+                    Text {
+                        Layout.fillWidth: true
+                        text: backend.inputHealth.detail
+                        color: theme.text; font.pixelSize: 12; wrapMode: Text.WordWrap
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        text: "Actions that send keystrokes will do nothing until this is "
+                              + "fixed. See the Troubleshooting section of the README."
+                        color: theme.muted; font.pixelSize: 11; wrapMode: Text.WordWrap
+                    }
+                    ActionButton {
+                        label: "Check again"
+                        onClicked: backend.recheckInput()
+                    }
+                }
+            }
+
             // Brightness: the device quantises to steps of 10, so the slider
             // is stepped to match rather than pretending to be continuous.
             Text { text: "☀"; color: theme.muted; font.pixelSize: 14 }
