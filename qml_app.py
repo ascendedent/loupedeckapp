@@ -39,6 +39,10 @@ class Backend(QObject):
         self._selected = ""
         self._clipboard = None   # copied control function (see copyControl)
         self._sys_shortcuts = None   # lazily-read KDE shortcuts (cached)
+        # Last focused window that was not this app. Clicking "bind" focuses our
+        # own window first, so polling at click time would always answer
+        # "Loupedeck Config"; remember what you were actually in instead.
+        self._last_app = ""
         self._ctl = DeviceController(on_state=lambda kind: self._marshal.emit(kind))
         self._pm = ProfileManager(os.path.join(APP_DIR, "dynamic_profiles.json"))
         self._watcher = window_watcher.get_watcher(
@@ -47,10 +51,15 @@ class Backend(QObject):
         self._focusSig.connect(self._on_focus_main, Qt.QueuedConnection)
 
     # -- lifecycle ---------------------------------------------------------
+    # Our own window, which is never a useful thing to bind.
+    SELF_WM_CLASS = "loupedeck config"
+
     def start(self):
         threading.Thread(target=self._ctl.connect, daemon=True).start()
-        if self._pm.dynamic_mode:
-            self._watcher.start()
+        # Always watch, even with dynamic mode off: the watcher is what records
+        # which app you were last in, which the bind button needs. Acting on a
+        # focus change is still gated on dynamic_mode below.
+        self._watcher.start()
 
     def shutdown(self):
         self._watcher.stop()
@@ -60,6 +69,10 @@ class Backend(QObject):
         self.stateChanged.emit()
 
     def _on_focus_main(self, wm_class, title):
+        if wm_class and wm_class.strip().lower() != self.SELF_WM_CLASS:
+            if wm_class != self._last_app:
+                self._last_app = wm_class
+                self.stateChanged.emit()      # refresh the bind button's label
         if not self._pm.dynamic_mode:
             return
         name = self._pm.resolve(wm_class)
@@ -695,16 +708,72 @@ class Backend(QObject):
         self._ctl.load_profile(name)
         self.stateChanged.emit()
 
+    # -- dynamic mode: focused app -> profile bindings ---------------------
+    @Property("QVariantList", notify=stateChanged)
+    def appBindings(self):
+        """[{app, profile}] for the bindings list, sorted for a stable UI."""
+        out = [{"app": b.get("match", {}).get("wm_class", ""),
+                "profile": b.get("profile", "")}
+               for b in self._pm.app_profiles]
+        return sorted(out, key=lambda b: b["app"].lower())
+
+    @Property(str, notify=stateChanged)
+    def defaultProfile(self):
+        """Used when the focused app has no binding of its own."""
+        return self._pm.default_profile or ""
+
+    @Slot(str)
+    def setDefaultProfile(self, name):
+        self._pm.default_profile = name or None
+        self._pm.save()
+        self.stateChanged.emit()
+
+    @Property(str, notify=stateChanged)
+    def focusedApp(self):
+        """The app the bind button would act on: the last focused window that
+        was not this one.
+
+        Deliberately not a live poll. Pressing the button focuses our own
+        window, so a poll at that moment always answers "Loupedeck Config" and
+        you could never bind anything else. (The PyQt5 tree has that bug.)"""
+        return self._last_app
+
+    @Slot(str)
+    def bindFocusedApp(self, profile_name):
+        """Bind the currently focused app to `profile_name` (defaults to the
+        loaded profile). Binding replaces any existing entry for that app."""
+        wm_class = self._last_app
+        if not wm_class:
+            print("dynamic: no other app has been focused yet, nothing to bind")
+            return
+        name = profile_name or self._ctl.config.profile
+        if not name:
+            return
+        self._pm.set_binding(wm_class, name)
+        if not self._pm.default_profile:
+            # Without a default, switching away from a bound app would leave the
+            # device on whatever was last loaded.
+            self._pm.default_profile = name
+        self._pm.save()
+        print("dynamic: bound %s -> %s" % (wm_class, name))
+        self.stateChanged.emit()
+
+    @Slot(str)
+    def removeBinding(self, wm_class):
+        self._pm.remove_binding(wm_class)
+        self._pm.save()
+        self.stateChanged.emit()
+
     @Slot(bool)
     def setDynamicMode(self, enabled):
         self._pm.set_dynamic_mode(enabled)
         self._pm.save()
         if enabled:
+            # The watcher already runs; just act on where focus is right now so
+            # enabling it takes effect without waiting for the next switch.
             self._watcher.start()
             cls, ttl = self._watcher.poll_once()
             self._on_focus_main(cls, ttl)
-        else:
-            self._watcher.stop()
         self.stateChanged.emit()
 
 

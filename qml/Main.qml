@@ -386,6 +386,94 @@ ApplicationWindow {
                     }
                 }
 
+                // -------- Dynamic mode: focused app -> profile --------
+                Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
+                ColumnLayout {
+                    Layout.fillWidth: true; spacing: 6
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text {
+                            text: "App bindings"; color: theme.muted; font.pixelSize: 12
+                            Layout.fillWidth: true
+                        }
+                        Text {
+                            text: backend.dynamicMode ? "on" : "off"
+                            color: backend.dynamicMode ? theme.ok : theme.muted
+                            font.pixelSize: 11
+                        }
+                    }
+
+                    // Binds whatever window is focused *now*, so the button has
+                    // to say what that is before you press it.
+                    ActionButton {
+                        Layout.fillWidth: true
+                        label: backend.focusedApp === ""
+                               ? "No focused app detected"
+                               : "Bind " + backend.focusedApp + " → " + backend.activeProfile
+                        enabledFlag: backend.focusedApp !== ""
+                        onClicked: backend.bindFocusedApp(backend.activeProfile)
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        visible: backend.appBindings.length === 0
+                        text: "No apps bound yet. Focus an app, then bind it to the "
+                              + "profile you want it to use."
+                        color: theme.muted; font.pixelSize: 11; wrapMode: Text.WordWrap
+                    }
+
+                    ListView {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: Math.min(contentHeight, 110)
+                        visible: backend.appBindings.length > 0
+                        clip: true; spacing: 3
+                        model: backend.appBindings
+                        delegate: Rectangle {
+                            required property var modelData
+                            width: ListView.view.width; height: 28
+                            radius: 6; color: theme.panel2
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 8; anchors.rightMargin: 4
+                                spacing: 6
+                                Text {
+                                    text: modelData.app; color: theme.text
+                                    font.pixelSize: 11; Layout.fillWidth: true
+                                    elide: Text.ElideRight
+                                }
+                                Text {
+                                    text: "→ " + modelData.profile; color: theme.muted
+                                    font.pixelSize: 11; elide: Text.ElideRight
+                                    Layout.maximumWidth: 90
+                                }
+                                Text {
+                                    text: "✕"; color: rm.hovered ? theme.text : theme.muted
+                                    font.pixelSize: 12; rightPadding: 6
+                                    HoverHandler { id: rm; cursorShape: Qt.PointingHandCursor }
+                                    TapHandler { onTapped: backend.removeBinding(modelData.app) }
+                                }
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true; spacing: 6
+                        visible: backend.appBindings.length > 0
+                        Text {
+                            text: "Fallback"; color: theme.muted; font.pixelSize: 11
+                        }
+                        ComboBox {
+                            Layout.fillWidth: true
+                            model: backend.profiles
+                            currentIndex: backend.profiles.indexOf(backend.defaultProfile)
+                            displayText: backend.defaultProfile === ""
+                                         ? "none" : backend.defaultProfile
+                            onActivated: backend.setDefaultProfile(backend.profiles[currentIndex])
+                        }
+                    }
+                }
+
                 Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
 
                 // -------- Inspector --------
