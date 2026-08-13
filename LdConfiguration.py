@@ -1,6 +1,7 @@
 import json, os
 import app_paths
 import input_backend
+import virtual_keyboard
 from DeviceProfile import CT_EXTRA_BUTTONS, WHEEL_DISPLAY, WS_KEYS
 
 SCHEMA_VERSION = 5
@@ -174,6 +175,31 @@ def tuning_to_preset(tuning):
         if t["detents_per_step"] == dps and t["steps_per_detent"] == spd:
             return pid
     return None
+
+
+# The CT's labelled buttons have obvious meanings, so a new profile starts with
+# them wired rather than dead. Applied only to newly created profiles:
+# back-filling an existing one would silently change something already set up.
+#
+# fn is deliberately absent. It is a modifier, not an action, and wiring it to
+# something would get in the way of that.
+DEFAULT_BUTTON_BINDINGS = {
+    "home": ("workspace", WS_KEYS[0], "Workspace 1"),
+    "undo": ("hotkey", "ctrl+z", "Undo"),
+    "save": ("hotkey", "ctrl+s", "Save"),
+    "enter": ("hotkey", "enter", "Enter"),
+    "keyboard": ("keyboard", "toggle", "Keyboard"),
+}
+
+
+def apply_default_bindings(config):
+    """Wire the CT's labelled buttons on every workspace of a new profile."""
+    for ws in config.workspaces:
+        for key, (a_type, value, summary) in DEFAULT_BUTTON_BINDINGS.items():
+            if key in ws.actions and ws.actions[key].a_type == "none":
+                ws.actions[key] = LdAction(action_type=a_type, action=value,
+                                           summary=summary)
+    return config
 
 
 class LdConfiguration:
@@ -382,6 +408,19 @@ class LdAction:
         input_backend.scroll(self.action, amount=n)
       elif self.a_type == "media":
         input_backend.media(self.action)
+      elif self.a_type == "keyboard":
+        # The desktop's own on-screen keyboard, not one we draw. Never
+        # repeats: toggling N times would just flap it.
+        if self.action == "show":
+          virtual_keyboard.set_active(True)
+        elif self.action == "hide":
+          virtual_keyboard.set_active(False)
+        else:
+          virtual_keyboard.toggle()
+      elif self.a_type == "workspace":
+        # Handled by the controller, which owns workspace state; reaching here
+        # means it was dispatched down the wrong path.
+        print("workspace action reached execute(); this is a bug")
       else:
         print("no action to execute for action type %s" % self.a_type)
     except Exception as e:

@@ -523,6 +523,22 @@ held profile, because a switch that silently fails to happen is worse than one t
 - [ ] Ship **starter profiles** (media, system, browser, empty scratch) with icons
 - [ ] Cross-platform match keys (§4.4)
 
+### E1. CT function buttons
+
+- [x] `workspace` action type (jump to a workspace). Handled by the controller rather than
+      `LdAction.execute`, because workspace selection is controller state; execute() logs if one
+      ever reaches it, which would mean a dispatch bug.
+- [x] `keyboard` action type driving the **desktop's** on-screen keyboard rather than one we draw.
+      KDE exposes `org.kde.kwin.VirtualKeyboard` on DBus and is the only backend that reports
+      state as well as setting it; elsewhere a keyboard binary is started or killed. Note KDE's
+      `active` means *enabled*, not *on screen*: the panel appears when a text field takes focus,
+      which is what the physical button does too.
+- [x] New profiles start with home / undo / save / enter / kbd bound. Applied only on creation and
+      only to empty slots, so an existing profile is never rewritten.
+- [ ] **fn as a modifier.** Held by default, with an option to latch on press and light the button.
+      Open question: what it modifies. The natural reading is a layer (hold fn, every control uses
+      an alternate binding set), which is a schema change, so it is not started until confirmed.
+
 ### E2. Device robustness
 
 - [x] **Connection supervisor**: one thread handles both waiting for a device and noticing one
@@ -556,7 +572,7 @@ held profile, because a switch that silently fails to happen is worse than one t
 
 - [x] `pyproject.toml` with a `loupedeckapp` entry point and `[device]` / `[x11]` extras
 - [x] Ship udev rule, ydotool socket drop-in and desktop entry in `packaging/`
-- [x] Automated tests (`tests/`, 245 checks): schema load/migrate, profile resolution,
+- [x] Automated tests (`tests/`, 269 checks): schema load/migrate, profile resolution,
       tuning/dispatch, platform factories, installed-asset layout
 - [ ] **A properly installable application**, not a checkout you run by hand: a real install
       (Flatpak and/or AppImage, plus a distro-friendly path), the desktop entry registered, an

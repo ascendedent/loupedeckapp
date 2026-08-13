@@ -25,7 +25,8 @@ import window_watcher
 import system_shortcuts
 from profile_manager import ProfileManager
 from device_controller import DeviceController
-from LdConfiguration import LdConfiguration, SCHEMA_VERSION
+from LdConfiguration import (LdConfiguration, SCHEMA_VERSION,
+                             apply_default_bindings)
 from DeviceProfile import WHEEL_DISPLAY, WS_KEYS
 from LdConfiguration import (ROTATE_CONTROLS, TUNING_PRESETS, DEFAULT_TUNING,
                              preset_to_tuning, tuning_to_preset)
@@ -271,7 +272,8 @@ class Backend(QObject):
         return len(self._ctl.submenu_stack)
 
     # -- control selection + action editing (inspector) --------------------
-    ACTION_TYPES = ["none", "command", "hotkey", "text", "scroll", "media"]
+    ACTION_TYPES = ["none", "command", "hotkey", "text", "scroll", "media",
+                    "keyboard", "workspace"]
 
     # Per-platform, from action_library: the applications differ by desktop.
     ACTION_LIBRARY = action_library.default_library()
@@ -360,7 +362,8 @@ class Backend(QObject):
         return len(self._ctl.submenu_stack)
 
     # -- control selection + action editing (inspector) --------------------
-    ACTION_TYPES = ["none", "command", "hotkey", "text", "scroll", "media"]
+    ACTION_TYPES = ["none", "command", "hotkey", "text", "scroll", "media",
+                    "keyboard", "workspace"]
 
     # Ready-to-use actions for the left-panel library (category, label, type,
     # value). Dragged onto a control to bind it; templates (empty value) are
@@ -774,6 +777,11 @@ class Backend(QObject):
                   {"label": "Next track", "value": "next"},
                   {"label": "Previous track", "value": "previous"},
                   {"label": "Stop", "value": "stop"}],
+        "keyboard": [{"label": "Toggle", "value": "toggle"},
+                     {"label": "Show", "value": "show"},
+                     {"label": "Hide", "value": "hide"}],
+        "workspace": [{"label": "Workspace %d" % (i + 1), "value": k}
+                      for i, k in enumerate(WS_KEYS)],
     }
 
     @Property("QVariantMap", constant=True)
@@ -925,7 +933,7 @@ class Backend(QObject):
         clean = self._clean_profile_name(name)
         if not clean or os.path.exists(self._profile_path(clean)):
             return
-        cfg = LdConfiguration(profile=clean)
+        cfg = apply_default_bindings(LdConfiguration(profile=clean))
         with open(app_paths.profile_write_path(clean), "w") as f:
             json.dump(cfg.to_JSON(), f, indent=True)
         self._ctl.load_profile(clean)

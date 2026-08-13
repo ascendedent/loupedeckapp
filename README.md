@@ -48,13 +48,24 @@ The model is detected from the USB product id. The vendored device library repor
 - Everything renders both in the on-screen mirror and on the physical device.
 
 ### Actions
-- `command`/launch, `hotkey`, `text`, `scroll`, `media` (MPRIS), and `submenu` / `back` navigation.
+- `command`/launch, `hotkey`, `text`, `scroll`, `media` (MPRIS), `keyboard` (the desktop's
+  on-screen keyboard), `workspace` (jump to a workspace), and `submenu` / `back` navigation.
 - **Hotkey recorder** that captures a key combination when you press it, plus a **presets** picker
   that includes your machine's configured KDE global shortcuts.
 - A searchable **action library** you drag onto controls, including scroll and volume. Search
   matches the action's value and type as well as its name, so `ctrl`, `scroll` or `vol up` all
   narrow the list. Dropping onto an encoder, the dial, or the wheel lets you pick the
   **press / rotate / touch** slot.
+
+### CT function buttons
+
+New profiles start with the CT's labelled buttons wired to what they say: **home** goes to
+workspace 1, **undo** and **save** send `ctrl+z` / `ctrl+s`, **enter** sends Enter, and **kbd**
+toggles the desktop's on-screen keyboard (KDE's own, over DBus; `squeekboard` / `wvkbd` /
+`onboard` elsewhere). `fn` is left unbound, being a modifier rather than an action.
+
+Only *new* profiles get these, and only for slots that are still empty, so nothing you have
+already set up is changed.
 
 ### Encoder feel
 
@@ -242,6 +253,7 @@ The core is Qt-free and layered, so the UI sits on top of reusable services:
 | `action_library` | Ready-to-use actions, with per-desktop application entries. |
 | `app_paths` | Bundled assets vs. user data; profile resolution and legacy migration. |
 | `settings` | Small persistent app preferences (brightness), separate from profile data. |
+| `virtual_keyboard` | Toggles the desktop's on-screen keyboard (KDE via DBus, else a keyboard binary). |
 | `qml_app.py` + `qml/` | The PySide6 / QML front-end. |
 
 See [`docs/PLAN.md`](docs/PLAN.md) for the full design notes and roadmap.

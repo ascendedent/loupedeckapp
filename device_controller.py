@@ -619,6 +619,13 @@ class DeviceController:
         action = self.current_menu().actions.get(str_key)
         if action is None:
             return
+        if action.a_type == "workspace":
+            # Switching workspace is controller state, so it cannot go through
+            # LdAction.execute() the way keystroke actions do.
+            target = action.action
+            if target in WS_KEYS and target != self.selected_ws:
+                self.on_workspace_press(target)
+            return
         if action.a_type == "submenu":
             self.submenu_stack.append(action)
             self.render_workspace(action.action)
@@ -804,9 +811,9 @@ class DeviceController:
     def run_bound_action(self, str_key, repeat=1):
         action = self.current_menu().actions.get(str_key)
         if action is not None:
-            if action.a_type in ("submenu", "back"):
-                # Navigation never repeats: N steps into the same submenu is
-                # still one submenu.
+            if action.a_type in ("submenu", "back", "workspace"):
+                # Navigation never repeats: N steps into the same submenu, or
+                # the same workspace, is still one.
                 self.on_touch_press(str_key)
             else:
                 action.execute(repeat=repeat)

@@ -39,6 +39,9 @@ PORTABLE = [
 
     ("Navigation", "Submenu", "submenu", "submenu"),
     ("Navigation", "Back", "back", ""),
+    ("Navigation", "Go to workspace 1", "workspace", "circle"),
+
+    ("System", "On-screen keyboard", "keyboard", "toggle"),
 ]
 
 # Editing shortcuts. The modifier differs on macOS, so the table is generated
