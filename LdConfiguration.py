@@ -15,7 +15,7 @@ def profile_path(name):
     return os.path.join(PROFILES_DIR, str(name) + ".json")
 
 # Config action-key names for the CT dial (decoupled from the device id
-# "knobCT"); these must match the lookups in LdApp (on_dial_press/rotate).
+# "knobCT"); these must match the lookups in DeviceController.device_callback.
 DIAL_KEY = "dial"
 DIAL_KEY_L = "dial-l"
 DIAL_KEY_R = "dial-r"
@@ -181,8 +181,10 @@ def tuning_to_preset(tuning):
 
 
 class LdConfiguration:
-  """Profile data model. Qt-free so both the PyQt5 (`app.py`) and PySide6
-  (`qml_app.py`) front-ends can share it."""
+  """Profile data model and JSON persistence.
+
+  Deliberately Qt-free: the UI sits on top of this, never the other way round,
+  which is what let the PyQt5 front-end be removed without touching it."""
 
   def __init__(self, profile="default"):
     self.profile = profile
@@ -247,8 +249,8 @@ class LdWorkspace:
                    "tb31", "tb32", "tb33", "tb34"]
     # schema v2: CT-only controls (harmless/unbound on the Live). The round
     # dial (press + rotate) and the CT's extra hardware buttons. Keys here match
-    # what LdApp.device_callback looks up (see on_dial_*, on_wheel_press,
-    # on_ct_button). Old (v1) profiles simply lack these and load as "none".
+    # what DeviceController.device_callback looks up for the dial, the wheel
+    # touch and the CT buttons. Old (v1) profiles lack these and load as "none".
     ct_action_keys = [DIAL_KEY, DIAL_KEY_L, DIAL_KEY_R, WHEEL_DISPLAY] + list(CT_EXTRA_BUTTONS)
     self.actions = {key: LdAction() for key in action_keys + ct_action_keys}
 
@@ -349,7 +351,7 @@ class LdAction:
   # Executable action types are routed through input_backend (Wayland-capable).
   # "command"/"launch" run a shell command (detached); "hotkey" sends a key
   # combo; "text" types a string; "media" controls playback. "submenu"/"back"
-  # are navigation (handled in LdApp, not here); "none" is unbound.
+  # are navigation (handled by the controller, not here); "none" is unbound.
   type ActionType = Literal["command", "launch", "hotkey", "text", "media", "submenu", "back", "none"]
 
   EXECUTABLE = ("command", "launch", "hotkey", "text", "media", "back")

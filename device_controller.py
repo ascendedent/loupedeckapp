@@ -1,6 +1,6 @@
 """Qt-free device engine: connect, render profiles, and route input.
 
-This is the device-side logic (previously interwoven in the PyQt5 `LdApp`)
+This is the device-side logic (previously interwoven in the old PyQt5 UI)
 extracted so the PySide6/QML front-end can drive the real hardware without any
 Qt binding. It owns the devleaks device + an `LdConfiguration`, renders a
 workspace's images to the CT, and dispatches device events to bound actions and
@@ -479,7 +479,7 @@ class DeviceController:
         self.render_workspace(self.get_ws(ws_key))
         self._emit("workspace")
 
-    # -- event routing (mirrors LdApp.device_callback) ---------------------
+    # -- event routing -----------------------------------------------------
     def device_callback(self, ld, message):
         if CBC.SCREEN.value in message:
             if "touchstart" in message[CBC.ACTION.value]:

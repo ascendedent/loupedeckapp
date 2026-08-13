@@ -4,7 +4,8 @@ A *profile* is one saved `Profiles/<name>.json` (a full LdConfiguration). This
 manager records which profile to activate for which focused app, plus a default
 (system) profile used when nothing matches. It does not load profiles itself;
 it just *resolves* a focused window's ``wm_class`` to a profile name, and the app
-(LdApp) performs the actual switch. Pairs with `window_watcher.WindowWatcher`.
+(the QML Backend) performs the actual switch. Pairs with
+`window_watcher.WindowWatcher`.
 
 Persisted to ``dynamic_profiles.json`` at the repo root:
 

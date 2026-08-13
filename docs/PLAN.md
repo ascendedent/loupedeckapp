@@ -53,27 +53,20 @@ the official plugin marketplace (which already covers Mac).
 | Encoder feel (invert, speed presets, acceleration) | ✅ schema v5 + inspector |
 | Scroll action + coalescing rotate dispatch | ✅ `input_backend` + `device_controller` |
 
-### Dual UI (debt)
+### Single UI (debt cleared)
 
-| Capability | QML (`qml_app.py`) | Legacy PyQt5 (`app.py` / `Ld*`) |
-|------------|--------------------|----------------------------------|
-| Device engine | `DeviceController` | Logic still in `LdApp` |
-| Labels / LEDs / bg / draft / library | Yes | Limited / absent |
-| Bind focused app → profile | Present | Present (binds the wrong window; see 5.E) |
-| Profile create / rename / delete | Present | **Missing** |
-| Product path | **Canonical** | **Deprecated**; QML now has parity, so it can be removed |
-
-**DECIDED:** QML is the only product UI. No new features in the PyQt5 tree. Remove once QML has
-parity on dynamic binding + profile lifecycle (Phase A).
+The legacy PyQt5 tree (`app.py`, `LdApp.py`, `LdWidget.py`, `LdDialog.py`) has been **removed**.
+QML reached parity on the two things that were holding it: binding a focused app to a profile, and
+profile create / duplicate / rename / delete. `LdConfiguration` and the rest of the core were
+already Qt-free, so nothing outside those four files referenced them.
 
 ### Known gaps (ordered by agreed priority)
 
-1. **One UI**: QML has parity as of the app-binding and profile-lifecycle work; retire PyQt5.
-2. **Platform adapters + paths**: explicit factories; no CWD-relative `./Profiles`.
-3. **Ship Linux (M5)**: pin deps, packaging, udev/ydotool docs, starter profiles.
-4. **Functionality**: profile import/export, device polish, Live S fidelity, macros.
-5. **UI polish**: workspace chrome, dirty guards, inspector structure, empty states.
-6. **macOS (M6)**: adapters, Accessibility UX, `.app`, support **10.14+**.
+1. **Platform adapters + paths**: explicit factories; user-writable profile location (`AppPaths`).
+2. **Ship Linux (M5)**: pin deps, packaging, udev/ydotool docs, starter profiles.
+3. **Functionality**: profile import/export, device polish, Live S fidelity, macros.
+4. **UI polish**: workspace chrome, dirty guards, inspector structure, empty states.
+5. **macOS (M6)**: adapters, Accessibility UX, `.app`, support **10.14+**.
 
 ---
 
@@ -94,7 +87,7 @@ parity on dynamic binding + profile lifecycle (Phase A).
 
 ### 4.1 UI stack (decided)
 
-**PySide6 + QML only.** Core stays Qt-free. Legacy PyQt5 is migration residue, not a second product.
+**PySide6 + QML only.** Core stays Qt-free. The legacy PyQt5 tree has been removed.
 
 ### 4.2 Layered architecture (target)
 
@@ -186,7 +179,7 @@ Future schema bumps only when needed (e.g. macros, named workspaces, side-displa
 - [ ] QML: **profile lifecycle** (create, rename, duplicate, delete; set default)
 - [ ] Wire action **search**; hide empty library categories
 - [ ] Dirty guards: warn on profile switch / quit if unsaved
-- [ ] **Deprecate then remove** PyQt5 entry (`app.py`, `LdApp.py`, `LdWidget.py`, `LdDialog.py`)
+- [x] **Removed** the PyQt5 entry (`app.py`, `LdApp.py`, `LdWidget.py`, `LdDialog.py`)
 
 ### B. Device correctness *(mostly done)*
 
@@ -463,8 +456,7 @@ exists.)*
 2. **Engine done (schema v5):** `invert` and the Slow presets. The per-workspace `tuning` map is
    keyed by control, `normalize_tuning` guarantees dispatch never sees a partial entry, and older
    profiles load at 1:1 unchanged. Accumulators live in the controller (not the profile) and reset
-   on reversal and on workspace switch. Wired in both `DeviceController.on_rotate` and
-   `LdApp.on_rotate` so the two front-ends feel the same. The QML inspector shows an "Encoder feel"
+   on reversal and on workspace switch. The inspector shows an "Encoder feel"
    section for rotate controls only: a preset dropdown, an Invert checkbox, and a plain-language
    summary of the resulting feel. Edits stage through `DeviceController.set_tuning` like any other
    draft edit; unlike images and LEDs there is nothing to repaint, since tuning only changes how
@@ -558,7 +550,7 @@ adapters are not reworked after installers exist.
 | **M2: Input** *(done)* | Actions on Wayland | input_backend | Hotkey/text into native Wayland clients |
 | **M3: Profiles** *(done)* | Per-app dynamic switch | schema, ProfileManager, kdotool | Live Chrome→blue / else→red verified |
 | **M4: QML UI** *(feature-complete; polish remains)* | Modern editor | Shell, mirror, inspector, draft, copy/paste, library DnD, submenus, labels/LEDs/bg | ✅ listed features work on-device; remaining items → Phase A / F |
-| **Phase A: Consistency** *(next)* | One product, portable core | AppPaths, platform factories, QML bind-app + profile CRUD, search, dirty guards, deprecate PyQt5 | QML alone is enough to use daily; no CWD-relative profiles; Linux behaviour unchanged |
+| **Phase A: Consistency** *(in progress)* | One product, portable core | ~~QML bind-app + profile CRUD, search, remove PyQt5~~ done; AppPaths, platform factories, dirty guards remain | QML alone is enough to use daily; no CWD-relative profiles; Linux behaviour unchanged |
 | **M5: Ship Linux** | Installable by non-devs | Workstream G; starter profiles; udev/ydotool docs; optional defork | Flatpak and/or AppImage on clean KDE; pinned deps; smoke tests green |
 | **Phase C depth** *(ongoing after M5)* | Product depth | Macros, adjustments, side-display modes, Live S view, GNOME watcher optional, UI polish (F) | Documented per feature |
 | **M6: macOS** | Native Mac app, **10.14+** | M6a→M6d; Workstream C mac + I | CT configure + actions + optional dynamic mode from a 10.14-compatible `.app` |
@@ -619,7 +611,7 @@ Medium-term (Phase C):
 | Fast encoder twists overshooting (backlog drains after the hand stops) | Async dispatch queue + per-control coalescing before shipping acceleration (§5.D.1) |
 | Accel curve misreading its own latency as knob speed | Derive speed from coalesced batch depth, never from the lib's `ts` (§5.D.1) |
 | Target apps debouncing repeated keys, so Fast 2x/3x under-delivers | Per-app testing before advertising the Fast presets (§5.D.1) |
-| Dual UI divergence | Phase A: freeze/remove PyQt5 |
+| Dual UI divergence | Resolved: PyQt5 removed in Phase A |
 | CWD-relative profiles break packaging | AppPaths first |
 | Official Loupedeck app holds USB on Mac | Document quit-official-app; exclusive serial |
 | macOS Accessibility prompts | First-run UX; NullBackend with clear disable message until granted |
@@ -640,7 +632,7 @@ draft/copy-paste → submenus → library DnD → labels/LEDs/bg).
 2. Introduce platform factories; move existing Linux backends behind them (no behaviour change).
 3. QML: bind focused app, manage bindings, profile CRUD.
 4. Wire action search; dirty quit/switch guards.
-5. Mark legacy PyQt5 deprecated in README; remove when 3-4 are solid.
+5. ~~Mark legacy PyQt5 deprecated; remove when 3-4 are solid.~~ Removed.
 
 **Then M5:** pyproject + pins, udev/ydotool packaging notes, Flatpak/AppImage, starter profiles,
 smoke tests.

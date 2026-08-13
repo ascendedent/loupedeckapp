@@ -95,7 +95,7 @@ middling speeds.
 **Python packages**
 - `PySide6` (QML UI), `pyserial`, `pillow`, and the devleaks
   [`python-loupedeck-live`](https://github.com/devleaks/python-loupedeck-live) device library.
-- Optional / legacy: `PyQt5` (the older `app.py` UI), `pyautogui` + `python-xlib` (X11 input fallback).
+- Optional: `pyautogui` + `python-xlib`, only as an X11 input fallback.
 
 **System tools**
 - **`ydotool`** + the `ydotoold` daemon: injects hotkeys/text on **Wayland** via kernel uinput
@@ -113,8 +113,8 @@ python3 -m venv .venv
 .venv/bin/pip install pyserial pillow pyside6
 .venv/bin/pip install "git+https://github.com/devleaks/python-loupedeck-live.git"
 
-# optional: legacy Qt5 UI + X11 input fallback
-.venv/bin/pip install pyqt5 pyautogui python-xlib
+# optional: X11 input fallback (not needed on Wayland)
+.venv/bin/pip install pyautogui python-xlib
 ```
 
 ### Device permissions
@@ -144,14 +144,13 @@ sudo systemctl enable --now ydotool       # runs ydotoold with access to /dev/ui
 ## Running
 
 ```bash
-# New PySide6 + QML UI (recommended)
 .venv/bin/python qml_app.py
+
 # If Qt doesn't pick a platform on your session, set one explicitly:
 #   QT_QPA_PLATFORM=wayland .venv/bin/python qml_app.py     # or =xcb for XWayland
-
-# Legacy PyQt5 UI
-.venv/bin/python app.py
 ```
+
+Run the checks with `.venv/bin/python tests/run_all.py` (no device needed).
 
 ## Troubleshooting
 
@@ -201,7 +200,6 @@ The core is Qt-free and layered, so the UI sits on top of reusable services:
 | `device_controller` | Connect, render a profile to the device, route events to actions, and dispatch rotate events through a coalescing queue. |
 | `LdConfiguration` | Profile data model + JSON persistence (schema v5), incl. encoder tuning. |
 | `qml_app.py` + `qml/` | The PySide6 / QML front-end. |
-| `app.py` + `Ld*.py` | The legacy PyQt5 UI (kept during the migration; QML now has parity). |
 
 See [`docs/PLAN.md`](docs/PLAN.md) for the full design notes and roadmap.
 
@@ -209,8 +207,8 @@ See [`docs/PLAN.md`](docs/PLAN.md) for the full design notes and roadmap.
 
 Agreed direction (detail in [`docs/PLAN.md`](docs/PLAN.md)):
 
-1. **Consistency**: QML as the only UI (retire legacy PyQt5); `AppPaths` (no CWD-relative
-   profiles); explicit platform factories for input / focus / shortcut catalogs.
+1. **Consistency**: `AppPaths` (user-writable profile location); explicit platform factories for
+   input / focus / shortcut catalogs.
 2. **Ship Linux**: pinned deps; Flatpak and/or AppImage; udev + ydotool docs; starter profiles.
 3. **Product depth**: profile import/export, brightness and reconnect handling, Live/Live S mirror
    fidelity, macros, and UI polish.
@@ -220,8 +218,9 @@ Agreed direction (detail in [`docs/PLAN.md`](docs/PLAN.md)):
 
 **Done recently:** per-control encoder feel (invert, speed presets, acceleration on inter-detent
 interval), a scroll action, and a coalescing dispatch queue that keeps a fast spin from running on
-after your hand stops. Plus QML parity with the old PyQt5 UI: binding a focused app to a profile,
-profile create/duplicate/rename/delete, and a working library search.
+after your hand stops. Plus the QML UI reaching parity and the legacy PyQt5 tree being
+removed: binding a focused app to a profile, profile
+create/duplicate/rename/delete, and a working library search.
 
 Smaller known gaps: encoder tuning is scoped per workspace rather than per profile, and the
 inspector exposes the speed presets but not the raw integers behind them.
