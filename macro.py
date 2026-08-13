@@ -65,6 +65,34 @@ def parse(text):
     return steps, errors
 
 
+# The kinds a step may have, in the order the UI offers them.
+STEP_KINDS = ("hotkey", "text", "wait", "scroll", "media", "keyboard",
+              "command", "launch")
+
+
+def steps_for_ui(text):
+    """Parsed steps as dicts, for a list editor. Values are strings, including
+    waits, so one editor widget handles every kind."""
+    steps, _errors = parse(text)
+    return [{"kind": kind, "value": str(value)} for kind, value in steps]
+
+
+def to_text(steps):
+    """Serialise steps back to the text form. Round-trips with `parse`, which
+    is what lets a list editor and a text editor edit the same value."""
+    lines = []
+    for step in steps or []:
+        if isinstance(step, dict):
+            kind = str(step.get("kind", "")).strip().lower()
+            value = str(step.get("value", "")).strip()
+        else:
+            kind, value = str(step[0]).lower(), str(step[1])
+        if kind not in STEP_KINDS:
+            continue
+        lines.append(("%s %s" % (kind, value)).rstrip())
+    return "\n".join(lines)
+
+
 def describe(text):
     """One-line summary for the UI, e.g. '3 steps, 1 problem'."""
     steps, errors = parse(text)

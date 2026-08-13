@@ -540,6 +540,11 @@ held profile, because a switch that silently fails to happen is worse than one t
       and an exception escaping the worker would silently break every later macro. Waits are
       clamped, so `wait 999999` cannot wedge the worker.
 
+      The inspector offers a **step list and the raw text**, switchable, both editing the same
+      value. `steps_for_ui` / `to_text` round-trip exactly, which is the property that makes two
+      views of one value safe: switching must never quietly rewrite a macro. Waits are strings in
+      the list form so a single widget edits every kind.
+
 ### E1. CT function buttons
 
 - [x] `workspace` action type (jump to a workspace). Handled by the controller rather than
@@ -604,7 +609,7 @@ held profile, because a switch that silently fails to happen is worse than one t
 
 - [x] `pyproject.toml` with a `loupedeckapp` entry point and `[device]` / `[x11]` extras
 - [x] Ship udev rule, ydotool socket drop-in and desktop entry in `packaging/`
-- [x] Automated tests (`tests/`, 317 checks): schema load/migrate, profile resolution,
+- [x] Automated tests (`tests/`, 330 checks): schema load/migrate, profile resolution,
       tuning/dispatch, platform factories, installed-asset layout
 - [ ] **A properly installable application**, not a checkout you run by hand: a real install
       (Flatpak and/or AppImage, plus a distro-friendly path), the desktop entry registered, an

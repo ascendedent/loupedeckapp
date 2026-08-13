@@ -34,6 +34,42 @@ c.eq("a negative wait floors at zero", macro.parse("wait -5")[0], [("wait", 0)])
 c.eq("describe counts steps and problems",
      macro.describe("hotkey a\nbogus b"), "1 step, 1 problem")
 
+# -- list form -----------------------------------------------------------------
+# The list editor and the text editor edit the same value, so the conversion
+# has to round-trip exactly or switching views would quietly rewrite a macro.
+TEXT = "hotkey ctrl+c\nwait 200\ntext hello world\nscroll down 3"
+ui = macro.steps_for_ui(TEXT)
+c.eq("steps come back as dicts", ui[0], {"kind": "hotkey", "value": "ctrl+c"})
+c.eq("wait values are strings too, so one widget edits every kind",
+     ui[1], {"kind": "wait", "value": "200"})
+c.eq("text keeps its spaces", ui[2]["value"], "hello world")
+c.eq("text to list to text is unchanged", macro.to_text(ui), TEXT)
+
+c.eq("an empty macro gives no steps", macro.steps_for_ui(""), [])
+c.eq("and no text", macro.to_text([]), "")
+
+c.eq("an unknown kind is dropped rather than written back",
+     macro.to_text([{"kind": "bogus", "value": "x"},
+                    {"kind": "hotkey", "value": "a"}]), "hotkey a")
+c.eq("a step with no value still serialises",
+     macro.to_text([{"kind": "text", "value": ""}]), "text")
+c.eq("tuples work as well as dicts",
+     macro.to_text([("hotkey", "ctrl+v")]), "hotkey ctrl+v")
+
+# editing through the list form produces text the parser accepts
+edited = macro.steps_for_ui(TEXT)
+edited[1]["value"] = "50"
+edited.append({"kind": "media", "value": "next"})
+steps, errors = macro.parse(macro.to_text(edited))
+c.eq("an edited list parses cleanly", errors, [])
+c.eq("with the edit applied", steps[1], ("wait", 50))
+c.eq("and the addition", steps[-1], ("media", "next"))
+
+# a macro the text view cannot fully read still round-trips its good steps
+c.eq("bad lines do not survive a list round-trip",
+     macro.to_text(macro.steps_for_ui("hotkey a\nbogus b\nhotkey c")),
+     "hotkey a\nhotkey c")
+
 # -- execution -----------------------------------------------------------------
 sent = []
 

@@ -1085,7 +1085,119 @@ ApplicationWindow {
                                     visible: typeBox.currentText === "macro"
                                     Layout.fillWidth: true; spacing: 4
 
+                                    // Two views of the same value: a list of
+                                    // steps, and the raw text. The text is what
+                                    // is stored, so neither view is primary.
+                                    RowLayout {
+                                        Layout.fillWidth: true; spacing: 6
+                                        Text {
+                                            text: "Steps"; color: theme.muted
+                                            font.pixelSize: 11; Layout.fillWidth: true
+                                        }
+                                        ActionButton {
+                                            label: macroList.showText ? "List view" : "Text view"
+                                            onClicked: {
+                                                // Moving between views must not
+                                                // lose an unapplied edit.
+                                                if (!macroList.showText)
+                                                    macroField.text = modelData.value
+                                                macroList.showText = !macroList.showText
+                                            }
+                                        }
+                                    }
+
+                                    ColumnLayout {
+                                        id: macroList
+                                        property bool showText: false
+                                        visible: !showText
+                                        Layout.fillWidth: true
+                                        spacing: 3
+
+                                        function steps() { return backend.macroSteps(modelData.value) }
+
+                                        function commit(list) {
+                                            backend.setActionSlot(modelData.slot, "macro",
+                                                                  backend.macroText(list))
+                                        }
+
+                                        Repeater {
+                                            model: backend.macroSteps(modelData.value)
+                                            delegate: RowLayout {
+                                                required property var modelData
+                                                required property int index
+                                                Layout.fillWidth: true; spacing: 4
+
+                                                ComboBox {
+                                                    Layout.preferredWidth: 92
+                                                    model: backend.macroStepKinds
+                                                    currentIndex: backend.macroStepKinds.indexOf(parent.modelData.kind)
+                                                    onActivated: {
+                                                        var list = macroList.steps()
+                                                        list[parent.index].kind = currentText
+                                                        macroList.commit(list)
+                                                    }
+                                                }
+                                                TextField {
+                                                    Layout.fillWidth: true
+                                                    text: parent.modelData.value
+                                                    color: theme.text
+                                                    font.pixelSize: 11
+                                                    background: Rectangle {
+                                                        radius: 5; color: theme.panel2
+                                                        border.color: theme.line
+                                                    }
+                                                    onEditingFinished: {
+                                                        var list = macroList.steps()
+                                                        list[parent.index].value = text
+                                                        macroList.commit(list)
+                                                    }
+                                                }
+                                                Text {
+                                                    text: "↑"; color: theme.muted; font.pixelSize: 12
+                                                    visible: parent.index > 0
+                                                    HoverHandler { cursorShape: Qt.PointingHandCursor }
+                                                    TapHandler {
+                                                        onTapped: {
+                                                            var list = macroList.steps()
+                                                            var i = parent.index
+                                                            var t = list[i - 1]
+                                                            list[i - 1] = list[i]; list[i] = t
+                                                            macroList.commit(list)
+                                                        }
+                                                    }
+                                                }
+                                                Text {
+                                                    text: "✕"; color: theme.muted; font.pixelSize: 12
+                                                    HoverHandler { cursorShape: Qt.PointingHandCursor }
+                                                    TapHandler {
+                                                        onTapped: {
+                                                            var list = macroList.steps()
+                                                            list.splice(parent.index, 1)
+                                                            macroList.commit(list)
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        Text {
+                                            visible: backend.macroSteps(modelData.value).length === 0
+                                            text: "No steps yet."
+                                            color: theme.muted; font.pixelSize: 10
+                                        }
+
+                                        ActionButton {
+                                            label: "+ Add step"
+                                            onClicked: {
+                                                var list = macroList.steps()
+                                                list.push({kind: "hotkey", value: "ctrl+c"})
+                                                macroList.commit(list)
+                                            }
+                                        }
+                                    }
+
                                     ScrollView {
+                                        visible: macroList.showText
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 110
                                         clip: true
@@ -1109,6 +1221,7 @@ ApplicationWindow {
                                     }
 
                                     RowLayout {
+                                        visible: macroList.showText
                                         Layout.fillWidth: true
                                         Text {
                                             Layout.fillWidth: true
@@ -1125,7 +1238,8 @@ ApplicationWindow {
                                     }
 
                                     Repeater {
-                                        model: backend.macroProblems(macroField.text)
+                                        model: macroList.showText
+                                               ? backend.macroProblems(macroField.text) : []
                                         delegate: Text {
                                             required property string modelData
                                             Layout.fillWidth: true
@@ -1136,6 +1250,7 @@ ApplicationWindow {
 
                                     Text {
                                         Layout.fillWidth: true
+                                        visible: macroList.showText
                                         text: "Steps: hotkey · text · wait <ms> · scroll <dir> [n] "
                                               + "· media · keyboard · command"
                                         color: theme.muted; font.pixelSize: 10

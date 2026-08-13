@@ -70,8 +70,13 @@ text hello world
 ```
 
 Steps are `hotkey`, `text`, `wait <ms>`, `scroll <direction> [count]`, `media`, `keyboard` and
-`command`. Lines starting with `#` are comments. The editor reports the step count and points at
-any line it cannot read, so a typo is visible without pressing the button and wondering.
+`command`. Lines starting with `#` are comments.
+
+The inspector offers **both** a step list (add, reorder, delete, with a dropdown per step) and the
+raw text, switchable with one button. They edit the same value, so use whichever suits: the list
+for building a macro, the text for pasting or editing one quickly. The text view reports the step
+count and points at any line it cannot read, so a typo is visible without pressing the button and
+wondering.
 
 Macros run on their own worker: pressing a button never blocks the device while a macro with waits
 in it plays out, and two macros run one after the other rather than interleaving.

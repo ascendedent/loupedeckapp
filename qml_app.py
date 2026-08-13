@@ -205,6 +205,21 @@ class Backend(QObject):
         _steps, errors = macro.parse(text)
         return ["line %d: %s" % (lineno, msg) for lineno, msg in errors]
 
+    @Property("QStringList", constant=True)
+    def macroStepKinds(self):
+        return list(macro.STEP_KINDS)
+
+    @Slot(str, result="QVariantList")
+    def macroSteps(self, text):
+        """The macro as a list of {kind, value}, for the list editor. The text
+        remains the stored form; this is a second view of it."""
+        return macro.steps_for_ui(text)
+
+    @Slot("QVariantList", result=str)
+    def macroText(self, steps):
+        """The list editor's steps back as text, which is what gets stored."""
+        return macro.to_text(steps)
+
     @Slot(str, result="QVariantList")
     def filterLibrary(self, query):
         """Library entries matching `query`, or all of them when it is empty.
@@ -306,6 +321,21 @@ class Backend(QObject):
         """Human-readable problems, one per bad line."""
         _steps, errors = macro.parse(text)
         return ["line %d: %s" % (lineno, msg) for lineno, msg in errors]
+
+    @Property("QStringList", constant=True)
+    def macroStepKinds(self):
+        return list(macro.STEP_KINDS)
+
+    @Slot(str, result="QVariantList")
+    def macroSteps(self, text):
+        """The macro as a list of {kind, value}, for the list editor. The text
+        remains the stored form; this is a second view of it."""
+        return macro.steps_for_ui(text)
+
+    @Slot("QVariantList", result=str)
+    def macroText(self, steps):
+        """The list editor's steps back as text, which is what gets stored."""
+        return macro.to_text(steps)
 
     @Slot(str, result="QVariantList")
     def filterLibrary(self, query):
