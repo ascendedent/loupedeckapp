@@ -126,6 +126,25 @@ class Backend(QObject):
         return [{"category": c, "label": l, "type": t, "value": v}
                 for (c, l, t, v) in self.ACTION_LIBRARY]
 
+    @Slot(str, result="QVariantList")
+    def filterLibrary(self, query):
+        """Library entries matching `query`, or all of them when it is empty.
+
+        Every whitespace-separated term must appear somewhere in the entry, so
+        "vol up" narrows the way you would expect. Matching covers the value and
+        type as well as the label, which is what makes "ctrl" or "scroll" useful
+        searches."""
+        terms = [t for t in str(query or "").lower().split() if t]
+        if not terms:
+            return self.actionLibrary
+        out = []
+        for entry in self.actionLibrary:
+            hay = " ".join((entry["label"], entry["category"],
+                            entry["type"], entry["value"])).lower()
+            if all(t in hay for t in terms):
+                out.append(entry)
+        return out
+
     @Slot(str, str, str, str)
     def applyLibraryAction(self, key, a_type, value, label=""):
         """Bind a library action onto a control (drag-drop target). Nav actions

@@ -330,19 +330,33 @@ ApplicationWindow {
             ColumnLayout {
                 anchors.fill: parent; anchors.margins: 12; spacing: 10
                 Text { text: "Actions"; color: theme.text; font.pixelSize: 15; font.bold: true }
-                Rectangle {
-                    Layout.fillWidth: true; height: 32; radius: theme.radius
-                    color: theme.panel2; border.color: theme.line
-                    Text { anchors.verticalCenter: parent.verticalCenter; anchors.left: parent.left
-                        anchors.leftMargin: 10; text: "Search actions…"; color: theme.muted; font.pixelSize: 13 }
+                TextField {
+                    id: librarySearch
+                    objectName: "librarySearch"   // lets UI checks drive it
+                    Layout.fillWidth: true
+                    placeholderText: "Search actions…"
+                    color: theme.text
+                    placeholderTextColor: theme.muted
+                    font.pixelSize: 13
+                    leftPadding: 10
+                    background: Rectangle {
+                        radius: theme.radius; color: theme.panel2
+                        border.color: librarySearch.activeFocus ? theme.accent : theme.line
+                    }
+                    Keys.onEscapePressed: text = ""
                 }
                 Text {
-                    text: "Drag an action onto a control"; color: theme.muted; font.pixelSize: 11
+                    Layout.fillWidth: true
+                    text: librarySearch.text === ""
+                          ? "Drag an action onto a control"
+                          : libList.count + (libList.count === 1 ? " match" : " matches")
+                            + " · Esc to clear"
+                    color: theme.muted; font.pixelSize: 11
                 }
                 ListView {
                     id: libList
                     Layout.fillWidth: true; Layout.fillHeight: true; clip: true; spacing: 4
-                    model: backend.actionLibrary
+                    model: backend.filterLibrary(librarySearch.text)
                     section.property: "category"
                     section.delegate: Text {
                         width: libList.width; topPadding: 8; bottomPadding: 2

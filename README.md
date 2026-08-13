@@ -51,9 +51,10 @@ The model is detected from the USB product id. The vendored device library repor
 - `command`/launch, `hotkey`, `text`, `scroll`, `media` (MPRIS), and `submenu` / `back` navigation.
 - **Hotkey recorder** that captures a key combination when you press it, plus a **presets** picker
   that includes your machine's configured KDE global shortcuts.
-- A categorised **action library** you drag onto controls, including scroll and volume. Dropping
-  onto an encoder, the dial, or the wheel lets you pick the **press / rotate / touch** slot.
-  (The library's search box is not wired up yet.)
+- A searchable **action library** you drag onto controls, including scroll and volume. Search
+  matches the action's value and type as well as its name, so `ctrl`, `scroll` or `vol up` all
+  narrow the list. Dropping onto an encoder, the dial, or the wheel lets you pick the
+  **press / rotate / touch** slot.
 
 ### Encoder feel
 
@@ -200,7 +201,7 @@ The core is Qt-free and layered, so the UI sits on top of reusable services:
 | `device_controller` | Connect, render a profile to the device, route events to actions, and dispatch rotate events through a coalescing queue. |
 | `LdConfiguration` | Profile data model + JSON persistence (schema v5), incl. encoder tuning. |
 | `qml_app.py` + `qml/` | The PySide6 / QML front-end. |
-| `app.py` + `Ld*.py` | The legacy PyQt5 UI (kept during the migration). |
+| `app.py` + `Ld*.py` | The legacy PyQt5 UI (kept during the migration; QML now has parity). |
 
 See [`docs/PLAN.md`](docs/PLAN.md) for the full design notes and roadmap.
 
@@ -211,17 +212,19 @@ Agreed direction (detail in [`docs/PLAN.md`](docs/PLAN.md)):
 1. **Consistency**: QML as the only UI (retire legacy PyQt5); `AppPaths` (no CWD-relative
    profiles); explicit platform factories for input / focus / shortcut catalogs.
 2. **Ship Linux**: pinned deps; Flatpak and/or AppImage; udev + ydotool docs; starter profiles.
-3. **Product depth**: full dynamic-mode UX in QML, profile CRUD/import-export, wiring up the
-   action-library search box, brightness/reconnect, Live/Live S mirror fidelity, macros, and UI
-   polish.
+3. **Product depth**: profile import/export, brightness and reconnect handling, Live/Live S mirror
+   fidelity, macros, and UI polish.
 4. **macOS**: native build targeting **macOS 10.14+**: device I/O first, then Quartz input,
    frontmost-app dynamic mode, then `.app` packaging. The core is already Qt-free; this is mostly
    adapters, permissions UX, and paths.
 
 **Done recently:** per-control encoder feel (invert, speed presets, acceleration on inter-detent
 interval), a scroll action, and a coalescing dispatch queue that keeps a fast spin from running on
-after your hand stops. Smaller known gaps: encoder tuning is scoped per workspace rather than per
-profile, and the inspector exposes the presets but not the raw integers behind them.
+after your hand stops. Plus QML parity with the old PyQt5 UI: binding a focused app to a profile,
+profile create/duplicate/rename/delete, and a working library search.
+
+Smaller known gaps: encoder tuning is scoped per workspace rather than per profile, and the
+inspector exposes the speed presets but not the raw integers behind them.
 
 ## Credits & license
 

@@ -59,19 +59,20 @@ the official plugin marketplace (which already covers Mac).
 |------------|--------------------|----------------------------------|
 | Device engine | `DeviceController` | Logic still in `LdApp` |
 | Labels / LEDs / bg / draft / library | Yes | Limited / absent |
-| Bind focused app → profile | **Missing** | Present |
-| Product path | **Canonical** | **Deprecated**; freeze, then remove |
+| Bind focused app → profile | Present | Present (binds the wrong window; see 5.E) |
+| Profile create / rename / delete | Present | **Missing** |
+| Product path | **Canonical** | **Deprecated**; QML now has parity, so it can be removed |
 
 **DECIDED:** QML is the only product UI. No new features in the PyQt5 tree. Remove once QML has
 parity on dynamic binding + profile lifecycle (Phase A).
 
 ### Known gaps (ordered by agreed priority)
 
-1. **One UI**: finish QML parity; retire PyQt5.
+1. **One UI**: QML has parity as of the app-binding and profile-lifecycle work; retire PyQt5.
 2. **Platform adapters + paths**: explicit factories; no CWD-relative `./Profiles`.
 3. **Ship Linux (M5)**: pin deps, packaging, udev/ydotool docs, starter profiles.
-4. **Functionality**: dynamic UX, profile CRUD, real search library, device polish, Live S fidelity, macros.
-5. **UI polish**: search, workspace chrome, dirty guards, inspector structure, empty categories.
+4. **Functionality**: profile import/export, device polish, Live S fidelity, macros.
+5. **UI polish**: workspace chrome, dirty guards, inspector structure, empty states.
 6. **macOS (M6)**: adapters, Accessibility UX, `.app`, support **10.14+**.
 
 ---
@@ -81,10 +82,10 @@ parity on dynamic binding + profile lifecycle (Phase A).
 | Area | Official app | Us today (QML) | Remaining gap |
 |------|--------------|----------------|---------------|
 | **Top bar** | Device · app-profile · Dynamic · workspace · status | Device pill · profile name · Save/Revert · Dynamic | Profile picker depth, workspace name, reconnect status, input-backend health |
-| **Left panel** | Searchable action library | Categorised library + drag-drop | **Search is UI-only (not wired)**; KDE-hardcoded apps |
+| **Left panel** | Searchable action library | Searchable, categorised library + drag-drop | KDE-hardcoded app entries |
 | **Center** | Photorealistic device | Schematic CT mirror; live images/labels/LEDs | Optional photoreal polish; Live/Live S layout fidelity |
-| **Right panel** | Profiles + pages tree | Profile list + rich inspector | Profile create/rename/delete/import; bind-app UI; pages hierarchy |
-| **Profiles** | System + per-app + dynamic | Files on disk + `dynamic_profiles.json` | Full lifecycle; multi-key match (`wm_class` / `bundle_id`) |
+| **Right panel** | Profiles + pages tree | Profile list + CRUD + app bindings + rich inspector | Import/export; pages hierarchy |
+| **Profiles** | System + per-app + dynamic | Files on disk + `dynamic_profiles.json` | Import/export; multi-key match (`wm_class` / `bundle_id`) |
 | **Theme** | Dark, rounded | Dark themed QML | Toasts, first-run tips, inspector sections |
 
 ---
@@ -106,7 +107,7 @@ parity on dynamic binding + profile lifecycle (Phase A).
 │  · AppPaths (bundled assets + user writable dir)           │
 │  · ProfileManager (default + app bindings + dynamic flag)  │
 │  · DeviceController (connect, render, route, draft edit)   │
-│  · LdConfiguration (schema v4+)                            │
+│  · LdConfiguration (schema v5+)                            │
 ├──────────────────────────────────────────────────────────┤
 │ Platform adapters (pluggable factories)                    │
 │  · InputBackend:  linux_ydotool | linux_xdotool | mac_quartz | null
@@ -135,7 +136,9 @@ parity on dynamic binding + profile lifecycle (Phase A).
 | Bundled assets (starter profiles, default images) | repo `Profiles/`, `Images/` | package share dir | `.app` Resources |
 | User profiles + dynamic bindings | `~/.config/loupedeckapp/` (migrate from repo-local when present) | same | `~/Library/Application Support/LoupedeckApp/` |
 
-`LdConfiguration` must stop using `./Profiles/...`.
+`LdConfiguration` no longer uses `./Profiles/...`: paths anchor to the module via `PROFILES_DIR`,
+so the app works from any working directory. Repointing that one attribute is what `AppPaths`
+will do when the user-writable location lands.
 
 ### 4.4 Profile match schema (cross-platform)
 
@@ -489,7 +492,15 @@ exists.)*
 ### E. Profiles & dynamic mode
 
 - [x] Schema + ProfileManager + KDE live switch verified
-- [ ] Full QML management UI (bindings + default + CRUD)
+- [x] Full QML management UI (bindings + default + CRUD)
+      Binding uses the last focused window that was **not** this app. Both
+      front-ends previously polled at click time, which always answered
+      "Loupedeck Config" because pressing the button focuses us first, so no
+      other app could ever be bound. The watcher therefore runs whenever the
+      app does, not only in dynamic mode: acting on a focus change is still
+      gated on the flag, but observing one is not.
+      Renaming a profile repoints its bindings; deleting one drops them, so
+      dynamic mode cannot resolve to a profile that no longer exists.
 - [ ] Import / export profile JSON
 - [ ] Ship **starter profiles** (media, system, browser, empty scratch) with icons
 - [ ] Cross-platform match keys (§4.4)
@@ -497,7 +508,8 @@ exists.)*
 ### F. UI polish
 
 - [x] Dark theme, three columns, inspector, Save/Revert, copy/paste, submenus
-- [ ] Functional search; workspace name in header
+- [x] Functional library search (matches value and type as well as label)
+- [ ] Workspace name in header
 - [ ] Keyboard shortcuts (Ctrl/Cmd+S, copy/paste control, Esc)
 - [ ] Toasts / empty states / first-run drag-drop tip
 - [ ] Inspector collapsible sections (Action / Appearance / Advanced)
