@@ -22,7 +22,8 @@ from PIL import Image
 
 import ct_support
 import label_render
-from DeviceProfile import DeviceProfile, DIAL_ID, WHEEL_DISPLAY, WS_KEYS
+from DeviceProfile import (DeviceProfile, DIAL_ID, WHEEL_DISPLAY, WS_KEYS,
+                           forced_model)
 from LdConfiguration import (LdConfiguration, LdAction, LdSubmenu,
                              DEFAULT_TUNING, DIAL_KEY, ROTATE_CONTROLS,
                              accel_steps, apply_default_bindings)
@@ -41,7 +42,8 @@ class DeviceController:
 
     def __init__(self, on_state=None):
         self.device = None
-        self.profile = DeviceProfile.for_model("LoupedeckLive")
+        # Until a device is found, assume a Live: the safest geometry to draw.
+        self.profile = DeviceProfile.for_model(forced_model() or "LoupedeckLive")
         self.config = LdConfiguration()
         self.selected_ws = WS_KEYS[0]
         self.submenu_stack = []

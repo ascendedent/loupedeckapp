@@ -213,17 +213,24 @@ Item {
             RowLayout {
                 id: topZone
                 spacing: 14
-                ColumnLayout { spacing: 20
-                    Encoder { ctlKey: "enc1L"; active: dv.encBound("enc1L") }
-                    Encoder { ctlKey: "enc2L"; active: dv.encBound("enc2L") }
-                    Encoder { ctlKey: "enc3L"; active: dv.encBound("enc3L") }
+                // Encoders and side strips come from the backend rather than
+                // being written out, so a Live S renders with two dials and no
+                // side screens instead of the CT's six and two.
+                ColumnLayout {
+                    spacing: 20
+                    visible: backend.encodersLeft.length > 0
+                    Repeater {
+                        model: backend.encodersLeft
+                        Encoder { ctlKey: modelData; active: dv.encBound(modelData) }
+                    }
                 }
 
-                // left side strip (3 cells)
+                // left side strip
                 ColumnLayout {
                     spacing: dv.gap
+                    visible: backend.sideCellsLeft.length > 0
                     Repeater {
-                        model: ["dis1L", "dis2L", "dis3L"]
+                        model: backend.sideCellsLeft
                         SideCell { ctlKey: modelData }
                     }
                 }
@@ -295,16 +302,20 @@ Item {
                 // right side strip
                 ColumnLayout {
                     spacing: dv.gap
+                    visible: backend.sideCellsRight.length > 0
                     Repeater {
-                        model: ["dis1R", "dis2R", "dis3R"]
+                        model: backend.sideCellsRight
                         SideCell { ctlKey: modelData }
                     }
                 }
 
-                ColumnLayout { spacing: 20
-                    Encoder { ctlKey: "enc1R"; active: dv.encBound("enc1R") }
-                    Encoder { ctlKey: "enc2R"; active: dv.encBound("enc2R") }
-                    Encoder { ctlKey: "enc3R"; active: dv.encBound("enc3R") }
+                ColumnLayout {
+                    spacing: 20
+                    visible: backend.encodersRight.length > 0
+                    Repeater {
+                        model: backend.encodersRight
+                        Encoder { ctlKey: modelData; active: dv.encBound(modelData) }
+                    }
                 }
             }
 
@@ -313,21 +324,17 @@ Item {
                 id: wsRow
                 Layout.alignment: Qt.AlignHCenter
                 spacing: 16
-                // First button is the firmware 'circle' key; only the label is
-                // shifted so the UI reads 1..8 like the physical CT.
-                RoundBtn {
-                    label: "1"; activeColor: theme.ok; ctlKey: "circle"
-                    ledColor: dv.led("circle")
-                    active: backend.selectedWs === "circle"
-                }
+                // The first key is the firmware 'circle'; only the label is
+                // shifted so the UI reads 1..n like the physical device. A Live
+                // S has four of these, a CT and Live eight.
                 Repeater {
-                    model: 7
+                    model: backend.workspaceButtons
                     RoundBtn {
-                        label: (index + 2).toString()
+                        label: (index + 1).toString()
                         activeColor: theme.ok
-                        ctlKey: (index + 1).toString()
-                        ledColor: dv.led((index + 1).toString())
-                        active: backend.selectedWs === (index + 1).toString()
+                        ctlKey: modelData
+                        ledColor: dv.led(modelData)
+                        active: backend.selectedWs === modelData
                     }
                 }
             }

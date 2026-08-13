@@ -21,10 +21,17 @@ application. All from a modern, dark PySide6/QML interface.
 |-------------------|-------------|------------------------------------------------------------------------------------------|
 | Loupedeck **CT**  | `2ec2:0003` | Primary target; full support incl. the 240×240 wheel screen, rotary dial, and CT buttons |
 | Loupedeck **Live**| `2ec2:0004` | Supported (upstream's original target)                                                   |
-| Loupedeck **Live S** | `2ec2:0006` | Supported (5-column geometry, no side screens)                                        |
+| Loupedeck **Live S** | `2ec2:0006` | Supported (5-column geometry, no side screens, 2 dials, 4 round buttons)               |
 
 The model is detected from the USB product id. The vendored device library reports every model as
-`LoupedeckLive`, so CT-specific behaviour is enabled only when a wheel/dial is present.
+`LoupedeckLive`, so CT-specific behaviour is enabled only when a wheel/dial is present. The device
+view draws only the controls the detected model has, so a Live shows no wheel and a Live S shows a
+5-column grid with two dials and no side strips.
+
+Set `LOUPEDECKAPP_MODEL` to `ct`, `live`, or `live-s` to override the detected model. That is there
+for two cases: a device whose product id is not in the table above, and checking the device view for
+a model you do not own. Profiles always store the widest grid (5 columns) and all eight workspaces,
+so a file written on one model opens on another.
 
 ## Features
 

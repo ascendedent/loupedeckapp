@@ -63,7 +63,8 @@ already Qt-free, so nothing outside those four files referenced them.
 ### Known gaps (ordered by agreed priority)
 
 1. **Ship Linux (M5)**: pin deps, packaging, udev/ydotool docs, starter profiles.
-2. **Functionality**: Live S mirror fidelity.
+2. **Functionality**: Live / Live S event decoding (the mirror is done; the knob and
+   button identifiers a Live S reports are still unverified, no hardware here).
 3. **UI polish**: workspace chrome, dirty guards, inspector structure, empty states.
 4. **macOS (M6)**: adapters, Accessibility UX, `.app`, support **10.14+**.
 
@@ -196,7 +197,7 @@ Future schema bumps only when needed (e.g. macros, named workspaces, side-displa
 ### B. Device correctness *(mostly done)*
 
 - [x] CT/Live/Live S profiles, PID detect, wheel/dial/CT buttons
-- [ ] Live S / Live **device view** fidelity (hide wheel/dial when absent; 5-col Live S)
+- [x] Live S / Live **device view** fidelity (hide wheel/dial when absent; 5-col Live S)
 - [ ] Brightness control in UI
 - [ ] Reconnect / hot-plug
 - [ ] Side displays: full-height single image **vs** 3 cells (configurable)
@@ -690,7 +691,7 @@ Near-term (Phase A / M5):
 - [ ] Brightness, reconnect, backend health in UI
 - [ ] `send_hotkey` key-delay fix: standalone latency win (§5.D.1)
 - [ ] Starter profiles with real defaults
-- [ ] Live / Live S mirror fidelity
+- [x] Live / Live S mirror fidelity
 
 Medium-term (Phase C):
 

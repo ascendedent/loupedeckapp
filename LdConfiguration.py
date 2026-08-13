@@ -14,6 +14,15 @@ SCHEMA_VERSION = 6
 
 # Config action-key names for the CT dial (decoupled from the device id
 # "knobCT"); these must match the lookups in DeviceController.device_callback.
+# Center touch keys. Three rows, and five columns because that is the widest
+# model (the Live S); a CT or Live profile simply never binds columns 5. Storing
+# the superset means a profile written on one model still opens on the other.
+MAX_TOUCH_COLUMNS = 5
+TOUCH_ROWS = 3
+TOUCH_KEYS = ["tb%d%d" % (r, c)
+              for r in range(1, TOUCH_ROWS + 1)
+              for c in range(1, MAX_TOUCH_COLUMNS + 1)]
+
 DIAL_KEY = "dial"
 DIAL_KEY_L = "dial-l"
 DIAL_KEY_R = "dial-r"
@@ -265,10 +274,7 @@ class LdWorkspace:
                    "enc2R", "enc2R-l", "enc2R-r",
                    "enc3R", "enc3R-l", "enc3R-r",
                    "dis1L", "dis2L", "dis3L",
-                   "dis1R", "dis2R", "dis3R",
-                   "tb11", "tb12", "tb13", "tb14",
-                   "tb21", "tb22", "tb23", "tb24",
-                   "tb31", "tb32", "tb33", "tb34"]
+                   "dis1R", "dis2R", "dis3R"] + TOUCH_KEYS
     # schema v2: CT-only controls (harmless/unbound on the Live). The round
     # dial (press + rotate) and the CT's extra hardware buttons. Keys here match
     # what DeviceController.device_callback looks up for the dial, the wheel
@@ -276,12 +282,10 @@ class LdWorkspace:
     ct_action_keys = [DIAL_KEY, DIAL_KEY_L, DIAL_KEY_R, WHEEL_DISPLAY] + list(CT_EXTRA_BUTTONS)
     self.actions = {key: LdAction() for key in action_keys + ct_action_keys}
 
-    self.images =  {"dis1L": "", "dis2L": "", "dis3L": "",
-                    "dis1R": "", "dis2R": "", "dis3R": "",
-                    "tb11": "", "tb12": "", "tb13": "", "tb14": "",
-                    "tb21": "", "tb22": "", "tb23": "", "tb24": "",
-                    "tb31": "", "tb32": "", "tb33": "", "tb34": "",
-                    WHEEL_DISPLAY: ""}  # CT round wheel screen image (v2)
+    image_keys = ["dis1L", "dis2L", "dis3L",
+                  "dis1R", "dis2R", "dis3R"] + TOUCH_KEYS
+    self.images = {key: "" for key in image_keys}
+    self.images[WHEEL_DISPLAY] = ""  # CT round wheel screen image (v2)
 
     # schema v3: per-control text labels for image-bearing controls, keyed the
     # same as images. Each value is {"text", "pos": top|middle|bottom, "mode":

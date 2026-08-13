@@ -145,6 +145,29 @@ class Backend(QObject):
     def rows(self):
         return self._ctl.profile.rows
 
+    # The device view draws whatever these list, so a Live S comes out with two
+    # dials, no side strips and four round buttons without the QML knowing
+    # which model it is.
+    @Property("QStringList", notify=stateChanged)
+    def encodersLeft(self):
+        return list(self._ctl.profile.encoders_left)
+
+    @Property("QStringList", notify=stateChanged)
+    def encodersRight(self):
+        return list(self._ctl.profile.encoders_right)
+
+    @Property("QStringList", notify=stateChanged)
+    def sideCellsLeft(self):
+        return self._ctl.profile.side_cell_keys("L")
+
+    @Property("QStringList", notify=stateChanged)
+    def sideCellsRight(self):
+        return self._ctl.profile.side_cell_keys("R")
+
+    @Property("QStringList", notify=stateChanged)
+    def workspaceButtons(self):
+        return self._ctl.profile.visible_workspace_keys
+
     @Property("QVariantMap", notify=stateChanged)
     def inputHealth(self):
         """{ok, name, detail} for the input backend. A backend that cannot

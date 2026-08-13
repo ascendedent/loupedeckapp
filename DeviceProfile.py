@@ -56,6 +56,32 @@ CT_EXTRA_BUTTONS = [
 ]
 
 
+# Name of an environment variable that forces a model. Two uses: checking the
+# device view against a model we do not have on the desk, and giving anyone
+# whose USB PID is missing from the table above a way to say what they own.
+FORCE_MODEL_ENV = "LOUPEDECKAPP_MODEL"
+
+_MODEL_ALIASES = {
+    "ct": MODEL_CT, "loupedeckct": MODEL_CT,
+    "live": MODEL_LIVE, "loupedecklive": MODEL_LIVE,
+    "lives": MODEL_LIVE_S, "live-s": MODEL_LIVE_S, "loupedecklives": MODEL_LIVE_S,
+}
+
+
+def forced_model():
+    """Model named by the environment, or None. Unknown names are ignored."""
+    import os
+    raw = (os.environ.get(FORCE_MODEL_ENV) or "").strip().lower()
+    if not raw:
+        return None
+    model = _MODEL_ALIASES.get(raw.replace(" ", "").replace("_", "-"))
+    if model is None:
+        model = _MODEL_ALIASES.get(raw.replace(" ", "").replace("_", "").replace("-", ""))
+    if model is None:
+        print("%s=%r is not a known model; ignoring" % (FORCE_MODEL_ENV, raw))
+    return model
+
+
 def pid_for_path(path):
     """Return the USB product id for a serial port path, or None.
 
@@ -90,6 +116,10 @@ class DeviceProfile:
         has_dial=False,
         wheel_size=WHEEL_SIZE,
         extra_buttons=(),
+        encoders_left=("enc1L", "enc2L", "enc3L"),
+        encoders_right=("enc1R", "enc2R", "enc3R"),
+        side_cells=3,
+        workspace_buttons=8,
     ):
         self.model = model
         self.display_name = display_name
@@ -103,12 +133,46 @@ class DeviceProfile:
         self.has_dial = has_dial
         self.wheel_size = wheel_size
         self.extra_buttons = list(extra_buttons)
+        # Which controls this model physically has, in mirror order. The Live S
+        # has no side screens and two dials rather than six encoders, so the
+        # device view has to render from these rather than assume the CT.
+        self.encoders_left = list(encoders_left)
+        self.encoders_right = list(encoders_right)
+        self.side_cells = side_cells
+        self.workspace_buttons = workspace_buttons
 
     # -- workspace / button keys -------------------------------------------
     @property
     def workspace_keys(self):
         """Physical buttons bound to workspaces: 'circle' + '1'..'7'."""
         return list(WS_KEYS)
+
+    @property
+    def visible_workspace_keys(self):
+        """The round buttons this model actually has.
+
+        A profile always stores all eight workspaces (see ``workspace_keys``)
+        so a file written on a CT still opens on a Live S; this is only what
+        the device view should draw.
+        """
+        return list(WS_KEYS[: self.workspace_buttons])
+
+    # -- control inventory --------------------------------------------------
+    @property
+    def has_side_displays(self):
+        return self.side_width > 0 and self.side_cells > 0
+
+    def side_cell_keys(self, side):
+        """Touch cells on one side display, top to bottom ('L' or 'R')."""
+        if not self.has_side_displays:
+            return []
+        return ["dis%d%s" % (i + 1, side) for i in range(self.side_cells)]
+
+    @property
+    def touch_keys(self):
+        """Center-screen key names in reading order ('tb<row><col>')."""
+        return ["tb%d%d" % (r + 1, c + 1)
+                for r in range(self.rows) for c in range(self.columns)]
 
     # -- side-display geometry ---------------------------------------------
     def side_display_draw_x(self, side):
@@ -133,10 +197,16 @@ class DeviceProfile:
                 extra_buttons=CT_EXTRA_BUTTONS,
             )
         if model == MODEL_LIVE_S:
-            # Live S: single 480-wide center, 5 columns, no side screens.
+            # Live S: single 480-wide center, 5 columns, no side screens, two
+            # dials instead of six encoders and four round buttons instead of
+            # eight. Taken from the published spec; the layout has not been
+            # checked against the hardware (we only have a CT here), so the
+            # device view draws it schematically in the usual arrangement.
             return cls(
                 MODEL_LIVE_S, "Loupedeck Live S",
                 columns=5, center_size=(480, 270), side_width=0,
+                encoders_left=(), encoders_right=("enc1R", "enc2R"),
+                side_cells=0, workspace_buttons=4,
             )
         # Default to Live geometry (same 360 center as CT, no wheel/dial).
         return cls(MODEL_LIVE, "Loupedeck Live")
@@ -154,6 +224,9 @@ class DeviceProfile:
         Falls back to Live geometry if the PID can't be read.
         """
         pid = pid_for_path(getattr(device, "path", None))
+        forced = forced_model()
+        if forced is not None:
+            return cls.for_model(forced), pid
         if pid is None:
             return cls.for_model(MODEL_LIVE), None
         return cls.for_pid(pid), pid
