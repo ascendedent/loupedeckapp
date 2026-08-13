@@ -39,6 +39,44 @@ ApplicationWindow {
             labelPos.currentText, labelMode.currentText, selectedColor.toString())
     }
 
+    // ---- import / export --------------------------------------------------
+    property string ioError: ""
+
+    FileDialog {
+        id: exportDialog
+        title: "Export '" + backend.activeProfile + "'"
+        fileMode: FileDialog.SaveFile
+        nameFilters: ["Loupedeck profile (*.json)", "All files (*)"]
+        currentFile: "file:" + backend.activeProfile + ".json"
+        onAccepted: root.ioError = backend.exportProfile(backend.activeProfile, selectedFile)
+    }
+
+    FileDialog {
+        id: importDialog
+        title: "Import a profile"
+        fileMode: FileDialog.OpenFile
+        nameFilters: ["Loupedeck profile (*.json)", "All files (*)"]
+        onAccepted: root.ioError = backend.importProfile(selectedFile)
+    }
+
+    // An import can fail for reasons worth reading (wrong schema, not a
+    // profile), so the message is shown rather than only logged.
+    Dialog {
+        id: ioErrorDialog
+        anchors.centerIn: parent
+        modal: true
+        width: 420
+        title: "Import failed"
+        standardButtons: Dialog.Ok
+        onClosed: root.ioError = ""
+        Text {
+            text: root.ioError; color: theme.text
+            font.pixelSize: 12; wrapMode: Text.WordWrap
+        }
+    }
+
+    onIoErrorChanged: if (ioError !== "") ioErrorDialog.open()
+
     // ---- unsaved-changes guard -------------------------------------------
     // Every action that would throw away a draft routes through withDraftCheck,
     // so there is one place deciding what happens rather than a dialog bolted
@@ -581,6 +619,15 @@ ApplicationWindow {
                             nameDialog.source = backend.activeProfile
                             nameDialog.open()
                         })
+                    }
+                    ActionButton {
+                        label: "Import"
+                        onClicked: root.withDraftCheck(function() { importDialog.open() })
+                    }
+                    ActionButton {
+                        label: "Export"
+                        enabledFlag: backend.activeProfile !== "(none)"
+                        onClicked: exportDialog.open()
                     }
                     ActionButton {
                         label: "Delete"

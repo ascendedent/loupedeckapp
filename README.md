@@ -84,6 +84,8 @@ middling speeds.
   dynamic mode wants to switch profile mid-edit it waits (shown in the top bar) rather than
   interrupting with a dialog or losing the work.
 - **Copy / paste** a control's entire function onto another compatible control.
+- **Import / export** profiles as JSON. Importing checks the file before adding it, and never
+  overwrites an existing profile: a name that is taken gets a numbered suffix.
 - **Dynamic mode**: switches the active profile when the focused desktop app changes (KDE Wayland,
   via KWin scripting).
 - JSON profiles (schema v5, backward compatible with older profiles; unknown fields
@@ -234,8 +236,8 @@ See [`docs/PLAN.md`](docs/PLAN.md) for the full design notes and roadmap.
 Agreed direction (detail in [`docs/PLAN.md`](docs/PLAN.md)):
 
 1. **Ship Linux**: pinned deps; Flatpak and/or AppImage; udev + ydotool docs; starter profiles.
-2. **Product depth**: profile import/export, brightness and reconnect handling, Live/Live S mirror
-   fidelity, macros, and UI polish.
+2. **Product depth**: brightness and reconnect handling, Live/Live S mirror fidelity, macros,
+   and UI polish.
 3. **macOS**: native build targeting **macOS 10.14+**: device I/O first, then Quartz input,
    frontmost-app dynamic mode, then `.app` packaging. The core is already Qt-free; this is mostly
    adapters, permissions UX, and paths.

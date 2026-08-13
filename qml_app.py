@@ -24,7 +24,7 @@ import window_watcher
 import system_shortcuts
 from profile_manager import ProfileManager
 from device_controller import DeviceController
-from LdConfiguration import LdConfiguration
+from LdConfiguration import LdConfiguration, SCHEMA_VERSION
 from DeviceProfile import WHEEL_DISPLAY, WS_KEYS
 from LdConfiguration import (ROTATE_CONTROLS, TUNING_PRESETS, DEFAULT_TUNING,
                              preset_to_tuning, tuning_to_preset)
@@ -968,6 +968,80 @@ class Backend(QObject):
             changed = True
         if changed:
             self._pm.save()
+
+    # -- import / export ---------------------------------------------------
+    @Slot(str, str, result=str)
+    def exportProfile(self, name, file_url):
+        """Write `name` to a file the user picked. Returns "" or an error.
+
+        Exports what is on disk, not the in-memory draft, so an export is
+        always something that can be re-imported and reproduced.
+        """
+        path = QUrl(file_url).toLocalFile() if file_url else ""
+        if not name or not path:
+            return "Nothing to export"
+        if not path.lower().endswith(".json"):
+            path += ".json"
+        try:
+            with open(app_paths.profile_read_path(name)) as f:
+                data = json.load(f)
+            with open(path, "w") as f:
+                json.dump(data, f, indent=True)
+        except (OSError, ValueError) as e:
+            return "Could not export: %s" % e
+        print("exported '%s' to %s" % (name, path))
+        return ""
+
+    @Slot(str, result=str)
+    def importProfile(self, file_url):
+        """Read a profile file into the user's profile directory.
+
+        Validates before writing: an unreadable or wrong-shaped file must not
+        land in the profile list as something that fails only when loaded. The
+        name comes from the file, with a numeric suffix if it is taken, so an
+        import never silently overwrites an existing profile.
+        """
+        path = QUrl(file_url).toLocalFile() if file_url else ""
+        if not path:
+            return "No file chosen"
+        try:
+            with open(path) as f:
+                data = json.load(f)
+        except OSError as e:
+            return "Could not read the file: %s" % e
+        except ValueError:
+            return "That file is not valid JSON"
+
+        if not isinstance(data, dict) or "workspaces" not in data:
+            return "That does not look like a profile (no workspaces)"
+        version = data.get("schema_version", 1)
+        try:
+            if int(version) > SCHEMA_VERSION:
+                return ("Profile is schema v%s; this build understands v%s"
+                        % (version, SCHEMA_VERSION))
+        except (TypeError, ValueError):
+            return "Profile has an unreadable schema_version"
+        # Prove it actually loads before it appears in the list.
+        try:
+            LdConfiguration().from_JSON(data)
+        except Exception as e:
+            return "Profile could not be read: %s: %s" % (type(e).__name__, e)
+
+        base = self._clean_profile_name(
+            data.get("profile") or os.path.splitext(os.path.basename(path))[0])
+        if not base:
+            return "Profile has no usable name"
+        name, n = base, 2
+        while os.path.exists(app_paths.profile_read_path(name)):
+            name, n = "%s %d" % (base, n), n + 1
+
+        data["profile"] = name
+        with open(app_paths.profile_write_path(name), "w") as f:
+            json.dump(data, f, indent=True)
+        print("imported %s as '%s'" % (path, name))
+        self._ctl.load_profile(name)
+        self.stateChanged.emit()
+        return ""
 
     # -- dynamic mode: focused app -> profile bindings ---------------------
     @Property("QVariantList", notify=stateChanged)

@@ -63,7 +63,7 @@ already Qt-free, so nothing outside those four files referenced them.
 ### Known gaps (ordered by agreed priority)
 
 1. **Ship Linux (M5)**: pin deps, packaging, udev/ydotool docs, starter profiles.
-2. **Functionality**: profile import/export, device polish, Live S fidelity, macros.
+2. **Functionality**: device polish (brightness, reconnect), Live S fidelity, macros.
 3. **UI polish**: workspace chrome, dirty guards, inspector structure, empty states.
 4. **macOS (M6)**: adapters, Accessibility UX, `.app`, support **10.14+**.
 
@@ -513,7 +513,13 @@ held profile, because a switch that silently fails to happen is worse than one t
       gated on the flag, but observing one is not.
       Renaming a profile repoints its bindings; deleting one drops them, so
       dynamic mode cannot resolve to a profile that no longer exists.
-- [ ] Import / export profile JSON
+- [x] Import / export profile JSON
+      Export writes what is on disk rather than the in-memory draft, so an
+      export is always something that can be re-imported and reproduced.
+      Import validates *before* writing (readable JSON, has workspaces, schema
+      not newer than this build, and actually parses) so a bad file cannot land
+      in the profile list as something that only fails when loaded. A name
+      collision suffixes rather than overwrites.
 - [ ] Ship **starter profiles** (media, system, browser, empty scratch) with icons
 - [ ] Cross-platform match keys (§4.4)
 
@@ -532,7 +538,7 @@ held profile, because a switch that silently fails to happen is worse than one t
 
 - [x] `pyproject.toml` with a `loupedeckapp` entry point and `[device]` / `[x11]` extras
 - [x] Ship udev rule, ydotool socket drop-in and desktop entry in `packaging/`
-- [x] Automated tests (`tests/`, 157 checks): schema load/migrate, profile resolution,
+- [x] Automated tests (`tests/`, 196 checks): schema load/migrate, profile resolution,
       tuning/dispatch, platform factories, installed-asset layout
 - [ ] **Flatpak** and/or **AppImage**
 - [ ] Promote useful `scratch/` probes to `scripts/verify/` smoke checks
