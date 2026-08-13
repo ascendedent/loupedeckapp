@@ -39,6 +39,78 @@ ApplicationWindow {
             labelPos.currentText, labelMode.currentText, selectedColor.toString())
     }
 
+    // ---- profile name prompt ---------------------------------------------
+    // mode: "create" | "duplicate" | "rename"
+    Dialog {
+        id: nameDialog
+        property string mode: "create"
+        property string source: ""
+        anchors.centerIn: parent
+        modal: true
+        width: 380
+        title: mode === "create" ? "New profile"
+             : mode === "duplicate" ? "Duplicate '" + source + "'"
+             : "Rename '" + source + "'"
+        standardButtons: Dialog.Ok | Dialog.Cancel
+
+        onOpened: { nameField.text = mode === "rename" ? source : ""; nameField.forceActiveFocus() }
+        onAccepted: {
+            if (nameDialog.mode === "create") backend.createProfile(nameField.text)
+            else if (nameDialog.mode === "duplicate") backend.duplicateProfile(nameDialog.source, nameField.text)
+            else backend.renameProfile(nameDialog.source, nameField.text)
+        }
+
+        ColumnLayout {
+            width: parent.width
+            spacing: 6
+            TextField {
+                id: nameField
+                Layout.fillWidth: true
+                placeholderText: "Profile name"
+                color: theme.text
+                placeholderTextColor: theme.muted
+                background: Rectangle {
+                    radius: 6; color: theme.panel2
+                    border.color: nameField.activeFocus ? theme.accent : theme.line
+                }
+                onAccepted: if (nameDialog.standardButton(Dialog.Ok).enabled) nameDialog.accept()
+            }
+            Text {
+                Layout.fillWidth: true
+                // rename to the same name is a no-op, not an error
+                text: (nameDialog.mode === "rename" && nameField.text === nameDialog.source)
+                      ? "" : backend.validateProfileName(nameField.text)
+                color: theme.warn; font.pixelSize: 11; wrapMode: Text.WordWrap
+                visible: text !== ""
+            }
+        }
+
+        // block OK while the name is unusable
+        Component.onCompleted: syncOk()
+        function syncOk() {
+            var b = standardButton(Dialog.Ok)
+            if (!b) return
+            var same = nameDialog.mode === "rename" && nameField.text === nameDialog.source
+            b.enabled = !same && backend.validateProfileName(nameField.text) === ""
+        }
+        Connections { target: nameField; function onTextChanged() { nameDialog.syncOk() } }
+    }
+
+    Dialog {
+        id: deleteDialog
+        property string target: ""
+        anchors.centerIn: parent
+        modal: true
+        title: "Delete profile"
+        standardButtons: Dialog.Yes | Dialog.No
+        onAccepted: backend.deleteProfile(deleteDialog.target)
+        Text {
+            text: "Delete '" + deleteDialog.target + "'?\n"
+                  + "The file is removed and any app bindings to it are dropped."
+            color: theme.text; font.pixelSize: 12; wrapMode: Text.WordWrap
+        }
+    }
+
     // ---- hotkey capture ---------------------------------------------------
     // set to a slot key to record the next key combo into that slot's hotkey
     property string recordSlot: ""
@@ -382,6 +454,45 @@ ApplicationWindow {
                             anchors.fill: parent; anchors.leftMargin: 10; spacing: 8
                             Text { text: "▦"; color: theme.muted; font.pixelSize: 14 }
                             Text { text: modelData; color: theme.text; font.pixelSize: 13; Layout.fillWidth: true; elide: Text.ElideRight }
+                        }
+                    }
+                }
+
+                // Flow, not RowLayout: four buttons do not fit the 300px panel
+                // on one line, and a RowLayout pushed the whole column wider
+                // than its parent instead of wrapping.
+                Flow {
+                    Layout.fillWidth: true
+                    spacing: 6
+                    ActionButton {
+                        label: "New"
+                        onClicked: { nameDialog.mode = "create"; nameDialog.open() }
+                    }
+                    ActionButton {
+                        label: "Duplicate"
+                        enabledFlag: backend.activeProfile !== "(none)"
+                        onClicked: {
+                            nameDialog.mode = "duplicate"
+                            nameDialog.source = backend.activeProfile
+                            nameDialog.open()
+                        }
+                    }
+                    ActionButton {
+                        label: "Rename"
+                        enabledFlag: backend.activeProfile !== "(none)"
+                        onClicked: {
+                            nameDialog.mode = "rename"
+                            nameDialog.source = backend.activeProfile
+                            nameDialog.open()
+                        }
+                    }
+                    ActionButton {
+                        label: "Delete"
+                        // never delete the last profile: nothing would be left to load
+                        enabledFlag: backend.activeProfile !== "(none)" && backend.profiles.length > 1
+                        onClicked: {
+                            deleteDialog.target = backend.activeProfile
+                            deleteDialog.open()
                         }
                     }
                 }

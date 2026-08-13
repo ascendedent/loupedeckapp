@@ -4,6 +4,16 @@ from DeviceProfile import CT_EXTRA_BUTTONS, WHEEL_DISPLAY, WS_KEYS
 
 SCHEMA_VERSION = 5
 
+# Profiles live beside the code, not beside the *caller*. This used to be the
+# literal "./Profiles/", so launching the app from anywhere but the repo root
+# silently failed to find or save anything. Kept as a module attribute so the
+# eventual AppPaths work (docs/PLAN.md 4.3) can repoint it in one place.
+PROFILES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Profiles")
+
+
+def profile_path(name):
+    return os.path.join(PROFILES_DIR, str(name) + ".json")
+
 # Config action-key names for the CT dial (decoupled from the device id
 # "knobCT"); these must match the lookups in LdApp (on_dial_press/rotate).
 DIAL_KEY = "dial"
@@ -184,12 +194,13 @@ class LdConfiguration:
   def save(self, profile_name):
     if profile_name:
       self.profile = profile_name
-      with open("./Profiles/" + profile_name + ".json", "w") as file:
+      os.makedirs(PROFILES_DIR, exist_ok=True)
+      with open(profile_path(profile_name), "w") as file:
         json.dump(self.to_JSON(), file, indent=True)
 
   def load(self, json_file):
     try:
-      with open("./Profiles/" + json_file + ".json", "r") as file:
+      with open(profile_path(json_file), "r") as file:
         data = json.load(file)
         self.from_JSON(data)
         if self.on_loaded:
@@ -297,12 +308,13 @@ class LdWorkspace:
 
   def save(self, profile_name):
     self.profile = profile_name
-    with open("./Profiles/" + profile_name + ".json", "w") as file:
+    os.makedirs(PROFILES_DIR, exist_ok=True)
+    with open(profile_path(profile_name), "w") as file:
       json.dump(self.__dict__, file)
 
   def load(self, json_file):
     data = None
-    with open("./Profiles/" + json_file + ".json", "r") as file:
+    with open(profile_path(json_file), "r") as file:
       data = json.load(file)
     for key, value in data.items():
       setattr(self, key, value)

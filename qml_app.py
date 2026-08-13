@@ -10,6 +10,7 @@ Run:  QT_QPA_PLATFORM=xcb .venv/bin/python qml_app.py
 import os
 import sys
 import glob
+import json
 import threading
 
 from PySide6.QtCore import QObject, Property, Signal, Slot, QUrl, Qt
@@ -20,6 +21,7 @@ import window_watcher
 import system_shortcuts
 from profile_manager import ProfileManager
 from device_controller import DeviceController
+from LdConfiguration import LdConfiguration
 from DeviceProfile import WHEEL_DISPLAY, WS_KEYS
 from LdConfiguration import (ROTATE_CONTROLS, TUNING_PRESETS, DEFAULT_TUNING,
                              preset_to_tuning, tuning_to_preset)
@@ -707,6 +709,123 @@ class Backend(QObject):
     def loadProfile(self, name):
         self._ctl.load_profile(name)
         self.stateChanged.emit()
+
+    # -- profile lifecycle -------------------------------------------------
+    @staticmethod
+    def _clean_profile_name(name):
+        """A profile name becomes a filename, so keep it to something that
+        cannot escape the Profiles directory or collide with path syntax."""
+        name = (name or "").strip()
+        if not name:
+            return ""
+        bad = set('/\\:*?"<>|')
+        if any(ch in bad for ch in name) or name in (".", ".."):
+            return ""
+        return name
+
+    def _profile_path(self, name):
+        return os.path.join(APP_DIR, "Profiles", name + ".json")
+
+    @Property("QStringList", constant=True)
+    def profileNameRules(self):
+        return ["Cannot be empty", "No / \\ : * ? \" < > |"]
+
+    @Slot(str, result=str)
+    def validateProfileName(self, name):
+        """'' when the name is usable, otherwise why it is not. Lets the UI
+        explain the problem before the button is pressed."""
+        clean = self._clean_profile_name(name)
+        if not clean:
+            return "Enter a name without / \\ : * ? \" < > |"
+        if os.path.exists(self._profile_path(clean)):
+            return "A profile called '%s' already exists" % clean
+        return ""
+
+    @Slot(str)
+    def createProfile(self, name):
+        """New empty profile, saved to disk and loaded."""
+        clean = self._clean_profile_name(name)
+        if not clean or os.path.exists(self._profile_path(clean)):
+            return
+        cfg = LdConfiguration(profile=clean)
+        with open(self._profile_path(clean), "w") as f:
+            json.dump(cfg.to_JSON(), f, indent=True)
+        self._ctl.load_profile(clean)
+        self.stateChanged.emit()
+
+    @Slot(str, str)
+    def duplicateProfile(self, source, name):
+        """Copy `source` to `name` and switch to it. Copies the file rather
+        than the in-memory config, so unsaved edits are deliberately not
+        carried over: what you duplicate is what is on disk."""
+        clean = self._clean_profile_name(name)
+        if not clean or not source or os.path.exists(self._profile_path(clean)):
+            return
+        src = self._profile_path(source)
+        if not os.path.exists(src):
+            return
+        with open(src) as f:
+            data = json.load(f)
+        data["profile"] = clean
+        with open(self._profile_path(clean), "w") as f:
+            json.dump(data, f, indent=True)
+        self._ctl.load_profile(clean)
+        self.stateChanged.emit()
+
+    @Slot(str, str)
+    def renameProfile(self, old, name):
+        clean = self._clean_profile_name(name)
+        if not clean or not old or clean == old:
+            return
+        src, dst = self._profile_path(old), self._profile_path(clean)
+        if not os.path.exists(src) or os.path.exists(dst):
+            return
+        with open(src) as f:
+            data = json.load(f)
+        data["profile"] = clean
+        with open(dst, "w") as f:
+            json.dump(data, f, indent=True)
+        os.remove(src)
+        self._repoint_bindings(old, clean)
+        if self._ctl.config.profile == old:
+            self._ctl.load_profile(clean)
+        self.stateChanged.emit()
+
+    @Slot(str)
+    def deleteProfile(self, name):
+        """Delete a profile and drop any app bindings that pointed at it, so
+        dynamic mode cannot resolve to a profile that no longer exists."""
+        if not name:
+            return
+        path = self._profile_path(name)
+        if not os.path.exists(path):
+            return
+        os.remove(path)
+        self._repoint_bindings(name, None)
+        if self._ctl.config.profile == name:
+            remaining = self.profiles
+            if remaining:
+                self._ctl.load_profile(remaining[0])
+        self.stateChanged.emit()
+
+    def _repoint_bindings(self, old, new):
+        """Follow a rename, or drop the entry entirely when new is None."""
+        changed = False
+        kept = []
+        for b in self._pm.app_profiles:
+            if b.get("profile") != old:
+                kept.append(b)
+                continue
+            changed = True
+            if new is not None:
+                b["profile"] = new
+                kept.append(b)
+        self._pm.app_profiles = kept
+        if self._pm.default_profile == old:
+            self._pm.default_profile = new
+            changed = True
+        if changed:
+            self._pm.save()
 
     # -- dynamic mode: focused app -> profile bindings ---------------------
     @Property("QVariantList", notify=stateChanged)
