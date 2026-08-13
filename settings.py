@@ -19,6 +19,9 @@ DEFAULTS = {
     # Wire the CT's labelled buttons on any profile that leaves them empty.
     # Turn off to keep unbound buttons unbound.
     "auto_bind_ct_buttons": True,
+    # "hold" (fn works while held) or "latch" (a press sticks until pressed
+    # again, with the key lit while it is on).
+    "fn_mode": "hold",
 }
 
 
@@ -76,3 +79,8 @@ class Settings:
     @property
     def auto_bind_ct_buttons(self):
         return bool(self.get("auto_bind_ct_buttons"))
+
+    @property
+    def fn_mode(self):
+        mode = str(self.get("fn_mode") or "").strip().lower()
+        return mode if mode in ("hold", "latch") else DEFAULTS["fn_mode"]

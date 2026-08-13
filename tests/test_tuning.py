@@ -12,7 +12,8 @@ from LdConfiguration import (LdConfiguration, LdWorkspace, LdAction,
 c = Checks()
 
 # -- normalisation ------------------------------------------------------------
-c.eq("schema version is 5", SCHEMA_VERSION, 5)
+c.eq("the schema version is a positive integer",
+     isinstance(SCHEMA_VERSION, int) and SCHEMA_VERSION >= 5, True)
 c.eq("DEFAULT_TUNING is what normalisation produces",
      normalize_tuning({}), DEFAULT_TUNING)
 c.eq("None normalises to the default", normalize_tuning(None), DEFAULT_TUNING)
@@ -44,7 +45,8 @@ cfg = LdConfiguration(profile="tuningtest")
 cfg.workspaces[0].set_tuning("enc1L", preset_to_tuning("slow3", invert=True))
 cfg.workspaces[0].set_tuning(LC.DIAL_KEY, preset_to_tuning("fast3"))
 blob = json.loads(json.dumps(cfg.to_JSON()))
-c.eq("to_JSON records the schema version", blob["schema_version"], 5)
+c.eq("to_JSON records the current schema version",
+     blob["schema_version"], SCHEMA_VERSION)
 cfg2 = LdConfiguration(); cfg2.from_JSON(blob)
 c.eq("tuning survives a round-trip", cfg2.workspaces[0].tuning_for("enc1L"),
      dict(DEFAULT_TUNING, invert=True, detents_per_step=3))

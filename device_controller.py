@@ -52,6 +52,11 @@ class DeviceController:
         # Wire the CT's labelled buttons (home/undo/save/enter/kbd) on any
         # profile that leaves them empty. Set False to leave them dead.
         self.auto_bind_buttons = True
+        # fn layer: while active, a control fires its secondary binding.
+        # "hold" is the default because that is how a modifier behaves; "latch"
+        # makes a press stick, which needs the LED to show it is on.
+        self.fn_mode = "hold"
+        self.fn_active = False
         # Banked detents per rotate control for the Slow presets:
         # control -> (direction, count). Runtime feel, not persisted state.
         # Written by the dispatch thread, cleared from the message thread.
@@ -525,6 +530,16 @@ class DeviceController:
             menu.led_colors.pop(key, None)
         self.dirty = True
 
+    def set_fn_action(self, slot_key, a_type, value):
+        """Set or clear a control's secondary binding. Staged until save()."""
+        menu = self.current_menu()
+        if a_type == "none":
+            menu.set_fn_action(slot_key, None)
+        else:
+            menu.set_fn_action(slot_key, LdAction(action_type=a_type,
+                                                  action=value))
+        self.dirty = True
+
     def set_tuning(self, control, tuning):
         """Set a rotate control's feel (schema v5). Staged until save().
 
@@ -572,6 +587,9 @@ class DeviceController:
         return self.config.workspaces[WS_KEYS.index(key)]
 
     def on_workspace_press(self, ws_key):
+        # A held fn does not survive a workspace change: the key-up may land on
+        # a different menu, which would leave the layer stuck on.
+        self.fn_active = False
         # Banked detents belong to the workspace that banked them; tuning can
         # differ per workspace, so carrying a partial count across is wrong,
         # as is replaying queued detents against the new menu.
@@ -613,8 +631,14 @@ class DeviceController:
             if message[CBC.STATE.value] == "down" and message[CBC.IDENTIFIER.value] != self.selected_ws:
                 self.on_workspace_press(message[CBC.IDENTIFIER.value])
         elif message[CBC.IDENTIFIER.value] in self.profile.extra_buttons:
-            if message.get(CBC.STATE.value) == "down":
-                self.run_bound_action(message[CBC.IDENTIFIER.value])
+            ident = message[CBC.IDENTIFIER.value]
+            state = message.get(CBC.STATE.value)
+            if ident in self.FN_KEYS:
+                # fn is the layer key itself, so it never runs a binding: it
+                # needs the release event too, which other buttons ignore.
+                self.on_fn(ident, state)
+            elif state == "down":
+                self.run_bound_action(ident)
 
     def on_touchkey_press(self, key):
         row = floor(key / self.profile.columns) + 1
@@ -624,8 +648,57 @@ class DeviceController:
     def on_touchdisplay_press(self, x, y):
         self.on_touch_press(self.td_pos_to_display_name(x, y))
 
+    # The CT has an fn key either side; they drive the same layer, so which one
+    # was pressed does not matter beyond lighting it.
+    FN_KEYS = ("fnL", "fnR")
+    FN_ACTIVE_COLOR = (255, 255, 255)
+
+    def on_fn(self, key, state):
+        """Hold: down engages, up releases. Latch: each press flips it."""
+        was = self.fn_active
+        if self.fn_mode == "latch":
+            if state == "down":
+                self.fn_active = not self.fn_active
+        else:
+            self.fn_active = (state == "down")
+        if self.fn_active != was:
+            self._light_fn()
+            self._emit("fn")
+
+    def _light_fn(self):
+        """Show the layer on the fn keys themselves. Latch especially needs
+        this: without it there is nothing to say the layer is still on."""
+        if not self.device:
+            return
+        colors = getattr(self.current_menu(), "led_colors", {}) or {}
+        for key in self.FN_KEYS:
+            if key not in self.profile.extra_buttons:
+                continue
+            try:
+                if self.fn_active:
+                    self.device.set_button_color(key, self.FN_ACTIVE_COLOR)
+                else:
+                    c = colors.get(key)
+                    self.device.set_button_color(
+                        key, self._hex_rgb(c) if c else (63, 63, 63))
+            except Exception as e:
+                print("fn LED failed: %s: %s" % (type(e).__name__, e))
+
+    def action_for(self, key):
+        """The binding a control should fire right now.
+
+        With fn held, a control with a secondary binding uses it; one without
+        keeps its usual behaviour, so fn never makes a control go dead.
+        """
+        menu = self.current_menu()
+        if self.fn_active:
+            alt = menu.fn_action(key) if hasattr(menu, "fn_action") else None
+            if alt is not None:
+                return alt
+        return menu.actions.get(key)
+
     def on_touch_press(self, str_key):
-        action = self.current_menu().actions.get(str_key)
+        action = self.action_for(str_key)
         if action is None:
             return
         if action.a_type == "workspace":
@@ -818,7 +891,7 @@ class DeviceController:
                 return
 
     def run_bound_action(self, str_key, repeat=1):
-        action = self.current_menu().actions.get(str_key)
+        action = self.action_for(str_key)
         if action is not None:
             if action.a_type in ("submenu", "back", "workspace"):
                 # Navigation never repeats: N steps into the same submenu, or

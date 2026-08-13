@@ -427,6 +427,31 @@ ApplicationWindow {
                 }
             }
 
+            // fn layer: which mode, and whether it is engaged right now.
+            Rectangle {
+                Layout.preferredHeight: 26
+                Layout.preferredWidth: fnText.width + 20
+                radius: theme.radius
+                color: backend.fnLatched ? theme.warn : theme.panel2
+                border.color: backend.fnLatched ? theme.warn : theme.line
+                Behavior on color { ColorAnimation { duration: 130 } }
+                Text {
+                    id: fnText
+                    anchors.centerIn: parent
+                    text: "fn: " + backend.fnMode
+                    color: backend.fnLatched ? "#15151b" : theme.muted
+                    font.pixelSize: 11
+                }
+                HoverHandler { cursorShape: Qt.PointingHandCursor }
+                TapHandler {
+                    onTapped: backend.setFnMode(backend.fnMode === "hold" ? "latch" : "hold")
+                }
+                ToolTip.visible: hovered
+                ToolTip.text: "fn " + (backend.fnMode === "hold"
+                    ? "works while held. Click for latch."
+                    : "sticks until pressed again. Click for hold.")
+            }
+
             // Brightness: the device quantises to steps of 10, so the slider
             // is stepped to match rather than pretending to be continuous.
             Text { text: "☀"; color: theme.muted; font.pixelSize: 14 }
@@ -978,6 +1003,62 @@ ApplicationWindow {
                                     visible: typeBox.currentText === "submenu" && backend.selectedIsSubmenu
                                     label: "Open submenu →"
                                     onClicked: backend.enterSubmenu()
+                                }
+
+                                // ---- secondary (fn) binding ----
+                                // Collapsed unless it has one, so the common
+                                // case stays a single editor per slot.
+                                RowLayout {
+                                    Layout.fillWidth: true; spacing: 6
+                                    Text {
+                                        text: "fn"; color: theme.warn
+                                        font.pixelSize: 10; font.bold: true
+                                    }
+                                    ComboBox {
+                                        id: fnTypeBox
+                                        Layout.fillWidth: true
+                                        model: backend.selectedActionTypes
+                                        currentIndex: Math.max(0,
+                                            backend.selectedActionTypes.indexOf(modelData.fnType))
+                                        onActivated: backend.setFnActionSlot(
+                                            modelData.slot, currentText, fnValueField.text)
+                                    }
+                                }
+                                ComboBox {
+                                    visible: !!backend.valueOptions[fnTypeBox.currentText]
+                                    Layout.fillWidth: true
+                                    textRole: "label"
+                                    model: backend.valueOptions[fnTypeBox.currentText] || []
+                                    currentIndex: {
+                                        var opts = backend.valueOptions[fnTypeBox.currentText] || []
+                                        for (var i = 0; i < opts.length; i++)
+                                            if (opts[i].value === modelData.fnValue)
+                                                return i
+                                        return 0
+                                    }
+                                    onActivated: {
+                                        var opts = backend.valueOptions[fnTypeBox.currentText] || []
+                                        if (opts[currentIndex])
+                                            backend.setFnActionSlot(modelData.slot,
+                                                fnTypeBox.currentText, opts[currentIndex].value)
+                                    }
+                                }
+                                TextField {
+                                    id: fnValueField
+                                    Layout.fillWidth: true
+                                    visible: fnTypeBox.currentText !== "none"
+                                             && fnTypeBox.currentText !== "back"
+                                             && !backend.valueOptions[fnTypeBox.currentText]
+                                    text: modelData.fnValue
+                                    color: theme.text
+                                    placeholderText: "secondary, used while fn is held"
+                                    placeholderTextColor: theme.muted
+                                    background: Rectangle {
+                                        radius: 6; color: theme.panel2
+                                        border.color: fnValueField.activeFocus ? theme.warn : theme.line
+                                    }
+                                    onEditingFinished: backend.setFnActionSlot(
+                                        modelData.slot, fnTypeBox.currentText, text)
                                 }
                             }
                         }

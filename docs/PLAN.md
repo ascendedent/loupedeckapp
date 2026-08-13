@@ -165,7 +165,7 @@ Exact match preferred; then case-insensitive substring (existing behaviour for `
 
 ### 4.5 Config schema
 
-**Current:** schema **v5** (actions, images, labels, led_colors, bg_colors, tuning; CT
+**Current:** schema **v6** (actions, fn_actions, images, labels, led_colors, bg_colors, tuning; CT
 dial/wheel/buttons). Older profiles load with migration-by-overlay (missing keys default to
 unbound).
 
@@ -538,9 +538,17 @@ held profile, because a switch that silently fails to happen is worse than one t
       dead hardware buttons, which is what it looked like from the outside: "none of these buttons
       have been updated, even default". Only empty slots are filled, the profile is not marked
       dirty by it, and `auto_bind_ct_buttons` in settings turns it off.
-- [ ] **fn as a modifier.** Held by default, with an option to latch on press and light the button.
-      Open question: what it modifies. The natural reading is a layer (hold fn, every control uses
-      an alternate binding set), which is a schema change, so it is not started until confirmed.
+- [x] **fn as a modifier** (schema v6). Each control may carry a secondary binding in a sparse
+      per-workspace `fn_actions` map; holding fn makes a control fire that instead. A control with
+      no secondary keeps its primary, so the layer never makes anything go dead.
+
+      Hold is the default because that is how a modifier behaves. Latch is a setting
+      (`fn_mode`), and lights the fn keys, without which there is nothing to show the layer is
+      still on. Either fn key drives the same layer, and the fn keys themselves never run a
+      binding: they are the only buttons that need the key-*up* event, which the others ignore.
+
+      Changing workspace releases the layer. A key-up landing on a different menu would otherwise
+      leave it stuck on with no way to notice.
 
 ### E2. Device robustness
 
@@ -575,7 +583,7 @@ held profile, because a switch that silently fails to happen is worse than one t
 
 - [x] `pyproject.toml` with a `loupedeckapp` entry point and `[device]` / `[x11]` extras
 - [x] Ship udev rule, ydotool socket drop-in and desktop entry in `packaging/`
-- [x] Automated tests (`tests/`, 269 checks): schema load/migrate, profile resolution,
+- [x] Automated tests (`tests/`, 289 checks): schema load/migrate, profile resolution,
       tuning/dispatch, platform factories, installed-asset layout
 - [ ] **A properly installable application**, not a checkout you run by hand: a real install
       (Flatpak and/or AppImage, plus a distro-friendly path), the desktop entry registered, an

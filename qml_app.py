@@ -55,6 +55,7 @@ class Backend(QObject):
         self._settings = settings_mod.Settings()
         self._ctl.brightness = self._settings.brightness
         self._ctl.auto_bind_buttons = self._settings.auto_bind_ct_buttons
+        self._ctl.fn_mode = self._settings.fn_mode
         self._watcher = window_watcher.get_watcher(
             on_change=lambda c, t: self._focusSig.emit(c, t))
         self._marshal.connect(self._on_state_main, Qt.QueuedConnection)
@@ -714,7 +715,11 @@ class Backend(QObject):
                 value = ""
             else:
                 value = getattr(act, "action", "") if act else ""
-            out.append({"slot": slot, "label": label, "type": a_type, "value": value})
+            fn_act = menu.fn_action(slot) if menu else None
+            out.append({"slot": slot, "label": label, "type": a_type,
+                        "value": value,
+                        "fnType": getattr(fn_act, "a_type", "none") if fn_act else "none",
+                        "fnValue": getattr(fn_act, "action", "") if fn_act else ""})
         return out
 
     @Property("QStringList", constant=True)
@@ -790,6 +795,35 @@ class Backend(QObject):
         """action type -> [{label, value}] for types the inspector should
         present as a dropdown."""
         return dict(self.VALUE_OPTIONS)
+
+    # -- fn layer ----------------------------------------------------------
+    @Slot(str, str, str)
+    def setFnActionSlot(self, slot_key, a_type, value):
+        """Set the secondary (fn) binding for a slot. 'none' clears it."""
+        opts = self.VALUE_OPTIONS.get(a_type)
+        if opts and value not in [o["value"] for o in opts]:
+            value = opts[0]["value"]
+        self._ctl.set_fn_action(slot_key, a_type, value)
+        self.stateChanged.emit()
+
+    @Property(bool, notify=stateChanged)
+    def fnLatched(self):
+        """Whether the fn layer is currently engaged, so the UI can show it."""
+        return self._ctl.fn_active
+
+    @Property(str, notify=stateChanged)
+    def fnMode(self):
+        return self._ctl.fn_mode
+
+    @Slot(str)
+    def setFnMode(self, mode):
+        """'hold' (default) or 'latch'."""
+        mode = mode if mode in ("hold", "latch") else "hold"
+        self._ctl.fn_mode = mode
+        self._ctl.fn_active = False
+        self._settings.set("fn_mode", mode)
+        self._settings.save()
+        self.stateChanged.emit()
 
     @Slot(str, str)
     def setImage(self, key, file_url):

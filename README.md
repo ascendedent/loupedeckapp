@@ -57,6 +57,19 @@ The model is detected from the USB product id. The vendored device library repor
   narrow the list. Dropping onto an encoder, the dial, or the wheel lets you pick the
   **press / rotate / touch** slot.
 
+### The fn layer
+
+Every control can carry a **secondary binding**. Hold `fn` and controls fire that instead of their
+usual one; a control with no secondary keeps its normal behaviour, so `fn` never makes anything go
+dead.
+
+`fn` is **hold** by default, which is how a modifier behaves. Click the `fn:` pill in the top bar
+to switch it to **latch**, where a press sticks until you press it again and the key lights up to
+show the layer is on. Either fn key drives the same layer. Changing workspace releases it, since
+the key-up would otherwise land on a different page and leave it stuck.
+
+Set a secondary from the inspector: each slot has an `fn` row under its normal binding.
+
 ### CT function buttons
 
 New profiles start with the CT's labelled buttons wired to what they say: **home** goes to
@@ -106,7 +119,7 @@ middling speeds.
   re-check button.
 - **Survives unplugging**: the app connects when the device appears and reconnects when it comes
   back, returning to the workspace you were on. No restart needed.
-- JSON profiles (schema v5, backward compatible with older profiles; unknown fields
+- JSON profiles (schema v6, backward compatible with older profiles; unknown fields
   written by a newer build survive a load/save round-trip).
 
 ### Where your data lives

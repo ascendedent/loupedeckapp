@@ -4,7 +4,7 @@ import input_backend
 import virtual_keyboard
 from DeviceProfile import CT_EXTRA_BUTTONS, WHEEL_DISPLAY, WS_KEYS
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 # Profile locations come from app_paths: reads prefer the user's copy and fall
 # back to the bundled one, writes always go to the user directory. This was once
@@ -302,11 +302,30 @@ class LdWorkspace:
     # together. Absent = no background (black fallback).
     self.bg_colors = {}
 
+    # schema v6: the fn layer. Holding fn (or latching it) makes a control fire
+    # this binding instead of its usual one, which is what the CT's fn keys are
+    # for. Sparse: only controls with a secondary function appear, and a control
+    # with no entry here simply keeps its primary behaviour under fn.
+    self.fn_actions = {}
+
     # schema v5: per-control encoder feel, keyed by control name (see
     # ROTATE_CONTROLS) to {"invert", "detents_per_step", "steps_per_detent"}.
     # Absent key = DEFAULT_TUNING (1:1, not inverted), so older profiles load
     # with today's behaviour unchanged.
     self.tuning = {}
+
+  def fn_action(self, key):
+    """The control's fn binding, or None when it has no secondary function."""
+    a = self.fn_actions.get(key)
+    return a if a is not None and a.a_type != "none" else None
+
+  def set_fn_action(self, key, action):
+    """Store or clear a secondary binding. Clearing removes the entry rather
+    than storing a 'none', so the map stays sparse and to_JSON stays small."""
+    if action is None or getattr(action, "a_type", "none") == "none":
+      self.fn_actions.pop(key, None)
+    else:
+      self.fn_actions[key] = action
 
   def tuning_for(self, control):
     """Effective tuning for a rotate control; always a complete dict."""
@@ -348,7 +367,8 @@ class LdWorkspace:
           "labels": {key: dict(v) for key, v in self.labels.items()},
           "led_colors": dict(self.led_colors),
           "bg_colors": dict(self.bg_colors),
-          "tuning": {key: dict(v) for key, v in self.tuning.items()}}
+          "tuning": {key: dict(v) for key, v in self.tuning.items()},
+          "fn_actions": {key: a.to_JSON() for key, a in self.fn_actions.items()}}
     return s
 
   def from_JSON(json_data):
@@ -364,6 +384,9 @@ class LdWorkspace:
     # entry cannot reach dispatch as a partial dict.
     ldw.tuning = {key: normalize_tuning(val)
                   for key, val in json_data.get("tuning", {}).items()}
+    # v6; absent in older profiles, which simply have no fn layer.
+    for key, action in json_data.get("fn_actions", {}).items():
+        ldw.fn_actions[key] = LdAction.from_JSON(action)
     return ldw
 
 
