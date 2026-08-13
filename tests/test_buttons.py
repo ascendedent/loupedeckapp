@@ -43,10 +43,29 @@ c.eq("an existing binding is not clobbered",
 c.eq("but empty ones alongside it are still filled",
      custom.workspaces[0].actions["save"].action, "ctrl+s")
 
-# Defaults are opt-in: loading an old profile must not gain them silently.
 plain = LdConfiguration(profile="plain")
-c.eq("a plain config has no default bindings",
+c.eq("apply_default_bindings is explicit: a plain config has none",
      plain.workspaces[0].actions["undo"].a_type, "none")
+
+# -- applied on load, so profiles predating this are not left with dead keys ---
+saved = LdConfiguration(profile="older")
+saved.workspaces[0].actions["undo"] = LdAction(action_type="text", action="mine")
+saved.save("older")
+
+dc2, _ = controller()
+dc2.render_workspace = lambda *a, **k: None
+dc2.load_profile("older")
+c.eq("loading fills the empty labelled buttons",
+     dc2.config.workspaces[0].actions["save"].action, "ctrl+s")
+c.eq("without disturbing one that was already bound",
+     dc2.config.workspaces[0].actions["undo"].action, "mine")
+c.eq("and without marking the profile dirty", dc2.dirty, False)
+
+dc2.auto_bind_buttons = False
+dc2.load_profile("older")
+c.eq("the behaviour can be turned off",
+     dc2.config.workspaces[0].actions["save"].a_type, "none")
+dc2.close()
 
 # -- workspace action ----------------------------------------------------------
 calls = []

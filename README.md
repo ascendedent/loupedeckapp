@@ -64,8 +64,10 @@ workspace 1, **undo** and **save** send `ctrl+z` / `ctrl+s`, **enter** sends Ent
 toggles the desktop's on-screen keyboard (KDE's own, over DBus; `squeekboard` / `wvkbd` /
 `onboard` elsewhere). `fn` is left unbound, being a modifier rather than an action.
 
-Only *new* profiles get these, and only for slots that are still empty, so nothing you have
-already set up is changed.
+This applies to **every** profile as it loads, not only new ones, and only to slots that are still
+empty: anything you have bound yourself is left exactly as it is, and loading does not mark the
+profile as changed. Set `"auto_bind_ct_buttons": false` in `~/.config/loupedeckapp/settings.json`
+to leave unbound buttons unbound.
 
 ### Encoder feel
 

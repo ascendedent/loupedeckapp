@@ -54,6 +54,7 @@ class Backend(QObject):
         self._pm = ProfileManager(app_paths.dynamic_profiles_path())
         self._settings = settings_mod.Settings()
         self._ctl.brightness = self._settings.brightness
+        self._ctl.auto_bind_buttons = self._settings.auto_bind_ct_buttons
         self._watcher = window_watcher.get_watcher(
             on_change=lambda c, t: self._focusSig.emit(c, t))
         self._marshal.connect(self._on_state_main, Qt.QueuedConnection)

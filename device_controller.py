@@ -25,7 +25,7 @@ import label_render
 from DeviceProfile import DeviceProfile, DIAL_ID, WHEEL_DISPLAY, WS_KEYS
 from LdConfiguration import (LdConfiguration, LdAction, LdSubmenu,
                              DEFAULT_TUNING, DIAL_KEY, ROTATE_CONTROLS,
-                             accel_steps)
+                             accel_steps, apply_default_bindings)
 
 from Loupedeck import DeviceManager
 from Loupedeck.Devices import LoupedeckLive
@@ -49,6 +49,9 @@ class DeviceController:
         self.on_state = on_state
         # Device brightness (0-100), re-applied on every connect.
         self.brightness = 40
+        # Wire the CT's labelled buttons (home/undo/save/enter/kbd) on any
+        # profile that leaves them empty. Set False to leave them dead.
+        self.auto_bind_buttons = True
         # Banked detents per rotate control for the Slow presets:
         # control -> (direction, count). Runtime feel, not persisted state.
         # Written by the dispatch thread, cleared from the message thread.
@@ -218,6 +221,12 @@ class DeviceController:
         if self.device:
             self.device.reset()
         self.config.load(name)
+        if self.auto_bind_buttons:
+            # Fill the CT's labelled buttons on load, not just on creation:
+            # otherwise every profile made before this existed keeps dead
+            # hardware buttons. Only empty slots are touched, so anything
+            # already bound is left exactly as it is.
+            apply_default_bindings(self.config)
         self._drain_rotate_queue()
         with self._rot_lock:
             self._rot_accum.clear()

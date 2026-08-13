@@ -533,8 +533,11 @@ held profile, because a switch that silently fails to happen is worse than one t
       state as well as setting it; elsewhere a keyboard binary is started or killed. Note KDE's
       `active` means *enabled*, not *on screen*: the panel appears when a text field takes focus,
       which is what the physical button does too.
-- [x] New profiles start with home / undo / save / enter / kbd bound. Applied only on creation and
-      only to empty slots, so an existing profile is never rewritten.
+- [x] home / undo / save / enter / kbd are bound on **load**, for every profile, not only on
+      creation. Doing it only at creation left every profile made before the feature existed with
+      dead hardware buttons, which is what it looked like from the outside: "none of these buttons
+      have been updated, even default". Only empty slots are filled, the profile is not marked
+      dirty by it, and `auto_bind_ct_buttons` in settings turns it off.
 - [ ] **fn as a modifier.** Held by default, with an option to latch on press and light the button.
       Open question: what it modifies. The natural reading is a layer (hold fn, every control uses
       an alternate binding set), which is a schema change, so it is not started until confirmed.

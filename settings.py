@@ -16,6 +16,9 @@ import app_paths
 # moving without a visible change is expected at fine granularity.
 DEFAULTS = {
     "brightness": 40,
+    # Wire the CT's labelled buttons on any profile that leaves them empty.
+    # Turn off to keep unbound buttons unbound.
+    "auto_bind_ct_buttons": True,
 }
 
 
@@ -69,3 +72,7 @@ class Settings:
             self.set("brightness", max(0, min(100, int(value))))
         except (TypeError, ValueError):
             pass
+
+    @property
+    def auto_bind_ct_buttons(self):
+        return bool(self.get("auto_bind_ct_buttons"))
