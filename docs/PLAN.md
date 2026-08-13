@@ -62,11 +62,10 @@ already Qt-free, so nothing outside those four files referenced them.
 
 ### Known gaps (ordered by agreed priority)
 
-1. **Platform adapters**: explicit factories for input / focus / shortcut catalogs.
-2. **Ship Linux (M5)**: pin deps, packaging, udev/ydotool docs, starter profiles.
-3. **Functionality**: profile import/export, device polish, Live S fidelity, macros.
-4. **UI polish**: workspace chrome, dirty guards, inspector structure, empty states.
-5. **macOS (M6)**: adapters, Accessibility UX, `.app`, support **10.14+**.
+1. **Ship Linux (M5)**: pin deps, packaging, udev/ydotool docs, starter profiles.
+2. **Functionality**: profile import/export, device polish, Live S fidelity, macros.
+3. **UI polish**: workspace chrome, dirty guards, inspector structure, empty states.
+4. **macOS (M6)**: adapters, Accessibility UX, `.app`, support **10.14+**.
 
 ---
 
@@ -118,8 +117,10 @@ already Qt-free, so nothing outside those four files referenced them.
 
 - No Qt imports below the UI layer.
 - All geometry via `DeviceProfile` (no hardcoded Live/CT layout in logic).
-- Input / focus / shortcut catalogs selected by **factory** (`sys.platform` + session), never by
-  scattering `XDG_*` checks through the app.
+- Input / focus / shortcut catalogs selected by **factory**, never by scattering `XDG_*` checks
+  through the app. `platform_env` is the only module that reads `sys.platform`, `XDG_*` or
+  `DISPLAY`; everything else asks it. Factories pick by *availability* first and platform second,
+  so a backend that suits the session but is not installed loses to one that is.
 - Paths never depend on process CWD.
 
 ### 4.3 Paths (`AppPaths`)
@@ -561,7 +562,7 @@ adapters are not reworked after installers exist.
 | **M2: Input** *(done)* | Actions on Wayland | input_backend | Hotkey/text into native Wayland clients |
 | **M3: Profiles** *(done)* | Per-app dynamic switch | schema, ProfileManager, kdotool | Live Chrome→blue / else→red verified |
 | **M4: QML UI** *(feature-complete; polish remains)* | Modern editor | Shell, mirror, inspector, draft, copy/paste, library DnD, submenus, labels/LEDs/bg | ✅ listed features work on-device; remaining items → Phase A / F |
-| **Phase A: Consistency** *(in progress)* | One product, portable core | ~~QML bind-app + profile CRUD, search, remove PyQt5, AppPaths~~ done; platform factories and dirty guards remain | QML alone is enough to use daily; profiles outside the source tree; Linux behaviour unchanged |
+| **Phase A: Consistency** *(done bar polish)* | One product, portable core | QML bind-app + profile CRUD, search, PyQt5 removed, AppPaths, platform factories; dirty guards remain | QML alone is enough to use daily; profiles outside the source tree; Linux behaviour unchanged |
 | **M5: Ship Linux** | Installable by non-devs | Workstream G; starter profiles; udev/ydotool docs; optional defork | Flatpak and/or AppImage on clean KDE; pinned deps; smoke tests green |
 | **Phase C depth** *(ongoing after M5)* | Product depth | Macros, adjustments, side-display modes, Live S view, GNOME watcher optional, UI polish (F) | Documented per feature |
 | **M6: macOS** | Native Mac app, **10.14+** | M6a→M6d; Workstream C mac + I | CT configure + actions + optional dynamic mode from a 10.14-compatible `.app` |

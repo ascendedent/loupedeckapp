@@ -213,6 +213,8 @@ The core is Qt-free and layered, so the UI sits on top of reusable services:
 | `window_watcher` / `profile_manager` | Focused-app detection + per-app profile bindings (dynamic mode). |
 | `device_controller` | Connect, render a profile to the device, route events to actions, and dispatch rotate events through a coalescing queue. |
 | `LdConfiguration` | Profile data model + JSON persistence (schema v5), incl. encoder tuning. |
+| `platform_env` | The only module that reads `sys.platform` / `XDG_*` / `DISPLAY`. |
+| `action_library` | Ready-to-use actions, with per-desktop application entries. |
 | `app_paths` | Bundled assets vs. user data; profile resolution and legacy migration. |
 | `qml_app.py` + `qml/` | The PySide6 / QML front-end. |
 
@@ -222,11 +224,10 @@ See [`docs/PLAN.md`](docs/PLAN.md) for the full design notes and roadmap.
 
 Agreed direction (detail in [`docs/PLAN.md`](docs/PLAN.md)):
 
-1. **Consistency**: explicit platform factories for input / focus / shortcut catalogs.
-2. **Ship Linux**: pinned deps; Flatpak and/or AppImage; udev + ydotool docs; starter profiles.
-3. **Product depth**: profile import/export, brightness and reconnect handling, Live/Live S mirror
+1. **Ship Linux**: pinned deps; Flatpak and/or AppImage; udev + ydotool docs; starter profiles.
+2. **Product depth**: profile import/export, brightness and reconnect handling, Live/Live S mirror
    fidelity, macros, and UI polish.
-4. **macOS**: native build targeting **macOS 10.14+**: device I/O first, then Quartz input,
+3. **macOS**: native build targeting **macOS 10.14+**: device I/O first, then Quartz input,
    frontmost-app dynamic mode, then `.app` packaging. The core is already Qt-free; this is mostly
    adapters, permissions UX, and paths.
 

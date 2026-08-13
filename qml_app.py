@@ -17,7 +17,9 @@ from PySide6.QtCore import QObject, Property, Signal, Slot, QUrl, Qt
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
+import action_library
 import app_paths
+import platform_env
 import window_watcher
 import system_shortcuts
 from profile_manager import ProfileManager
@@ -117,12 +119,101 @@ class Backend(QObject):
 
     @Property("QStringList", constant=True)
     def actionCategories(self):
-        return ["General", "Adjustments", "Navigation", "Media", "System", "Applications"]
+        return list(action_library.CATEGORIES)
 
     @Property("QVariantList", constant=True)
     def actionLibrary(self):
         return [{"category": c, "label": l, "type": t, "value": v}
                 for (c, l, t, v) in self.ACTION_LIBRARY]
+
+    @Slot(str, result="QVariantList")
+    def filterLibrary(self, query):
+        """Library entries matching `query`, or all of them when it is empty.
+
+        Every whitespace-separated term must appear somewhere in the entry, so
+        "vol up" narrows the way you would expect. Matching covers the value and
+        type as well as the label, which is what makes "ctrl" or "scroll" useful
+        searches."""
+        terms = [t for t in str(query or "").lower().split() if t]
+        if not terms:
+            return self.actionLibrary
+        out = []
+        for entry in self.actionLibrary:
+            hay = " ".join((entry["label"], entry["category"],
+                            entry["type"], entry["value"])).lower()
+            if all(t in hay for t in terms):
+                out.append(entry)
+        return out
+
+    @Slot(str, str, str, str)
+    def applyLibraryAction(self, key, a_type, value, label=""):
+        """Bind a library action onto a control (drag-drop target). Nav actions
+        (submenu/back) only apply to single-action 'key' controls; a plain
+        action dropped on an encoder/dial/knob binds its press slot. ``label`` is
+        the library's friendly name, used for the auto-label."""
+        if not key:
+            return
+        if a_type in ("submenu", "back") and self._kind(key) != "key":
+            return
+        self._ctl.set_action(key, a_type, value, summary=label)
+        # select the base control (encoders/dial expose all their slots there)
+        self._selected = key[:-2] if key.endswith(("-l", "-r")) else key
+        self.selectionChanged.emit()
+        self.stateChanged.emit()
+
+    @Property("QStringList", constant=True)
+    def ctExtraButtons(self):
+        return list(self._ctl.profile.extra_buttons)
+
+    # -- on-screen mirror of the currently displayed menu ------------------
+    def _menu(self):
+        """The workspace or submenu whose images/actions are live on the
+        device right now. Works before connect too (empty default config)."""
+        try:
+            return self._ctl.current_menu()
+        except Exception:
+            return None
+
+    @Property("QVariantMap", notify=stateChanged)
+    def keyImages(self):
+        """control-key -> file:// URL for every slot with an image (touch
+        buttons, side-display cells, wheel), for the DeviceView mirror."""
+        menu = self._menu()
+        out = {}
+        if not menu:
+            return out
+        for key, path in menu.images.items():
+            if not path:
+                continue
+            out[key] = QUrl.fromLocalFile(app_paths.asset_path(path)).toString()
+        return out
+
+    @Property("QVariantMap", notify=stateChanged)
+    def boundActions(self):
+        """control-key -> action summary for every bound (non-'none') control,
+        so the mirror can highlight encoders/dial/CT-buttons that do something."""
+        menu = self._menu()
+        out = {}
+        if not menu:
+            return out
+        for key, action in menu.actions.items():
+            if action is not None and getattr(action, "a_type", "none") != "none":
+                out[key] = getattr(action, "summary", "") or action.a_type
+        return out
+
+    @Property(str, notify=stateChanged)
+    def selectedWs(self):
+        return self._ctl.selected_ws
+
+    @Property(int, notify=stateChanged)
+    def menuDepth(self):
+        return len(self._ctl.submenu_stack)
+
+    # -- control selection + action editing (inspector) --------------------
+    ACTION_TYPES = ["none", "command", "hotkey", "text", "scroll", "media"]
+
+    # Per-platform, from action_library: the applications differ by desktop.
+    ACTION_LIBRARY = action_library.default_library()
 
     @Slot(str, result="QVariantList")
     def filterLibrary(self, query):
@@ -930,7 +1021,7 @@ def main():
     moved = app_paths.migrate_legacy()
     if moved:
         print("migrated to %s: %s" % (app_paths.user_dir(), ", ".join(moved)))
-    print(app_paths.describe())
+    print("%s | %s" % (platform_env.describe(), app_paths.describe()))
     engine = QQmlApplicationEngine()
     backend = Backend()
     engine.rootContext().setContextProperty("backend", backend)

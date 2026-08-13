@@ -22,6 +22,8 @@ import os
 import shutil
 import subprocess
 
+import platform_env
+
 # evdev key codes (from linux/input-event-codes.h). ydotool's `key` verb takes
 # CODE:STATE pairs (1=down, 0=up); it does not accept key *names*, so we map
 # here. Names are lowercased and stripped before lookup.
@@ -200,7 +202,7 @@ class XdotoolBackend(InputBackend):
         self.bin = shutil.which("xdotool")
 
     def available(self):
-        return bool(self.bin) and os.environ.get("DISPLAY")
+        return bool(self.bin) and platform_env.session_type() == platform_env.X11
 
     def send_hotkey(self, combo, repeat=1):
         # xdotool uses '+' combos with names like ctrl/shift/super/Return.
@@ -228,7 +230,7 @@ class PyAutoGuiBackend(InputBackend):
     name = "pyautogui"
 
     def available(self):
-        if not os.environ.get("DISPLAY"):
+        if platform_env.session_type() != platform_env.X11:
             return False
         try:
             import pyautogui  # noqa: F401
@@ -259,14 +261,24 @@ class PyAutoGuiBackend(InputBackend):
 _backend = None
 
 
+# Preference order per session, most-appropriate first. ydotool leads on
+# Wayland because it is the only one that can inject into native Wayland
+# clients; on X11 the X-native tools are preferred but ydotool still works, so
+# it stays as a last resort rather than being excluded.
+_ORDER = {
+    platform_env.WAYLAND: [YdotoolBackend, XdotoolBackend, PyAutoGuiBackend],
+    platform_env.X11: [XdotoolBackend, PyAutoGuiBackend, YdotoolBackend],
+    platform_env.NO_SESSION: [YdotoolBackend],
+}
+
+
 def detect_backend():
-    """Pick the best backend for this session, preferring Wayland-capable ones."""
-    session = os.environ.get("XDG_SESSION_TYPE", "").lower()
-    if session == "wayland":
-        order = [YdotoolBackend, XdotoolBackend, PyAutoGuiBackend]
-    else:
-        order = [XdotoolBackend, PyAutoGuiBackend, YdotoolBackend]
-    for cls in order:
+    """Pick the best backend that is actually usable on this session.
+
+    Order comes from the session type; availability decides. A backend that
+    suits the platform but is not installed loses to one that is.
+    """
+    for cls in _ORDER.get(platform_env.session_type(), [YdotoolBackend]):
         b = cls()
         if b.available():
             return b

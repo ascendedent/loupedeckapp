@@ -99,8 +99,14 @@ class KdotoolWatcher(WindowWatcher):
 
 
 def get_watcher(on_change=None, interval=0.4):
-    """Return the best available watcher for this session (KdotoolWatcher on
-    KDE, else a no-op WindowWatcher)."""
+    """Best available focus watcher for this session.
+
+    Only KDE has an implementation today; everywhere else falls back to a no-op
+    watcher so dynamic mode degrades to "never switches" rather than failing.
+    A macOS frontmost-app watcher and a GNOME one slot in here.
+    """
+    # Availability, not desktop identity, decides: kdotool works wherever KWin
+    # is running, which XDG_CURRENT_DESKTOP does not always admit to.
     w = KdotoolWatcher(on_change=on_change, interval=interval)
     if w.available():
         return w
