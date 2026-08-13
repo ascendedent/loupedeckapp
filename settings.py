@@ -22,6 +22,11 @@ DEFAULTS = {
     # "hold" (fn works while held) or "latch" (a press sticks until pressed
     # again, with the key lit while it is on).
     "fn_mode": "hold",
+    # Colour of the fn keys while the layer is engaged.
+    "fn_active_color": "#ffffff",
+    # Colour when it is not. Blank means "whatever the workspace's LED colour
+    # says", falling back to the same dim grey as the other buttons.
+    "fn_inactive_color": "",
 }
 
 
@@ -79,6 +84,14 @@ class Settings:
     @property
     def auto_bind_ct_buttons(self):
         return bool(self.get("auto_bind_ct_buttons"))
+
+    @property
+    def fn_active_color(self):
+        return str(self.get("fn_active_color") or DEFAULTS["fn_active_color"])
+
+    @property
+    def fn_inactive_color(self):
+        return str(self.get("fn_inactive_color") or "")
 
     @property
     def fn_mode(self):

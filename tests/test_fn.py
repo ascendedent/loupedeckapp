@@ -128,5 +128,62 @@ dc.device_callback(None, {CBC.IDENTIFIER.value: "fnL", CBC.STATE.value: "up"})
 c.eq("and releasing it drops the layer", dc.fn_active, False)
 dc.close()
 
+# -- fn key colours ------------------------------------------------------------
+lit = []
+
+
+class FakeDevice:
+    DECK_TYPE = "LoupedeckLive"
+    path = None
+    reading_thread = None
+
+    def set_button_color(self, key, color): lit.append((key, color))
+    def reset(self): pass
+    def stop(self): pass
+
+
+dc, ws = build()
+dc.device = FakeDevice()
+dc.profile.extra_buttons = tuple(
+    list(dc.profile.extra_buttons) + [k for k in ("fnL", "fnR")
+                                      if k not in dc.profile.extra_buttons])
+
+c.eq("the default on-colour is white", dc.fn_active_color, "#ffffff")
+c.eq("and off is blank, meaning use the LED colour", dc.fn_inactive_color, "")
+
+del lit[:]
+dc.on_fn("fnL", "down")
+c.eq("engaging lights both fn keys with the on-colour",
+     sorted(lit), [("fnL", (255, 255, 255)), ("fnR", (255, 255, 255))])
+
+del lit[:]
+dc.on_fn("fnL", "up")
+c.eq("releasing falls back to the dim default",
+     sorted(lit), [("fnL", (63, 63, 63)), ("fnR", (63, 63, 63))])
+
+# an explicit off-colour wins over the fallback
+dc.set_fn_colors(active="#ff0044", inactive="#101820")
+del lit[:]
+dc.on_fn("fnL", "down")
+c.eq("a custom on-colour is used", lit[0][1], (255, 0, 68))
+del lit[:]
+dc.on_fn("fnL", "up")
+c.eq("and a custom off-colour", lit[0][1], (16, 24, 32))
+
+# clearing the off-colour returns to the workspace's own LED colour
+ws.led_colors["fnL"] = "#00ff00"
+dc.set_fn_colors(inactive="")
+del lit[:]
+dc.on_fn("fnL", "down")
+dc.on_fn("fnL", "up")
+c.eq("with no off-colour, the button's LED colour is used",
+     dict(lit)["fnL"], (0, 255, 0))
+
+# setting colours repaints immediately, so the choice is visible while picking
+del lit[:]
+dc.set_fn_colors(active="#0000ff")
+c.eq("changing a colour repaints the keys at once", len(lit) > 0, True)
+dc.close()
+
 shutil.rmtree(tmp, ignore_errors=True)
 sys.exit(c.done())

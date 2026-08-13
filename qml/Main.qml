@@ -442,14 +442,113 @@ ApplicationWindow {
                     color: backend.fnLatched ? "#15151b" : theme.muted
                     font.pixelSize: 11
                 }
-                HoverHandler { cursorShape: Qt.PointingHandCursor }
-                TapHandler {
-                    onTapped: backend.setFnMode(backend.fnMode === "hold" ? "latch" : "hold")
-                }
-                ToolTip.visible: hovered
+                HoverHandler { id: fnHover; cursorShape: Qt.PointingHandCursor }
+                TapHandler { onTapped: fnPopup.open() }
+                ToolTip.visible: fnHover.hovered
                 ToolTip.text: "fn " + (backend.fnMode === "hold"
-                    ? "works while held. Click for latch."
-                    : "sticks until pressed again. Click for hold.")
+                    ? "works while held" : "sticks until pressed again")
+                    + ". Click to configure."
+
+                Popup {
+                    id: fnPopup
+                    y: parent.height + 6
+                    width: 260
+                    modal: false
+                    focus: true
+                    background: Rectangle {
+                        radius: theme.radius; color: theme.panel
+                        border.color: theme.line
+                    }
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 10
+                        spacing: 8
+
+                        Text {
+                            text: "fn layer"; color: theme.text
+                            font.pixelSize: 13; font.bold: true
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true; spacing: 6
+                            Text {
+                                text: "Mode"; color: theme.muted
+                                font.pixelSize: 11; Layout.preferredWidth: 60
+                            }
+                            ComboBox {
+                                Layout.fillWidth: true
+                                model: ["hold", "latch"]
+                                currentIndex: backend.fnMode === "latch" ? 1 : 0
+                                onActivated: backend.setFnMode(currentText)
+                            }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true; spacing: 6
+                            Text {
+                                text: "On"; color: theme.muted
+                                font.pixelSize: 11; Layout.preferredWidth: 60
+                            }
+                            Rectangle {
+                                width: 34; height: 24; radius: 6
+                                color: backend.fnActiveColor !== "" ? backend.fnActiveColor : "#ffffff"
+                                border.color: theme.line
+                            }
+                            ActionButton {
+                                Layout.fillWidth: true
+                                label: "Pick…"
+                                onClicked: fnOnDialog.open()
+                            }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true; spacing: 6
+                            Text {
+                                text: "Off"; color: theme.muted
+                                font.pixelSize: 11; Layout.preferredWidth: 60
+                            }
+                            Rectangle {
+                                width: 34; height: 24; radius: 6
+                                color: backend.fnInactiveColor !== ""
+                                       ? backend.fnInactiveColor : theme.cell
+                                border.color: theme.line
+                            }
+                            ActionButton {
+                                Layout.fillWidth: true
+                                label: "Pick…"
+                                onClicked: fnOffDialog.open()
+                            }
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: backend.fnInactiveColor === ""
+                                  ? "Off uses the button's own LED colour."
+                                  : ""
+                            visible: text !== ""
+                            color: theme.muted; font.pixelSize: 10
+                            wrapMode: Text.WordWrap
+                        }
+                        ActionButton {
+                            visible: backend.fnInactiveColor !== ""
+                            label: "Use LED colour when off"
+                            onClicked: backend.setFnColors(backend.fnActiveColor, "")
+                        }
+                    }
+                }
+            }
+
+            ColorDialog {
+                id: fnOnDialog
+                title: "fn key colour while the layer is on"
+                onAccepted: backend.setFnColors(selectedColor.toString(),
+                                                backend.fnInactiveColor)
+            }
+            ColorDialog {
+                id: fnOffDialog
+                title: "fn key colour while the layer is off"
+                onAccepted: backend.setFnColors(backend.fnActiveColor,
+                                                selectedColor.toString())
             }
 
             // Brightness: the device quantises to steps of 10, so the slider

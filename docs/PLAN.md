@@ -550,6 +550,10 @@ held profile, because a switch that silently fails to happen is worse than one t
       Changing workspace releases the layer. A key-up landing on a different menu would otherwise
       leave it stuck on with no way to notice.
 
+      Both key colours are configurable (`fn_active_color`, `fn_inactive_color`). Leaving the
+      off colour blank keeps the fn keys behaving like every other button, taking the workspace's
+      LED colour, rather than forcing a second place to configure the same thing.
+
 ### E2. Device robustness
 
 - [x] **Connection supervisor**: one thread handles both waiting for a device and noticing one
@@ -583,7 +587,7 @@ held profile, because a switch that silently fails to happen is worse than one t
 
 - [x] `pyproject.toml` with a `loupedeckapp` entry point and `[device]` / `[x11]` extras
 - [x] Ship udev rule, ydotool socket drop-in and desktop entry in `packaging/`
-- [x] Automated tests (`tests/`, 289 checks): schema load/migrate, profile resolution,
+- [x] Automated tests (`tests/`, 297 checks): schema load/migrate, profile resolution,
       tuning/dispatch, platform factories, installed-asset layout
 - [ ] **A properly installable application**, not a checkout you run by hand: a real install
       (Flatpak and/or AppImage, plus a distro-friendly path), the desktop entry registered, an

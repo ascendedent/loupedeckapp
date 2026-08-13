@@ -56,6 +56,8 @@ class Backend(QObject):
         self._ctl.brightness = self._settings.brightness
         self._ctl.auto_bind_buttons = self._settings.auto_bind_ct_buttons
         self._ctl.fn_mode = self._settings.fn_mode
+        self._ctl.fn_active_color = self._settings.fn_active_color
+        self._ctl.fn_inactive_color = self._settings.fn_inactive_color
         self._watcher = window_watcher.get_watcher(
             on_change=lambda c, t: self._focusSig.emit(c, t))
         self._marshal.connect(self._on_state_main, Qt.QueuedConnection)
@@ -814,6 +816,24 @@ class Backend(QObject):
     @Property(str, notify=stateChanged)
     def fnMode(self):
         return self._ctl.fn_mode
+
+    @Property(str, notify=stateChanged)
+    def fnActiveColor(self):
+        return self._ctl.fn_active_color
+
+    @Property(str, notify=stateChanged)
+    def fnInactiveColor(self):
+        """Blank means the fn keys use the workspace's LED colour, like any
+        other button."""
+        return self._ctl.fn_inactive_color
+
+    @Slot(str, str)
+    def setFnColors(self, active, inactive):
+        self._ctl.set_fn_colors(active=active, inactive=inactive)
+        self._settings.set("fn_active_color", self._ctl.fn_active_color)
+        self._settings.set("fn_inactive_color", self._ctl.fn_inactive_color)
+        self._settings.save()
+        self.stateChanged.emit()
 
     @Slot(str)
     def setFnMode(self, mode):

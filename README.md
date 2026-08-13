@@ -70,6 +70,10 @@ the key-up would otherwise land on a different page and leave it stuck.
 
 Set a secondary from the inspector: each slot has an `fn` row under its normal binding.
 
+Click the `fn:` pill in the top bar to choose the mode and the two key colours: one for while the
+layer is on, one for while it is off. Leaving the off colour unset makes the fn keys behave like
+any other button, taking the LED colour from the workspace.
+
 ### CT function buttons
 
 New profiles start with the CT's labelled buttons wired to what they say: **home** goes to

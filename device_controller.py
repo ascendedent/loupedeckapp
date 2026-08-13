@@ -57,6 +57,10 @@ class DeviceController:
         # makes a press stick, which needs the LED to show it is on.
         self.fn_mode = "hold"
         self.fn_active = False
+        # Colours for the fn keys. Inactive blank means "use the workspace's
+        # LED colour for that key", which is what every other button does.
+        self.fn_active_color = "#ffffff"
+        self.fn_inactive_color = ""
         # Banked detents per rotate control for the Slow presets:
         # control -> (direction, count). Runtime feel, not persisted state.
         # Written by the dispatch thread, cleared from the message thread.
@@ -651,7 +655,6 @@ class DeviceController:
     # The CT has an fn key either side; they drive the same layer, so which one
     # was pressed does not matter beyond lighting it.
     FN_KEYS = ("fnL", "fnR")
-    FN_ACTIVE_COLOR = (255, 255, 255)
 
     def on_fn(self, key, state):
         """Hold: down engages, up releases. Latch: each press flips it."""
@@ -676,13 +679,27 @@ class DeviceController:
                 continue
             try:
                 if self.fn_active:
-                    self.device.set_button_color(key, self.FN_ACTIVE_COLOR)
+                    self.device.set_button_color(
+                        key, self._hex_rgb(self.fn_active_color or "#ffffff"))
+                elif self.fn_inactive_color:
+                    self.device.set_button_color(
+                        key, self._hex_rgb(self.fn_inactive_color))
                 else:
+                    # No explicit colour: behave like any other button.
                     c = colors.get(key)
                     self.device.set_button_color(
                         key, self._hex_rgb(c) if c else (63, 63, 63))
             except Exception as e:
                 print("fn LED failed: %s: %s" % (type(e).__name__, e))
+
+    def set_fn_colors(self, active=None, inactive=None):
+        """Recolour the fn keys. Applied immediately so the choice is visible
+        on the device while picking it."""
+        if active is not None:
+            self.fn_active_color = str(active or "#ffffff")
+        if inactive is not None:
+            self.fn_inactive_color = str(inactive or "")
+        self._light_fn()
 
     def action_for(self, key):
         """The binding a control should fire right now.
