@@ -232,7 +232,8 @@ Future schema bumps only when needed (e.g. side-display mode).
 
 - [x] Mac input backend for hotkey + type; maps `cmd`/`command`/`super` (AppleScript,
       not Quartz; **unverified**, see docs/MACOS.md)
-- [ ] Media via AppleScript / system media keys (not MPRIS)
+- [x] Media keys and scrolling via Quartz (pyobjc, `[macos]` extra), with the reason
+      AppleScript cannot do either written down; **unverified**, fallbacks tested
 - [x] Launch via `open -a` (in `action_library`; **unverified**)
 - [x] Mac frontmost watcher (AppleScript rather than NSWorkspace; **unverified**)
 - [ ] Match on `bundle_id` (+ name fallback)

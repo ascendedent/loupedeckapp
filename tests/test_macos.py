@@ -125,9 +125,96 @@ try:
     c.eq("macOS needs no udev rule", perms["ok"], True)
     c.eq("and nothing to run for it", perms["fix"], "")
     media = setup_check.check_media()
-    c.eq("macOS handles media keys itself", media["ok"], True)
+    c.eq("macOS is told pyobjc is what media keys and scrolling need",
+         "pyobjc" in media["fix"], True)
+    c.eq("but the app works without it", media["optional"], True)
 finally:
     platform_env.os_name = real_os
     input_backend.reset_backend()
+
+# -- media keys and scrolling ------------------------------------------------
+# AppleScript can reach neither: media keys are not in the key code System
+# Events addresses, and there is no scroll verb at all. Both go through Quartz
+# when pyobjc is installed, so what is checked here is the packing (which is
+# where a wrong key comes from) and the fallbacks (which are what happens on a
+# Mac without pyobjc).
+c.eq("a media key packs into data1 as key and state",
+     "0x%x" % mac.media_data1(16, mac.KEY_DOWN), "0x100a00")
+c.eq("and the release is the same key, different state",
+     "0x%x" % mac.media_data1(16, mac.KEY_UP), "0x100b00")
+c.eq("next is its own key", "0x%x" % mac.media_data1(17, mac.KEY_DOWN), "0x110a00")
+
+c.eq("every transport this app offers has a key",
+     [a for a in ("play-pause", "next", "previous", "stop")
+      if a not in mac.MEDIA_KEYS], [])
+c.eq("an unknown action is not invented", mac.media("nonsense"), False)
+
+# No pyobjc here, which is the case a Mac without the extra install is in.
+c.eq("with no Quartz the backend says it could not", mac.media("play-pause"), False)
+c.eq("and the answer is remembered rather than re-imported",
+     mac.quartz(), False)
+
+ran.clear()
+mac.scroll("down", 3)
+c.eq("scroll without Quartz falls back to arrow keys", len(ran), 3)
+c.eq("in the right direction", ran[0], 'tell application "System Events" to key code 125')
+
+
+class FakeQuartz:
+    """Enough of the two pyobjc pieces to see what would be posted."""
+
+    kCGHIDEventTap = 0
+    kCGScrollEventUnitLine = 1
+
+    def __init__(self):
+        self.posted = []
+        self.scrolls = []
+
+    def CGEventCreateScrollWheelEvent(self, source, unit, count, *deltas):
+        self.scrolls.append((unit, count, deltas))
+        return ("scroll", deltas)
+
+    def CGEventPost(self, tap, event):
+        self.posted.append(event)
+
+
+class FakeNSEvent:
+    def __init__(self, quartz):
+        self.quartz = quartz
+        self.events = []
+
+    def otherEventWithType_location_modifierFlags_timestamp_windowNumber_context_subtype_data1_data2_(
+            self, kind, location, flags, ts, window, context, subtype, data1, data2):
+        self.events.append((kind, subtype, data1))
+        return self
+
+    def CGEvent(self):
+        return ("media", self.events[-1])
+
+
+fake_q = FakeQuartz()
+fake_ns = FakeNSEvent(fake_q)
+mac._quartz = (fake_q, fake_ns)
+
+c.eq("with Quartz a media key is posted", mac.media("next"), True)
+c.eq("as a press and a release", len(fake_ns.events), 2)
+c.eq("of the right key, down then up",
+     ["0x%x" % e[2] for e in fake_ns.events], ["0x110a00", "0x110b00"])
+c.eq("as system-defined events", [e[0] for e in fake_ns.events], [14, 14])
+c.eq("and both reached the event tap", len(fake_q.posted), 2)
+
+ran.clear()
+mac.scroll("down", 4)
+c.eq("with Quartz a scroll is a real scroll, not arrow keys", ran, [])
+c.eq("of the magnitude asked for, downward",
+     fake_q.scrolls[-1][2], (-4, 0))
+mac.scroll("right", 2)
+c.eq("and sideways scrolling uses the other axis",
+     fake_q.scrolls[-1][2], (0, 2))
+ran.clear()
+mac.scroll("sideways")
+c.eq("an unknown direction still does nothing",
+     (fake_q.scrolls[-1][2], ran), ((0, 2), []))
+mac._quartz = False
 
 sys.exit(c.done())

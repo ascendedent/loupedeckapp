@@ -38,8 +38,8 @@ tuning, the tray, workspaces, dynamic switching logic.
 | Detecting the focused app | **Untested** | AppleScript; needs the same permission |
 | Where files are stored | Untested but simple | `~/Library/Application Support/LoupedeckApp` |
 | Menu bar item (the "tray") | Untested | Qt turns a tray icon into a menu bar item |
-| Media keys | **Not implemented** | Linux uses playerctl, which does not exist on macOS |
-| Scrolling on a knob | Partly | Falls back to arrow keys; AppleScript has no scroll verb |
+| Media keys | **Untested** | Quartz through pyobjc; nothing without it |
+| Scrolling on a knob | **Untested** | Quartz; falls back to arrow keys without it |
 | Start with the session | **Not implemented** | Writes a Linux autostart file macOS does not read |
 | A double-clickable `.app` | Does not exist | Run it from a terminal for now |
 
@@ -57,9 +57,14 @@ You need Python 3.9 or newer and git.
 git clone https://github.com/ascendedent/loupedeckapp
 cd loupedeckapp
 python3 -m venv .venv
-.venv/bin/pip install -e ".[device]"
+.venv/bin/pip install -e ".[device,macos]"
 .venv/bin/python qml_app.py
 ```
+
+The `macos` extra is pyobjc, which media keys and scroll wheel actions need.
+It is worth installing both ways if you have the patience: **with** it, to test
+those two, and **without**, to check the app says so rather than silently doing
+nothing.
 
 If it will not start at all, that is a report on its own: send the whole error.
 
@@ -121,7 +126,17 @@ right-hand panel names what it thinks is focused; on macOS that should be a
 bundle id like `com.apple.Safari`. Add an app from the picker and see whether
 the list of installed applications is right.
 
-### 7. Everything else
+### 7. Media keys and scrolling
+
+Both need pyobjc and neither has ever run. Bind **Play / Pause** to a key with
+music playing, and bind **Scroll down** to an encoder and turn it over a long
+web page.
+
+If you installed without the `macos` extra, the Setup dialog should say pyobjc
+is missing and name the install; check that it does, because a media key that
+quietly does nothing is the failure this is trying to avoid.
+
+### 8. Everything else
 
 Poke at whatever you like: workspaces, the menu bar item, macros, encoder feel,
 the on-screen keyboard action. Anything that looks wrong is worth a line.
@@ -151,7 +166,9 @@ Python version:       .venv/bin/python --version
    Which ones worked:
 6. Focused app:       what the panel showed, and whether switching worked
    Installed apps:    did the picker list your applications correctly?
-7. Anything else:
+7. Media key:         did Play / Pause work? with or without pyobjc?
+   Scroll on a knob:  did it scroll, or move the cursor?
+8. Anything else:
 ```
 
 If you have a Live or Live S rather than a CT, please also read

@@ -198,9 +198,19 @@ def check_window_watcher():
 def check_media():
     """Media actions go through playerctl (MPRIS) when it is there."""
     if platform_env.os_name() == platform_env.MACOS:
-        return _check("media", "Media keys", True,
-                      "macOS handles media keys itself; playerctl is a Linux "
-                      "thing and is not needed here.", optional=True)
+        # Real media keys and real scrolling both need Quartz, which comes
+        # from pyobjc. Without it the app still works, but a media key does
+        # nothing and a scroll knob sends arrow keys instead.
+        backend = input_backend.get_backend()
+        if getattr(backend, "quartz", lambda: False)():
+            return _check("media", "Media keys and scrolling", True,
+                          "pyobjc is installed, so media keys and scroll "
+                          "wheel actions are the real thing.", optional=True)
+        return _check(
+            "media", "Media keys and scrolling", False,
+            "pyobjc is not installed. Media key actions will do nothing, and "
+            "a scroll bound to a knob sends arrow keys instead of scrolling.",
+            "pip install pyobjc-framework-Quartz", optional=True)
     if platform_env.has_tool("playerctl"):
         return _check("media", "Media keys", True,
                       "playerctl is installed.", optional=True)

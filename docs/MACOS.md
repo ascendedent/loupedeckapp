@@ -75,12 +75,12 @@ python3 -m venv .venv
 
 ## Known gaps
 
-- **Scrolling** falls back to arrow keys. AppleScript has no scroll verb; doing
-  it properly wants a `CGEvent` through pyobjc, which is the obvious next step
-  for anyone with a Mac to test it on.
-- **Media keys** are not implemented. Linux uses playerctl over MPRIS, which
-  does not exist on macOS. The equivalent is an `NSEvent` with the media key
-  code, again through pyobjc.
+- **Scrolling and media keys** go through Quartz, from pyobjc, installed with
+  the `[macos]` extra. Neither is reachable from AppleScript: media keys are not
+  in the key code System Events addresses, and there is no scroll verb at all.
+  Without pyobjc a media action does nothing and a scroll bound to a knob sends
+  arrow keys instead; the setup checks say so and name the install. **The Quartz
+  paths have never run**, only their packing and their fallbacks are tested.
 - **The tray** uses `QSystemTrayIcon`, which becomes a menu bar item on macOS.
   It should work; it has not been seen.
 - **Autostart** writes an XDG entry, which macOS does not read. The equivalent

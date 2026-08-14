@@ -430,18 +430,92 @@ class MacBackend(InputBackend):
         escaped = str(text).replace("\\", "\\\\").replace('"', '\\"')
         self._run('tell application "System Events" to keystroke "%s"' % escaped)
 
+    # -- Quartz, when pyobjc is installed ----------------------------------
+    # AppleScript cannot scroll and cannot press a media key: neither is in the
+    # key code space System Events addresses. Quartz can do both, but pyobjc is
+    # a large dependency to make mandatory for one platform, so it is used when
+    # present and worked around when not.
+    _quartz = None          # None = not looked for yet, False = not available
+
+    def quartz(self):
+        """The two pyobjc pieces, or False. Looked up once."""
+        if self._quartz is None:
+            try:
+                import Quartz
+                from AppKit import NSEvent
+                self._quartz = (Quartz, NSEvent)
+            except Exception:
+                self._quartz = False
+        return self._quartz
+
+    # NSSystemDefined media keys, from IOKit's hidsystem/ev_keymap.h. These are
+    # not the same numbering as ordinary keys, which is why AppleScript cannot
+    # reach them.
+    MEDIA_KEYS = {
+        "play-pause": 16, "playpause": 16, "play": 16, "pause": 16,
+        "next": 17, "previous": 18, "prev": 18,
+        "fast-forward": 19, "rewind": 20,
+        # There is no separate stop key on a Mac keyboard; pausing is the
+        # closest true equivalent and beats doing nothing.
+        "stop": 16,
+        "volumeup": 0, "volumedown": 1, "mute": 7,
+    }
+
+    # data1 packs the key and its state. 0xA is down, 0xB is up, and a media
+    # key needs both or the receiving application sees a key that never lifted.
+    KEY_DOWN, KEY_UP = 0xA, 0xB
+
+    @classmethod
+    def media_data1(cls, key_code, state):
+        return (key_code << 16) | (state << 8)
+
+    def media(self, action):
+        """A real media key, if pyobjc is here. Returns False if it is not, so
+        the caller can fall back."""
+        code = self.MEDIA_KEYS.get(str(action).strip().lower())
+        if code is None:
+            return False
+        pieces = self.quartz()
+        if not pieces:
+            return False
+        Quartz, NSEvent = pieces
+        try:
+            for state in (self.KEY_DOWN, self.KEY_UP):
+                event = NSEvent.otherEventWithType_location_modifierFlags_timestamp_windowNumber_context_subtype_data1_data2_(
+                    14,                       # NSSystemDefined
+                    (0, 0), 0xA00 if state == self.KEY_DOWN else 0xB00,
+                    0, 0, None, 8,
+                    self.media_data1(code, state), -1)
+                Quartz.CGEventPost(Quartz.kCGHIDEventTap, event.CGEvent())
+        except Exception as e:
+            self.last_error = "media key failed: %s" % e
+            return False
+        return True
+
     def scroll(self, direction, amount=1):
-        # System Events has no scroll verb; arrow keys are the closest thing
-        # AppleScript alone can do. A pyobjc CGEvent scroll would be better and
-        # is the obvious next step for anyone with a Mac to test it on.
+        dx, dy = _parse_scroll(direction)
+        if not (dx or dy):
+            return
+        steps = max(1, int(amount))
+        pieces = self.quartz()
+        if pieces:
+            Quartz, _ = pieces
+            try:
+                event = Quartz.CGEventCreateScrollWheelEvent(
+                    None, Quartz.kCGScrollEventUnitLine, 2,
+                    dy * steps, dx * steps)
+                Quartz.CGEventPost(Quartz.kCGHIDEventTap, event)
+                return
+            except Exception as e:
+                self.last_error = "scroll failed: %s" % e
+        # Without pyobjc, arrow keys are the closest AppleScript can get. It is
+        # not the same thing and the setup checks say so.
         key = {"up": "up", "down": "down", "left": "left", "right": "right"}.get(
             str(direction).strip().lower())
-        if not key:
-            return
-        script = self._keystroke_script(key)
+        script = self._keystroke_script(key) if key else None
         if script is None:
             return
-        for _ in range(max(1, int(amount))):
+        for _ in range(steps):
             self._run(script)
 
 
@@ -516,6 +590,12 @@ def media(action):
 
     action: play-pause | play | pause | next | previous | stop
     """
+    # macOS has no MPRIS. A real media key needs Quartz; the backend says
+    # whether it managed it, so a Mac without pyobjc still falls through to the
+    # synthetic key below rather than silently doing nothing.
+    backend = get_backend()
+    if hasattr(backend, "media") and backend.media(action):
+        return
     pctl = shutil.which("playerctl")
     if pctl:
         mapping = {"play-pause": "play-pause", "playpause": "play-pause",
@@ -526,4 +606,4 @@ def media(action):
     keyname = {"play-pause": "playpause", "playpause": "playpause", "play": "play",
                "pause": "pause", "next": "next", "previous": "previous",
                "prev": "previous", "stop": "stop"}.get(action, action)
-    get_backend().send_hotkey(keyname)
+    backend.send_hotkey(keyname)

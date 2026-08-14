@@ -41,6 +41,9 @@ device = [
 ]
 # X11 input fallback. Unnecessary on Wayland, where ydotool does the work.
 x11 = ["pyautogui>=0.9.53", "python-xlib>=0.33"]
+# macOS: real media keys and real scrolling. AppleScript can reach neither, so
+# without this a media action does nothing and a scroll sends arrow keys.
+macos = ["pyobjc-framework-Quartz>=9.0", "pyobjc-framework-Cocoa>=9.0"]
 
 [project.urls]
 Homepage = "https://github.com/ascendedent/loupedeckapp"
