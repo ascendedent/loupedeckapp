@@ -79,7 +79,7 @@ already Qt-free, so nothing outside those four files referenced them.
 |------|--------------|----------------|---------------|
 | **Top bar** | Device · app-profile · Dynamic · workspace · status | Device pill · profile name · Save/Revert · Dynamic | Profile picker depth, workspace name, reconnect status, input-backend health |
 | **Left panel** | Searchable action library | Searchable, categorised library + drag-drop | KDE-hardcoded app entries |
-| **Center** | Photorealistic device | Schematic CT mirror; live images/labels/LEDs | Optional photoreal polish; Live/Live S layout fidelity |
+| **Center** | Photorealistic device | Rendered CT mirror; live images/labels/LEDs | Nothing outstanding |
 | **Right panel** | Profiles + pages tree | Profile list + CRUD + app bindings + rich inspector | Import/export; pages hierarchy |
 | **Profiles** | System + per-app + dynamic | Applications own their profiles on disk; pages switch inside one | Multi-key match (`wm_class` / `bundle_id`) |
 | **Theme** | Dark, rounded | Dark themed QML | Photoreal device chrome (optional) |
@@ -634,7 +634,9 @@ held profile, because a switch that silently fails to happen is worse than one t
 - [x] Inspector collapsible sections (Action / Appearance / Advanced)
 - [x] Split the fat `Backend` QObject: profile and application file handling moved to
       `profile_store` (Qt-free, 500 lines out of a 2150-line Qt object)
-- [ ] Optional later: photoreal device chrome
+- [x] Photoreal device chrome: the mirror renders as the hardware (machined knobs and
+      dial, domed keys with their LED colour, glass over the screens, a lit chassis)
+      rather than as a schematic, with editor state as a quiet overlay
 
 ### G. Packaging & distribution (M5 Linux first)
 
@@ -788,7 +790,7 @@ Medium-term (Phase C):
 - [x] Rotary tuning row: Invert checkbox + speed preset dropdown (§5.D.1)
 - [x] Hide empty library categories
 - [x] Thinner Backend bridge (`profile_store`)
-- [ ] Optional: richer device chrome
+- [x] Richer device chrome
 
 ---
 

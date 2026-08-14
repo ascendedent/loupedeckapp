@@ -139,7 +139,9 @@ Acceleration pays off most on **scroll**, where the whole magnitude rides in one
 middling speeds.
 
 ### Workflow
-- Three-column dark UI (PySide6 + QML): action library · live device mirror · inspector.
+- Three-column dark UI (PySide6 + QML): action library · live device mirror · inspector. The
+  mirror is drawn as the hardware, knurled knobs and dial, domed keys lit by their own LED
+  colour, glass over the screens, rather than as a schematic.
 - **Draft editing**: edits update the on-screen mirror live and are pushed to the hardware only on
   **Save**; **Revert** discards the draft. Nothing throws a draft away without asking, and if
   dynamic mode wants to switch profile mid-edit it waits (shown in the top bar) rather than

@@ -15,6 +15,13 @@ Item {
     readonly property int keySize: 74
     readonly property int gap: 8
 
+    // How loudly the editor draws over the device. Selection is the thing you
+    // are working on and should be obvious; "something is bound here" is true
+    // of most of a finished deck, and at full strength it turned the mirror
+    // back into a wiring diagram.
+    readonly property real boundGlow: 0.28
+    readonly property real selectedGlow: 0.95
+
     implicitWidth: body.width
     implicitHeight: body.height
 
@@ -68,6 +75,82 @@ Item {
         }
     }
 
+    // ---- surfaces --------------------------------------------------------
+    // The device is a dark slab lit from above. Everything below leans on that
+    // one fact: a raised thing is bright along its top edge and dark along its
+    // bottom, a recessed thing is the other way round, and nothing is a flat
+    // fill. Done with layered rectangles rather than images so it costs no
+    // assets and works at any size.
+
+    // A hairline along one edge, which is what actually sells raised or sunken.
+    component EdgeLight: Rectangle {
+        property bool atTop: true
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: atTop ? parent.top : undefined
+        anchors.bottom: atTop ? undefined : parent.bottom
+        anchors.margins: 1
+        height: 1
+        color: "#ffffff"
+        opacity: atTop ? 0.055 : 0.0
+    }
+
+    // The dark well a key or a screen sits in.
+    component Recess: Rectangle {
+        property real round: 8
+        anchors.fill: parent
+        radius: round
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: "#050507" }
+            GradientStop { position: 1.0; color: "#0d0d12" }
+        }
+        border.color: "#000000"; border.width: 1
+    }
+
+    // Glass over a screen: a soft diagonal sheen, strongest at the top left.
+    component Glass: Rectangle {
+        property real round: 6
+        anchors.fill: parent
+        radius: round
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: "#ffffff" }
+            GradientStop { position: 0.42; color: "#00ffffff" }
+            GradientStop { position: 1.0; color: "#00ffffff" }
+        }
+        opacity: 0.05
+    }
+
+    // The ridges around an encoder or the wheel. Cheap knurling: thin bars laid
+    // round the rim, alternating light and dark so the edge reads as machined
+    // rather than drawn.
+    component Knurl: Item {
+        id: knurl
+        property int teeth: 28
+        property real inset: 3
+        property real len: 5
+        anchors.fill: parent
+        Repeater {
+            model: knurl.teeth
+            Rectangle {
+                required property int index
+                width: 1.1
+                height: knurl.len
+                radius: 0.55
+                color: index % 2 ? "#ffffff" : "#000000"
+                opacity: index % 2 ? 0.16 : 0.30
+                x: knurl.width / 2 - width / 2
+                y: knurl.inset
+                // Each bar is rotated about the centre of the knob, which is
+                // this far below its own top edge.
+                transform: Rotation {
+                    origin.x: 0.55
+                    origin.y: knurl.height / 2 - knurl.inset
+                    angle: index * 360 / knurl.teeth
+                }
+            }
+        }
+    }
+
     // reusable pieces ------------------------------------------------------
     component Encoder: Rectangle {
         id: enc
@@ -75,15 +158,49 @@ Item {
         property string ctlKey: ""
         property bool sel: dv.isSel(ctlKey)
         width: 54; height: 54; radius: 27
-        color: sel ? Qt.rgba(theme.ok.r, theme.ok.g, theme.ok.b, 0.18) : theme.cell
+        // The body of the knob: dark anodised metal, lit from above.
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: "#3a3a44" }
+            GradientStop { position: 0.5; color: "#23232b" }
+            GradientStop { position: 1.0; color: "#141419" }
+        }
         border.color: encDrop.containsDrag ? theme.accent
-                    : (sel ? theme.ok : (active ? theme.accent : theme.line))
-        border.width: encDrop.containsDrag ? 4 : 3
+                    : (sel ? theme.ok : (active ? theme.accent : "#0a0a0e"))
+        border.width: encDrop.containsDrag ? 4 : 1
+
+        Knurl { teeth: 44; inset: 2; len: 7; visible: !encDrop.containsDrag }
+
+        // The flat top face, inset from the knurled rim.
+        Rectangle {
+            anchors.centerIn: parent
+            width: parent.width - 16; height: width; radius: width / 2
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: "#2a2a33" }
+                GradientStop { position: 1.0; color: "#17171d" }
+            }
+            border.color: "#0c0c11"; border.width: 1
+            EdgeLight {}
+        }
+
+        // A ring of colour when the knob is bound or selected: the state has
+        // to survive the knob no longer being a flat block of accent colour.
+        Rectangle {
+            anchors.centerIn: parent
+            width: parent.width - 6; height: width; radius: width / 2
+            color: "transparent"
+            visible: sel || active
+            border.width: sel ? 2 : 1
+            border.color: sel ? theme.ok : theme.accent
+            opacity: sel ? dv.selectedGlow : dv.boundGlow
+            Behavior on opacity { NumberAnimation { duration: 130 } }
+        }
+
         Rectangle {  // knob indicator notch (hidden while choosing a drop slot)
             visible: !encDrop.containsDrag
-            width: 4; height: 12; radius: 2
-            color: (active || sel) ? theme.text : theme.muted
-            anchors.horizontalCenter: parent.horizontalCenter; anchors.top: parent.top; anchors.topMargin: 6
+            width: 3; height: 10; radius: 1.5
+            color: (active || sel) ? theme.text : "#8a8a96"
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: parent.top; anchors.topMargin: 11
         }
         TapHandler { enabled: ctlKey !== ""; onTapped: backend.selectControl(ctlKey) }
         // one drop target; the vertical third under the cursor picks the slot
@@ -126,19 +243,66 @@ Item {
         // Workspace keys switch as well as select, the way pressing the key on
         // the device does; every other button only selects.
         property bool switchesWorkspace: false
+        // "This is the workspace on the device" is worth shouting about.
+        // "This key has something bound to it" is true of most of a finished
+        // deck and only has to be legible.
+        property bool strongActive: false
         property color activeColor: theme.accent
         property string ctlKey: ""
         property string ledColor: ""
         property bool sel: dv.isSel(ctlKey)
         width: 40; height: 40; radius: 20
-        color: sel ? Qt.rgba(theme.ok.r, theme.ok.g, theme.ok.b, 0.22)
-             : (active ? Qt.rgba(activeColor.r, activeColor.g, activeColor.b, 0.22)
-             : (ledColor !== "" ? ledColor : theme.cell))
-        border.color: rbDrop.containsDrag ? theme.accent
-                    : (sel ? theme.ok : (active ? activeColor : (ledColor !== "" ? Qt.lighter(ledColor, 1.3) : theme.line)))
-        border.width: rbDrop.containsDrag ? 3 : 2
+        // A rubber key sunk into the body: dark ring, domed face, and whatever
+        // the LED under it is doing.
+        color: "#0b0b0f"
+        // The seat the key sits in is always dark. State is the two rings
+        // inside; a coloured seat as well was a third ring saying the same
+        // thing louder.
+        border.color: rbDrop.containsDrag ? theme.accent : "#000000"
+        border.width: rbDrop.containsDrag ? 3 : 1
+
+        Rectangle {          // the dome
+            anchors.centerIn: parent
+            width: parent.width - 6; height: width; radius: width / 2
+            gradient: Gradient {
+                GradientStop { position: 0.0
+                    color: rb.ledColor !== "" ? Qt.lighter(rb.ledColor, 1.5) : "#33333d" }
+                GradientStop { position: 0.55
+                    color: rb.ledColor !== "" ? rb.ledColor : "#1e1e25" }
+                GradientStop { position: 1.0
+                    color: rb.ledColor !== "" ? Qt.darker(rb.ledColor, 1.6) : "#121217" }
+            }
+            border.color: "#08080b"; border.width: 1
+            EdgeLight {}
+            // Two different things, drawn differently. Selection and the live
+            // workspace glow past the key's edge, the way a lit one does
+            // through the rubber. "Something is bound here" is a rim inside
+            // the key: legible up close, and it does not halo a cluster of
+            // buttons into a blue constellation.
+            Rectangle {
+                anchors.centerIn: parent
+                width: parent.width + 6; height: width; radius: width / 2
+                color: "transparent"
+                visible: rb.sel || (rb.active && rb.strongActive)
+                border.width: 2
+                border.color: rb.sel ? theme.ok : rb.activeColor
+                opacity: rb.sel ? dv.selectedGlow : 0.8
+                Behavior on opacity { NumberAnimation { duration: 130 } }
+            }
+            Rectangle {
+                anchors.centerIn: parent
+                width: parent.width - 3; height: width; radius: width / 2
+                color: "transparent"
+                visible: rb.active && !rb.strongActive && !rb.sel
+                border.width: 1
+                border.color: rb.activeColor
+                opacity: dv.boundGlow
+            }
+        }
         Text { anchors.centerIn: parent; text: label
-            color: (active || sel || ledColor !== "") ? theme.text : theme.muted; font.pixelSize: 11 }
+            color: (active || sel || ledColor !== "") ? theme.text : "#9a9aa6"
+            font.pixelSize: 11
+            style: Text.Outline; styleColor: "#00000060" }
         TapHandler {
             enabled: rb.ctlKey !== ""
             onTapped: rb.switchesWorkspace ? backend.showWorkspace(rb.ctlKey)
@@ -164,10 +328,12 @@ Item {
         width: 30
         height: tall ? dv.keySize * 3 + dv.gap * 2 : dv.keySize
         radius: 6
-        color: theme.cell
-        border.color: scDrop.containsDrag ? theme.accent
-                    : (sel ? theme.ok : (dv.bound(ctlKey) ? theme.accent : theme.line))
-        border.width: (sel || scDrop.containsDrag) ? 2 : 1
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: "#20202a" }
+            GradientStop { position: 1.0; color: "#14141b" }
+        }
+        border.color: "#000000"
+        border.width: 1
         clip: true
         Rectangle {   // background fill colour (behind the image)
             anchors.fill: parent; anchors.margins: 1; radius: 5
@@ -185,6 +351,18 @@ Item {
             anchors.bottomMargin: (_shrink && !_top) ? _band : 1
         }
         CtrlLabel { lbl: dv.label(ctlKey) }
+        // The state ring, over the content rather than instead of it, so a
+        // bound cell keeps its image at full strength.
+        Rectangle {
+            anchors.fill: parent; anchors.margins: 1; radius: 5
+            color: "transparent"
+            border.color: scDrop.containsDrag ? theme.accent
+                        : (sel ? theme.ok : theme.accent)
+            border.width: (sel || scDrop.containsDrag) ? 2 : 1
+            visible: sel || scDrop.containsDrag || dv.bound(ctlKey)
+            opacity: (sel || scDrop.containsDrag) ? dv.selectedGlow : dv.boundGlow
+            Behavior on opacity { NumberAnimation { duration: 130 } }
+        }
         TapHandler { onTapped: backend.selectControl(ctlKey) }
         DropArea {
             id: scDrop; anchors.fill: parent
@@ -194,13 +372,52 @@ Item {
         Behavior on border.color { ColorAnimation { duration: 130 } }
     }
 
+    // A shadow under the slab. Stacked translucent rounded rectangles rather
+    // than a blur effect: the device is nearly the same value as the panel
+    // behind it, and without something to separate them it reads as a diagram
+    // printed on the background.
+    Repeater {
+        model: 5
+        Rectangle {
+            required property int index
+            anchors.centerIn: body
+            width: body.width + index * 5
+            height: body.height + index * 5
+            radius: body.radius + index * 2
+            color: "#000000"
+            opacity: 0.10 - index * 0.017
+            z: -1
+        }
+    }
+
     Rectangle {
         id: body
         width: stack.implicitWidth + 48
         height: stack.implicitHeight + 80
         radius: 22
-        color: "#101016"
-        border.color: theme.line; border.width: 1
+        // The chassis: a dark slab lit from above, with a machined edge.
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: "#26262e" }
+            GradientStop { position: 0.06; color: "#17171d" }
+            GradientStop { position: 0.85; color: "#101015" }
+            GradientStop { position: 1.0; color: "#08080b" }
+        }
+        border.color: "#000000"; border.width: 1
+
+        // The bright hairline along the top edge is what makes it read as a
+        // solid object rather than a dark rectangle.
+        Rectangle {
+            anchors.top: parent.top; anchors.topMargin: 1
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: parent.width - 2 * parent.radius; height: 1
+            color: "#ffffff"; opacity: 0.10
+        }
+        Rectangle {
+            anchors.bottom: parent.bottom; anchors.bottomMargin: 1
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: parent.width - 2 * parent.radius; height: 1
+            color: "#000000"; opacity: 0.5
+        }
 
         // submenu breadcrumb badge
         Rectangle {
@@ -254,10 +471,14 @@ Item {
                 }
 
                 // center touch-key grid
+                // One screen behind the keys, not twelve separate ones: that
+                // is what the hardware is, and the shared glass is what makes
+                // the grid read as a display.
                 Rectangle {
                     radius: 8; color: "#07070a"
                     Layout.preferredWidth: grid.width + 12
                     Layout.preferredHeight: grid.height + 12
+                    Recess { round: 8 }
                     GridLayout {
                         id: grid
                         anchors.centerIn: parent
@@ -271,7 +492,13 @@ Item {
                                 property string src: dv.img(key)
                                 property bool sel: dv.isSel(key)
                                 width: dv.keySize; height: dv.keySize; radius: 8
-                                color: theme.cell; clip: true
+                                clip: true
+                                // A tile of the screen rather than a button:
+                                // near-black, lifted a touch at the top.
+                                gradient: Gradient {
+                                    GradientStop { position: 0.0; color: "#20202a" }
+                                    GradientStop { position: 1.0; color: "#14141b" }
+                                }
                                 Rectangle {   // background fill colour (behind the image)
                                     anchors.fill: parent; anchors.margins: 1; radius: 7
                                     visible: dv.bg(parent.key) !== ""
@@ -294,9 +521,15 @@ Item {
                                     color: "transparent"
                                     border.color: tbDrop.containsDrag ? theme.accent
                                                 : (parent.sel ? theme.ok
-                                                : (dv.bound(parent.key) ? theme.accent : theme.line))
+                                                : (dv.bound(parent.key) ? theme.accent : "#000000"))
                                     border.width: (parent.sel || tbDrop.containsDrag) ? 2 : 1
+                                    // A bound key already shows its own image
+                                    // and label; the ring only has to hint.
+                                    opacity: (parent.sel || tbDrop.containsDrag)
+                                             ? dv.selectedGlow
+                                             : (dv.bound(parent.key) ? dv.boundGlow : 0.6)
                                     Behavior on border.color { ColorAnimation { duration: 130 } }
+                                    Behavior on opacity { NumberAnimation { duration: 130 } }
                                 }
                                 Rectangle {  // bound-but-no-image dot
                                     visible: parent.src == "" && dv.bound(parent.key)
@@ -315,6 +548,9 @@ Item {
                             }
                         }
                     }
+                    // The sheen sits over the keys and takes no input, so it
+                    // cannot get in the way of a drop.
+                    Glass { round: 8; z: 3 }
                 }
 
                 // right side strip
@@ -359,6 +595,7 @@ Item {
                         ledColor: dv.led(modelData)
                         active: backend.selectedWs === modelData
                         switchesWorkspace: true
+                        strongActive: true
                     }
                 }
             }
@@ -392,21 +629,55 @@ Item {
                 // one drop target spans the whole knob; the band under the cursor
                 // picks the slot (Touch → wheel, Press/Rotate → dial).
                 Rectangle {
+                    id: wheelRing
                     width: 180; height: 180; radius: 90
-                    color: theme.cell
-                    border.color: wheelDrop.containsDrag ? theme.accent
-                                : (dv.isSel("dial") ? theme.ok
-                                : ((dv.bound("dial") || dv.bound("dial-l") || dv.bound("dial-r")) ? theme.accent : theme.line))
-                    border.width: 3
+                    // The dial: a machined ring around the screen, which is the
+                    // one part of this device everyone recognises.
+                    gradient: Gradient {
+                        GradientStop { position: 0.0; color: "#43434f" }
+                        GradientStop { position: 0.5; color: "#22222a" }
+                        GradientStop { position: 1.0; color: "#101015" }
+                    }
+                    border.color: "#000000"
+                    border.width: 1
                     scale: wheelDrop.containsDrag ? 1.03 : 1.0
                     Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
-                    Behavior on border.color { ColorAnimation { duration: 130 } }
                     TapHandler { onTapped: backend.selectControl("dial") }   // ring selects the dial
+
+                    Knurl { teeth: 120; inset: 2; len: 13; visible: !wheelDrop.containsDrag }
+
+                    // State on the dial is a ring rather than a fill, so the
+                    // metal stays metal while it is selected or bound.
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: parent.width - 4; height: width; radius: width / 2
+                        color: "transparent"
+                        border.width: dv.isSel("dial") ? 2 : 1
+                        border.color: wheelDrop.containsDrag ? theme.accent
+                                    : (dv.isSel("dial") ? theme.ok : theme.accent)
+                        opacity: (wheelDrop.containsDrag || dv.isSel("dial"))
+                                 ? dv.selectedGlow : dv.boundGlow
+                        visible: wheelDrop.containsDrag || dv.isSel("dial")
+                                 || dv.bound("dial") || dv.bound("dial-l") || dv.bound("dial-r")
+                        Behavior on border.color { ColorAnimation { duration: 130 } }
+                    }
+
+                    // The bezel the screen sits in, so the glass reads as sunk
+                    // into the metal rather than painted on it.
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: 146; height: 146; radius: 73
+                        gradient: Gradient {
+                            GradientStop { position: 0.0; color: "#0a0a0e" }
+                            GradientStop { position: 1.0; color: "#1c1c24" }
+                        }
+                    }
+
                     Rectangle {  // round screen (wheel)
-                        anchors.centerIn: parent; width: 150; height: 150; radius: 75
+                        anchors.centerIn: parent; width: 142; height: 142; radius: 71
                         color: dv.bg("wheel") !== "" ? dv.bg("wheel") : "#07070a"
                         border.color: dv.isSel("wheel") ? theme.ok
-                                    : (dv.bound("wheel") ? theme.accent : theme.line)
+                                    : (dv.bound("wheel") ? theme.accent : "#000000")
                         border.width: dv.isSel("wheel") ? 2 : 1
                         clip: true
                         Behavior on border.color { ColorAnimation { duration: 130 } }
@@ -464,6 +735,7 @@ Item {
                             color: theme.muted; font.pixelSize: 12; font.letterSpacing: 2
                         }
                         CtrlLabel { lbl: dv.label("wheel") }
+                        Glass { round: 71; z: 4 }
                     }
                     DropArea {
                         id: wheelDrop; anchors.fill: parent
