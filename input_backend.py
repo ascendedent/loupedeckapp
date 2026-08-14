@@ -53,6 +53,13 @@ KEY = {
     "minus": 12, "equal": 13, "comma": 51, "dot": 52, "period": 52,
     "slash": 53, "semicolon": 39, "apostrophe": 40, "grave": 41,
     "leftbrace": 26, "rightbrace": 27, "backslash": 43,
+    # The names X11 and Qt use for the bracket keys, which is what anyone
+    # copying a shortcut out of an application's documentation will type.
+    "bracketleft": 26, "bracketright": 27, "backtick": 41,
+    # And the characters themselves, which is what anyone reading a shortcut
+    # off the screen will type. "+" cannot be one: it separates a combo.
+    "-": 12, "=": 13, ",": 51, ".": 52, "/": 53, ";": 39, "'": 40, "`": 41,
+    "[": 26, "]": 27, "\\": 43,
     # media / volume
     "playpause": 164, "play": 164, "pause": 164, "stop": 166,
     "next": 163, "nextsong": 163, "prev": 165, "previous": 165, "previoussong": 165,

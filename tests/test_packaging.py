@@ -70,8 +70,11 @@ c.eq("an icon ships, so the desktop entry's Icon= resolves",
 # be in the working directory.
 import subprocess                                                 # noqa: E402
 
-tracked = set(subprocess.run(["git", "ls-files"], cwd=REPO, capture_output=True,
-                             text=True).stdout.split())
+# -z and NUL, not whitespace: an application folder is named after the
+# application, and "Visual Studio Code" has spaces in it.
+tracked = set(subprocess.run(["git", "ls-files", "-z"], cwd=REPO,
+                             capture_output=True, text=True)
+              .stdout.split("\0")) - {""}
 shipped = [p for paths in data_files.values() for p in paths]
 c.eq("nothing is shipped by glob", [p for p in shipped if "*" in p], [])
 c.eq("every shipped file exists",

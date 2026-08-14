@@ -1,0 +1,2683 @@
+{
+ "profile": "Visual Studio Code/Visual Studio Code",
+ "schema_version": 8,
+ "workspaces": {
+  "1": {
+   "actions": {
+    "a": {
+     "a_type": "none",
+     "action": ""
+    },
+    "b": {
+     "a_type": "none",
+     "action": ""
+    },
+    "c": {
+     "a_type": "none",
+     "action": ""
+    },
+    "d": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial": {
+     "a_type": "hotkey",
+     "action": "ctrl+p"
+    },
+    "dial-l": {
+     "a_type": "scroll",
+     "action": "up"
+    },
+    "dial-r": {
+     "a_type": "scroll",
+     "action": "down"
+    },
+    "dis1L": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+e"
+    },
+    "dis1R": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+d"
+    },
+    "dis2L": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+f"
+    },
+    "dis2R": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+x"
+    },
+    "dis3L": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+g"
+    },
+    "dis3R": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+m"
+    },
+    "e": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+p"
+    },
+    "enc1L-l": {
+     "a_type": "scroll",
+     "action": "up"
+    },
+    "enc1L-r": {
+     "a_type": "scroll",
+     "action": "down"
+    },
+    "enc1R": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+m"
+    },
+    "enc1R-l": {
+     "a_type": "hotkey",
+     "action": "shift+f8"
+    },
+    "enc1R-r": {
+     "a_type": "hotkey",
+     "action": "f8"
+    },
+    "enc2L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R": {
+     "a_type": "hotkey",
+     "action": "ctrl+w"
+    },
+    "enc2R-l": {
+     "a_type": "hotkey",
+     "action": "ctrl+pageup"
+    },
+    "enc2R-r": {
+     "a_type": "hotkey",
+     "action": "ctrl+pagedown"
+    },
+    "enc3L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R": {
+     "a_type": "hotkey",
+     "action": "ctrl+p"
+    },
+    "enc3R-l": {
+     "a_type": "hotkey",
+     "action": "ctrl+alt+-"
+    },
+    "enc3R-r": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+-"
+    },
+    "enter": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnL": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnR": {
+     "a_type": "none",
+     "action": ""
+    },
+    "home": {
+     "a_type": "none",
+     "action": ""
+    },
+    "keyboard": {
+     "a_type": "none",
+     "action": ""
+    },
+    "save": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb11": {
+     "a_type": "hotkey",
+     "action": "ctrl+p"
+    },
+    "tb12": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+o"
+    },
+    "tb13": {
+     "a_type": "hotkey",
+     "action": "ctrl+g"
+    },
+    "tb14": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+f"
+    },
+    "tb15": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb21": {
+     "a_type": "hotkey",
+     "action": "f12"
+    },
+    "tb22": {
+     "a_type": "hotkey",
+     "action": "alt+f12"
+    },
+    "tb23": {
+     "a_type": "hotkey",
+     "action": "shift+f12"
+    },
+    "tb24": {
+     "a_type": "hotkey",
+     "action": "ctrl+t"
+    },
+    "tb25": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb31": {
+     "a_type": "hotkey",
+     "action": "ctrl+alt+-"
+    },
+    "tb32": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+-"
+    },
+    "tb33": {
+     "a_type": "hotkey",
+     "action": "f8"
+    },
+    "tb34": {
+     "a_type": "hotkey",
+     "action": "shift+f8"
+    },
+    "tb35": {
+     "a_type": "none",
+     "action": ""
+    },
+    "undo": {
+     "a_type": "none",
+     "action": ""
+    },
+    "wheel": {
+     "a_type": "none",
+     "action": ""
+    }
+   },
+   "bg_colors": {
+    "dis1L": "#1e3a8a",
+    "dis1R": "#14532d",
+    "dis2L": "#1e3a8a",
+    "dis2R": "#27272a",
+    "dis3L": "#1e3a8a",
+    "dis3R": "#78350f",
+    "tb11": "#14532d",
+    "tb12": "#1e3a8a",
+    "tb13": "#1e3a8a",
+    "tb14": "#27272a",
+    "tb21": "#1e3a8a",
+    "tb22": "#1e3a8a",
+    "tb23": "#1e3a8a",
+    "tb24": "#27272a",
+    "tb31": "#27272a",
+    "tb32": "#27272a",
+    "tb33": "#78350f",
+    "tb34": "#78350f"
+   },
+   "fn_actions": {},
+   "images": {
+    "dis1L": "",
+    "dis1R": "",
+    "dis2L": "",
+    "dis2R": "",
+    "dis3L": "",
+    "dis3R": "",
+    "tb11": "",
+    "tb12": "",
+    "tb13": "",
+    "tb14": "",
+    "tb15": "",
+    "tb21": "",
+    "tb22": "",
+    "tb23": "",
+    "tb24": "",
+    "tb25": "",
+    "tb31": "",
+    "tb32": "",
+    "tb33": "",
+    "tb34": "",
+    "tb35": "",
+    "wheel": ""
+   },
+   "labels": {
+    "dis1L": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Files"
+    },
+    "dis1R": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Debug"
+    },
+    "dis2L": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Find"
+    },
+    "dis2R": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Ext"
+    },
+    "dis3L": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Git"
+    },
+    "dis3R": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Issues"
+    },
+    "tb11": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Files"
+    },
+    "tb12": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Symbols"
+    },
+    "tb13": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Line"
+    },
+    "tb14": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Search"
+    },
+    "tb21": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Definition"
+    },
+    "tb22": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Peek"
+    },
+    "tb23": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "References"
+    },
+    "tb24": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Workspace"
+    },
+    "tb31": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Back"
+    },
+    "tb32": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Forward"
+    },
+    "tb33": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Next issue"
+    },
+    "tb34": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Prev issue"
+    },
+    "wheel": {
+     "mode": "over",
+     "pos": "middle",
+     "text": "VS Code"
+    }
+   },
+   "led_colors": {
+    "1": "#16a34a",
+    "2": "#dc2626",
+    "3": "#d97706",
+    "4": "#7c3aed",
+    "circle": "#2563eb"
+   },
+   "name": "Navigate",
+   "profile": "default",
+   "side_layout": {
+    "L": "cells",
+    "R": "cells"
+   },
+   "tuning": {}
+  },
+  "2": {
+   "actions": {
+    "a": {
+     "a_type": "none",
+     "action": ""
+    },
+    "b": {
+     "a_type": "none",
+     "action": ""
+    },
+    "c": {
+     "a_type": "none",
+     "action": ""
+    },
+    "d": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial": {
+     "a_type": "hotkey",
+     "action": "ctrl+p"
+    },
+    "dial-l": {
+     "a_type": "scroll",
+     "action": "up"
+    },
+    "dial-r": {
+     "a_type": "scroll",
+     "action": "down"
+    },
+    "dis1L": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+e"
+    },
+    "dis1R": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+d"
+    },
+    "dis2L": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+f"
+    },
+    "dis2R": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+x"
+    },
+    "dis3L": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+g"
+    },
+    "dis3R": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+m"
+    },
+    "e": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+p"
+    },
+    "enc1L-l": {
+     "a_type": "scroll",
+     "action": "up"
+    },
+    "enc1L-r": {
+     "a_type": "scroll",
+     "action": "down"
+    },
+    "enc1R": {
+     "a_type": "hotkey",
+     "action": "f10"
+    },
+    "enc1R-l": {
+     "a_type": "hotkey",
+     "action": "shift+f11"
+    },
+    "enc1R-r": {
+     "a_type": "hotkey",
+     "action": "f11"
+    },
+    "enc2L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R": {
+     "a_type": "hotkey",
+     "action": "ctrl+w"
+    },
+    "enc2R-l": {
+     "a_type": "hotkey",
+     "action": "ctrl+pageup"
+    },
+    "enc2R-r": {
+     "a_type": "hotkey",
+     "action": "ctrl+pagedown"
+    },
+    "enc3L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R": {
+     "a_type": "hotkey",
+     "action": "f9"
+    },
+    "enc3R-l": {
+     "a_type": "hotkey",
+     "action": "ctrl+alt+-"
+    },
+    "enc3R-r": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+-"
+    },
+    "enter": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnL": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnR": {
+     "a_type": "none",
+     "action": ""
+    },
+    "home": {
+     "a_type": "none",
+     "action": ""
+    },
+    "keyboard": {
+     "a_type": "none",
+     "action": ""
+    },
+    "save": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb11": {
+     "a_type": "hotkey",
+     "action": "f5"
+    },
+    "tb12": {
+     "a_type": "hotkey",
+     "action": "shift+f5"
+    },
+    "tb13": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+f5"
+    },
+    "tb14": {
+     "a_type": "hotkey",
+     "action": "ctrl+f5"
+    },
+    "tb15": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb21": {
+     "a_type": "hotkey",
+     "action": "f10"
+    },
+    "tb22": {
+     "a_type": "hotkey",
+     "action": "f11"
+    },
+    "tb23": {
+     "a_type": "hotkey",
+     "action": "shift+f11"
+    },
+    "tb24": {
+     "a_type": "hotkey",
+     "action": "f9"
+    },
+    "tb25": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb31": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+d"
+    },
+    "tb32": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+y"
+    },
+    "tb33": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+b"
+    },
+    "tb34": {
+     "a_type": "macro",
+     "action": "hotkey ctrl+shift+p\nwait 250\ntext Debug: Remove All Breakpoints\nwait 350\nhotkey return"
+    },
+    "tb35": {
+     "a_type": "none",
+     "action": ""
+    },
+    "undo": {
+     "a_type": "none",
+     "action": ""
+    },
+    "wheel": {
+     "a_type": "none",
+     "action": ""
+    }
+   },
+   "bg_colors": {
+    "dis1L": "#1e3a8a",
+    "dis1R": "#14532d",
+    "dis2L": "#1e3a8a",
+    "dis2R": "#27272a",
+    "dis3L": "#1e3a8a",
+    "dis3R": "#78350f",
+    "tb11": "#14532d",
+    "tb12": "#7f1d1d",
+    "tb13": "#78350f",
+    "tb14": "#27272a",
+    "tb21": "#1e3a8a",
+    "tb22": "#1e3a8a",
+    "tb23": "#1e3a8a",
+    "tb24": "#7f1d1d",
+    "tb31": "#27272a",
+    "tb32": "#27272a",
+    "tb33": "#14532d",
+    "tb34": "#78350f"
+   },
+   "fn_actions": {},
+   "images": {
+    "dis1L": "",
+    "dis1R": "",
+    "dis2L": "",
+    "dis2R": "",
+    "dis3L": "",
+    "dis3R": "",
+    "tb11": "",
+    "tb12": "",
+    "tb13": "",
+    "tb14": "",
+    "tb15": "",
+    "tb21": "",
+    "tb22": "",
+    "tb23": "",
+    "tb24": "",
+    "tb25": "",
+    "tb31": "",
+    "tb32": "",
+    "tb33": "",
+    "tb34": "",
+    "tb35": "",
+    "wheel": ""
+   },
+   "labels": {
+    "dis1L": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Files"
+    },
+    "dis1R": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Debug"
+    },
+    "dis2L": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Find"
+    },
+    "dis2R": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Ext"
+    },
+    "dis3L": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Git"
+    },
+    "dis3R": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Issues"
+    },
+    "tb11": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Start"
+    },
+    "tb12": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Stop"
+    },
+    "tb13": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Restart"
+    },
+    "tb14": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "No debug"
+    },
+    "tb21": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Step over"
+    },
+    "tb22": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Step into"
+    },
+    "tb23": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Step out"
+    },
+    "tb24": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Breakpoint"
+    },
+    "tb31": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Debug view"
+    },
+    "tb32": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Console"
+    },
+    "tb33": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Run task"
+    },
+    "tb34": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Clear bps"
+    },
+    "wheel": {
+     "mode": "over",
+     "pos": "middle",
+     "text": "VS Code"
+    }
+   },
+   "led_colors": {
+    "1": "#16a34a",
+    "2": "#dc2626",
+    "3": "#d97706",
+    "4": "#7c3aed",
+    "circle": "#2563eb"
+   },
+   "name": "Run",
+   "profile": "default",
+   "side_layout": {
+    "L": "cells",
+    "R": "cells"
+   },
+   "tuning": {}
+  },
+  "3": {
+   "actions": {
+    "a": {
+     "a_type": "none",
+     "action": ""
+    },
+    "b": {
+     "a_type": "none",
+     "action": ""
+    },
+    "c": {
+     "a_type": "none",
+     "action": ""
+    },
+    "d": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial": {
+     "a_type": "hotkey",
+     "action": "ctrl+p"
+    },
+    "dial-l": {
+     "a_type": "scroll",
+     "action": "up"
+    },
+    "dial-r": {
+     "a_type": "scroll",
+     "action": "down"
+    },
+    "dis1L": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+e"
+    },
+    "dis1R": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+d"
+    },
+    "dis2L": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+f"
+    },
+    "dis2R": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+x"
+    },
+    "dis3L": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+g"
+    },
+    "dis3R": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+m"
+    },
+    "e": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+p"
+    },
+    "enc1L-l": {
+     "a_type": "scroll",
+     "action": "up"
+    },
+    "enc1L-r": {
+     "a_type": "scroll",
+     "action": "down"
+    },
+    "enc1R": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+g"
+    },
+    "enc1R-l": {
+     "a_type": "hotkey",
+     "action": "alt+f5"
+    },
+    "enc1R-r": {
+     "a_type": "hotkey",
+     "action": "f5"
+    },
+    "enc2L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R": {
+     "a_type": "hotkey",
+     "action": "ctrl+w"
+    },
+    "enc2R-l": {
+     "a_type": "hotkey",
+     "action": "ctrl+pageup"
+    },
+    "enc2R-r": {
+     "a_type": "hotkey",
+     "action": "ctrl+pagedown"
+    },
+    "enc3L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enter": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnL": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnR": {
+     "a_type": "none",
+     "action": ""
+    },
+    "home": {
+     "a_type": "none",
+     "action": ""
+    },
+    "keyboard": {
+     "a_type": "none",
+     "action": ""
+    },
+    "save": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb11": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+g"
+    },
+    "tb12": {
+     "a_type": "macro",
+     "action": "hotkey ctrl+shift+p\nwait 250\ntext Git: Stage All Changes\nwait 350\nhotkey return"
+    },
+    "tb13": {
+     "a_type": "macro",
+     "action": "hotkey ctrl+shift+p\nwait 250\ntext Git: Commit\nwait 350\nhotkey return"
+    },
+    "tb14": {
+     "a_type": "macro",
+     "action": "hotkey ctrl+shift+p\nwait 250\ntext Git: Push\nwait 350\nhotkey return"
+    },
+    "tb15": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb21": {
+     "a_type": "macro",
+     "action": "hotkey ctrl+shift+p\nwait 250\ntext Git: Pull\nwait 350\nhotkey return"
+    },
+    "tb22": {
+     "a_type": "macro",
+     "action": "hotkey ctrl+shift+p\nwait 250\ntext Git: Sync\nwait 350\nhotkey return"
+    },
+    "tb23": {
+     "a_type": "macro",
+     "action": "hotkey ctrl+shift+p\nwait 250\ntext Git: Checkout to...\nwait 350\nhotkey return"
+    },
+    "tb24": {
+     "a_type": "macro",
+     "action": "hotkey ctrl+shift+p\nwait 250\ntext Git: Create Branch...\nwait 350\nhotkey return"
+    },
+    "tb25": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb31": {
+     "a_type": "macro",
+     "action": "hotkey ctrl+shift+p\nwait 250\ntext Git: Open Changes\nwait 350\nhotkey return"
+    },
+    "tb32": {
+     "a_type": "macro",
+     "action": "hotkey ctrl+shift+p\nwait 250\ntext Git: Stash\nwait 350\nhotkey return"
+    },
+    "tb33": {
+     "a_type": "macro",
+     "action": "hotkey ctrl+shift+p\nwait 250\ntext Git: Discard All Changes\nwait 350\nhotkey return"
+    },
+    "tb34": {
+     "a_type": "macro",
+     "action": "hotkey ctrl+shift+p\nwait 250\ntext Git: View History\nwait 350\nhotkey return"
+    },
+    "tb35": {
+     "a_type": "none",
+     "action": ""
+    },
+    "undo": {
+     "a_type": "none",
+     "action": ""
+    },
+    "wheel": {
+     "a_type": "none",
+     "action": ""
+    }
+   },
+   "bg_colors": {
+    "dis1L": "#1e3a8a",
+    "dis1R": "#14532d",
+    "dis2L": "#1e3a8a",
+    "dis2R": "#27272a",
+    "dis3L": "#1e3a8a",
+    "dis3R": "#78350f",
+    "tb11": "#14532d",
+    "tb12": "#1e3a8a",
+    "tb13": "#14532d",
+    "tb14": "#14532d",
+    "tb21": "#1e3a8a",
+    "tb22": "#1e3a8a",
+    "tb23": "#27272a",
+    "tb24": "#27272a",
+    "tb31": "#27272a",
+    "tb32": "#27272a",
+    "tb33": "#7f1d1d",
+    "tb34": "#27272a"
+   },
+   "fn_actions": {},
+   "images": {
+    "dis1L": "",
+    "dis1R": "",
+    "dis2L": "",
+    "dis2R": "",
+    "dis3L": "",
+    "dis3R": "",
+    "tb11": "",
+    "tb12": "",
+    "tb13": "",
+    "tb14": "",
+    "tb15": "",
+    "tb21": "",
+    "tb22": "",
+    "tb23": "",
+    "tb24": "",
+    "tb25": "",
+    "tb31": "",
+    "tb32": "",
+    "tb33": "",
+    "tb34": "",
+    "tb35": "",
+    "wheel": ""
+   },
+   "labels": {
+    "dis1L": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Files"
+    },
+    "dis1R": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Debug"
+    },
+    "dis2L": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Find"
+    },
+    "dis2R": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Ext"
+    },
+    "dis3L": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Git"
+    },
+    "dis3R": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Issues"
+    },
+    "tb11": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Source ctl"
+    },
+    "tb12": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Stage all"
+    },
+    "tb13": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Commit"
+    },
+    "tb14": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Push"
+    },
+    "tb21": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Pull"
+    },
+    "tb22": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Sync"
+    },
+    "tb23": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Branch"
+    },
+    "tb24": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "New branch"
+    },
+    "tb31": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Diff"
+    },
+    "tb32": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Stash"
+    },
+    "tb33": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Discard"
+    },
+    "tb34": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "History"
+    },
+    "wheel": {
+     "mode": "over",
+     "pos": "middle",
+     "text": "VS Code"
+    }
+   },
+   "led_colors": {
+    "1": "#16a34a",
+    "2": "#dc2626",
+    "3": "#d97706",
+    "4": "#7c3aed",
+    "circle": "#2563eb"
+   },
+   "name": "Git",
+   "profile": "default",
+   "side_layout": {
+    "L": "cells",
+    "R": "cells"
+   },
+   "tuning": {}
+  },
+  "4": {
+   "actions": {
+    "a": {
+     "a_type": "none",
+     "action": ""
+    },
+    "b": {
+     "a_type": "none",
+     "action": ""
+    },
+    "c": {
+     "a_type": "none",
+     "action": ""
+    },
+    "d": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial": {
+     "a_type": "hotkey",
+     "action": "ctrl+p"
+    },
+    "dial-l": {
+     "a_type": "scroll",
+     "action": "up"
+    },
+    "dial-r": {
+     "a_type": "scroll",
+     "action": "down"
+    },
+    "dis1L": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+e"
+    },
+    "dis1R": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+d"
+    },
+    "dis2L": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+f"
+    },
+    "dis2R": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+x"
+    },
+    "dis3L": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+g"
+    },
+    "dis3R": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+m"
+    },
+    "e": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+p"
+    },
+    "enc1L-l": {
+     "a_type": "scroll",
+     "action": "up"
+    },
+    "enc1L-r": {
+     "a_type": "scroll",
+     "action": "down"
+    },
+    "enc1R": {
+     "a_type": "hotkey",
+     "action": "ctrl+k"
+    },
+    "enc1R-l": {
+     "a_type": "hotkey",
+     "action": "ctrl+-"
+    },
+    "enc1R-r": {
+     "a_type": "hotkey",
+     "action": "ctrl+="
+    },
+    "enc2L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R": {
+     "a_type": "hotkey",
+     "action": "ctrl+w"
+    },
+    "enc2R-l": {
+     "a_type": "hotkey",
+     "action": "ctrl+pageup"
+    },
+    "enc2R-r": {
+     "a_type": "hotkey",
+     "action": "ctrl+pagedown"
+    },
+    "enc3L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enter": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnL": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnR": {
+     "a_type": "none",
+     "action": ""
+    },
+    "home": {
+     "a_type": "none",
+     "action": ""
+    },
+    "keyboard": {
+     "a_type": "none",
+     "action": ""
+    },
+    "save": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb11": {
+     "a_type": "hotkey",
+     "action": "ctrl+`"
+    },
+    "tb12": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+`"
+    },
+    "tb13": {
+     "a_type": "hotkey",
+     "action": "ctrl+j"
+    },
+    "tb14": {
+     "a_type": "hotkey",
+     "action": "ctrl+b"
+    },
+    "tb15": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb21": {
+     "a_type": "hotkey",
+     "action": "ctrl+backslash"
+    },
+    "tb22": {
+     "a_type": "hotkey",
+     "action": "ctrl+w"
+    },
+    "tb23": {
+     "a_type": "macro",
+     "action": "hotkey ctrl+k\nwait 120\nhotkey z"
+    },
+    "tb24": {
+     "a_type": "hotkey",
+     "action": "f11"
+    },
+    "tb25": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb31": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+e"
+    },
+    "tb32": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+x"
+    },
+    "tb33": {
+     "a_type": "hotkey",
+     "action": "alt+z"
+    },
+    "tb34": {
+     "a_type": "macro",
+     "action": "hotkey ctrl+shift+p\nwait 250\ntext View: Toggle Minimap\nwait 350\nhotkey return"
+    },
+    "tb35": {
+     "a_type": "none",
+     "action": ""
+    },
+    "undo": {
+     "a_type": "none",
+     "action": ""
+    },
+    "wheel": {
+     "a_type": "none",
+     "action": ""
+    }
+   },
+   "bg_colors": {
+    "dis1L": "#1e3a8a",
+    "dis1R": "#14532d",
+    "dis2L": "#1e3a8a",
+    "dis2R": "#27272a",
+    "dis3L": "#1e3a8a",
+    "dis3R": "#78350f",
+    "tb11": "#14532d",
+    "tb12": "#14532d",
+    "tb13": "#27272a",
+    "tb14": "#27272a",
+    "tb21": "#1e3a8a",
+    "tb22": "#78350f",
+    "tb23": "#1e3a8a",
+    "tb24": "#27272a",
+    "tb31": "#1e3a8a",
+    "tb32": "#27272a",
+    "tb33": "#27272a",
+    "tb34": "#27272a"
+   },
+   "fn_actions": {},
+   "images": {
+    "dis1L": "",
+    "dis1R": "",
+    "dis2L": "",
+    "dis2R": "",
+    "dis3L": "",
+    "dis3R": "",
+    "tb11": "",
+    "tb12": "",
+    "tb13": "",
+    "tb14": "",
+    "tb15": "",
+    "tb21": "",
+    "tb22": "",
+    "tb23": "",
+    "tb24": "",
+    "tb25": "",
+    "tb31": "",
+    "tb32": "",
+    "tb33": "",
+    "tb34": "",
+    "tb35": "",
+    "wheel": ""
+   },
+   "labels": {
+    "dis1L": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Files"
+    },
+    "dis1R": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Debug"
+    },
+    "dis2L": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Find"
+    },
+    "dis2R": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Ext"
+    },
+    "dis3L": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Git"
+    },
+    "dis3R": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Issues"
+    },
+    "tb11": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Terminal"
+    },
+    "tb12": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "New term"
+    },
+    "tb13": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Panel"
+    },
+    "tb14": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Sidebar"
+    },
+    "tb21": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Split"
+    },
+    "tb22": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Close tab"
+    },
+    "tb23": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Zen"
+    },
+    "tb24": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Fullscreen"
+    },
+    "tb31": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Explorer"
+    },
+    "tb32": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Extensions"
+    },
+    "tb33": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Word wrap"
+    },
+    "tb34": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Minimap"
+    },
+    "wheel": {
+     "mode": "over",
+     "pos": "middle",
+     "text": "VS Code"
+    }
+   },
+   "led_colors": {
+    "1": "#16a34a",
+    "2": "#dc2626",
+    "3": "#d97706",
+    "4": "#7c3aed",
+    "circle": "#2563eb"
+   },
+   "name": "View",
+   "profile": "default",
+   "side_layout": {
+    "L": "cells",
+    "R": "cells"
+   },
+   "tuning": {}
+  },
+  "5": {
+   "actions": {
+    "a": {
+     "a_type": "none",
+     "action": ""
+    },
+    "b": {
+     "a_type": "none",
+     "action": ""
+    },
+    "c": {
+     "a_type": "none",
+     "action": ""
+    },
+    "d": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis1L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis1R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis2L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis2R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis3L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis3R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "e": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enter": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnL": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnR": {
+     "a_type": "none",
+     "action": ""
+    },
+    "home": {
+     "a_type": "none",
+     "action": ""
+    },
+    "keyboard": {
+     "a_type": "none",
+     "action": ""
+    },
+    "save": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb11": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb12": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb13": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb14": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb15": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb21": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb22": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb23": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb24": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb25": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb31": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb32": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb33": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb34": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb35": {
+     "a_type": "none",
+     "action": ""
+    },
+    "undo": {
+     "a_type": "none",
+     "action": ""
+    },
+    "wheel": {
+     "a_type": "none",
+     "action": ""
+    }
+   },
+   "bg_colors": {},
+   "fn_actions": {},
+   "images": {
+    "dis1L": "",
+    "dis1R": "",
+    "dis2L": "",
+    "dis2R": "",
+    "dis3L": "",
+    "dis3R": "",
+    "tb11": "",
+    "tb12": "",
+    "tb13": "",
+    "tb14": "",
+    "tb15": "",
+    "tb21": "",
+    "tb22": "",
+    "tb23": "",
+    "tb24": "",
+    "tb25": "",
+    "tb31": "",
+    "tb32": "",
+    "tb33": "",
+    "tb34": "",
+    "tb35": "",
+    "wheel": ""
+   },
+   "labels": {},
+   "led_colors": {},
+   "name": "",
+   "profile": "default",
+   "side_layout": {
+    "L": "cells",
+    "R": "cells"
+   },
+   "tuning": {}
+  },
+  "6": {
+   "actions": {
+    "a": {
+     "a_type": "none",
+     "action": ""
+    },
+    "b": {
+     "a_type": "none",
+     "action": ""
+    },
+    "c": {
+     "a_type": "none",
+     "action": ""
+    },
+    "d": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis1L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis1R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis2L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis2R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis3L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis3R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "e": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enter": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnL": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnR": {
+     "a_type": "none",
+     "action": ""
+    },
+    "home": {
+     "a_type": "none",
+     "action": ""
+    },
+    "keyboard": {
+     "a_type": "none",
+     "action": ""
+    },
+    "save": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb11": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb12": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb13": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb14": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb15": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb21": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb22": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb23": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb24": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb25": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb31": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb32": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb33": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb34": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb35": {
+     "a_type": "none",
+     "action": ""
+    },
+    "undo": {
+     "a_type": "none",
+     "action": ""
+    },
+    "wheel": {
+     "a_type": "none",
+     "action": ""
+    }
+   },
+   "bg_colors": {},
+   "fn_actions": {},
+   "images": {
+    "dis1L": "",
+    "dis1R": "",
+    "dis2L": "",
+    "dis2R": "",
+    "dis3L": "",
+    "dis3R": "",
+    "tb11": "",
+    "tb12": "",
+    "tb13": "",
+    "tb14": "",
+    "tb15": "",
+    "tb21": "",
+    "tb22": "",
+    "tb23": "",
+    "tb24": "",
+    "tb25": "",
+    "tb31": "",
+    "tb32": "",
+    "tb33": "",
+    "tb34": "",
+    "tb35": "",
+    "wheel": ""
+   },
+   "labels": {},
+   "led_colors": {},
+   "name": "",
+   "profile": "default",
+   "side_layout": {
+    "L": "cells",
+    "R": "cells"
+   },
+   "tuning": {}
+  },
+  "7": {
+   "actions": {
+    "a": {
+     "a_type": "none",
+     "action": ""
+    },
+    "b": {
+     "a_type": "none",
+     "action": ""
+    },
+    "c": {
+     "a_type": "none",
+     "action": ""
+    },
+    "d": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis1L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis1R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis2L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis2R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis3L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis3R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "e": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enter": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnL": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnR": {
+     "a_type": "none",
+     "action": ""
+    },
+    "home": {
+     "a_type": "none",
+     "action": ""
+    },
+    "keyboard": {
+     "a_type": "none",
+     "action": ""
+    },
+    "save": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb11": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb12": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb13": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb14": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb15": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb21": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb22": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb23": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb24": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb25": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb31": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb32": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb33": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb34": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb35": {
+     "a_type": "none",
+     "action": ""
+    },
+    "undo": {
+     "a_type": "none",
+     "action": ""
+    },
+    "wheel": {
+     "a_type": "none",
+     "action": ""
+    }
+   },
+   "bg_colors": {},
+   "fn_actions": {},
+   "images": {
+    "dis1L": "",
+    "dis1R": "",
+    "dis2L": "",
+    "dis2R": "",
+    "dis3L": "",
+    "dis3R": "",
+    "tb11": "",
+    "tb12": "",
+    "tb13": "",
+    "tb14": "",
+    "tb15": "",
+    "tb21": "",
+    "tb22": "",
+    "tb23": "",
+    "tb24": "",
+    "tb25": "",
+    "tb31": "",
+    "tb32": "",
+    "tb33": "",
+    "tb34": "",
+    "tb35": "",
+    "wheel": ""
+   },
+   "labels": {},
+   "led_colors": {},
+   "name": "",
+   "profile": "default",
+   "side_layout": {
+    "L": "cells",
+    "R": "cells"
+   },
+   "tuning": {}
+  },
+  "circle": {
+   "actions": {
+    "a": {
+     "a_type": "none",
+     "action": ""
+    },
+    "b": {
+     "a_type": "none",
+     "action": ""
+    },
+    "c": {
+     "a_type": "none",
+     "action": ""
+    },
+    "d": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial": {
+     "a_type": "hotkey",
+     "action": "ctrl+p"
+    },
+    "dial-l": {
+     "a_type": "scroll",
+     "action": "up"
+    },
+    "dial-r": {
+     "a_type": "scroll",
+     "action": "down"
+    },
+    "dis1L": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+e"
+    },
+    "dis1R": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+d"
+    },
+    "dis2L": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+f"
+    },
+    "dis2R": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+x"
+    },
+    "dis3L": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+g"
+    },
+    "dis3R": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+m"
+    },
+    "e": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+p"
+    },
+    "enc1L-l": {
+     "a_type": "scroll",
+     "action": "up"
+    },
+    "enc1L-r": {
+     "a_type": "scroll",
+     "action": "down"
+    },
+    "enc1R": {
+     "a_type": "hotkey",
+     "action": "alt+z"
+    },
+    "enc1R-l": {
+     "a_type": "hotkey",
+     "action": "ctrl+-"
+    },
+    "enc1R-r": {
+     "a_type": "hotkey",
+     "action": "ctrl+="
+    },
+    "enc2L": {
+     "a_type": "hotkey",
+     "action": "shift+alt+down"
+    },
+    "enc2L-l": {
+     "a_type": "hotkey",
+     "action": "alt+up"
+    },
+    "enc2L-r": {
+     "a_type": "hotkey",
+     "action": "alt+down"
+    },
+    "enc2R": {
+     "a_type": "hotkey",
+     "action": "ctrl+w"
+    },
+    "enc2R-l": {
+     "a_type": "hotkey",
+     "action": "ctrl+pageup"
+    },
+    "enc2R-r": {
+     "a_type": "hotkey",
+     "action": "ctrl+pagedown"
+    },
+    "enc3L": {
+     "a_type": "hotkey",
+     "action": "ctrl+space"
+    },
+    "enc3L-l": {
+     "a_type": "hotkey",
+     "action": "ctrl+["
+    },
+    "enc3L-r": {
+     "a_type": "hotkey",
+     "action": "ctrl+]"
+    },
+    "enc3R": {
+     "a_type": "hotkey",
+     "action": "ctrl+g"
+    },
+    "enc3R-l": {
+     "a_type": "hotkey",
+     "action": "ctrl+alt+-"
+    },
+    "enc3R-r": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+-"
+    },
+    "enter": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnL": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnR": {
+     "a_type": "none",
+     "action": ""
+    },
+    "home": {
+     "a_type": "none",
+     "action": ""
+    },
+    "keyboard": {
+     "a_type": "none",
+     "action": ""
+    },
+    "save": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb11": {
+     "a_type": "hotkey",
+     "action": "ctrl+c"
+    },
+    "tb12": {
+     "a_type": "hotkey",
+     "action": "ctrl+v"
+    },
+    "tb13": {
+     "a_type": "hotkey",
+     "action": "ctrl+x"
+    },
+    "tb14": {
+     "a_type": "hotkey",
+     "action": "ctrl+f"
+    },
+    "tb15": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb21": {
+     "a_type": "hotkey",
+     "action": "ctrl+z"
+    },
+    "tb22": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+z"
+    },
+    "tb23": {
+     "a_type": "hotkey",
+     "action": "ctrl+h"
+    },
+    "tb24": {
+     "a_type": "hotkey",
+     "action": "ctrl+/"
+    },
+    "tb25": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb31": {
+     "a_type": "hotkey",
+     "action": "ctrl+s"
+    },
+    "tb32": {
+     "a_type": "macro",
+     "action": "hotkey ctrl+k\nwait 120\nhotkey s"
+    },
+    "tb33": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+i"
+    },
+    "tb34": {
+     "a_type": "hotkey",
+     "action": "f2"
+    },
+    "tb35": {
+     "a_type": "none",
+     "action": ""
+    },
+    "undo": {
+     "a_type": "none",
+     "action": ""
+    },
+    "wheel": {
+     "a_type": "none",
+     "action": ""
+    }
+   },
+   "bg_colors": {
+    "dis1L": "#1e3a8a",
+    "dis1R": "#14532d",
+    "dis2L": "#1e3a8a",
+    "dis2R": "#27272a",
+    "dis3L": "#1e3a8a",
+    "dis3R": "#78350f",
+    "tb11": "#1e3a8a",
+    "tb12": "#1e3a8a",
+    "tb13": "#1e3a8a",
+    "tb14": "#27272a",
+    "tb21": "#78350f",
+    "tb22": "#78350f",
+    "tb23": "#27272a",
+    "tb24": "#27272a",
+    "tb31": "#14532d",
+    "tb32": "#14532d",
+    "tb33": "#27272a",
+    "tb34": "#27272a"
+   },
+   "fn_actions": {},
+   "images": {
+    "dis1L": "",
+    "dis1R": "",
+    "dis2L": "",
+    "dis2R": "",
+    "dis3L": "",
+    "dis3R": "",
+    "tb11": "",
+    "tb12": "",
+    "tb13": "",
+    "tb14": "",
+    "tb15": "",
+    "tb21": "",
+    "tb22": "",
+    "tb23": "",
+    "tb24": "",
+    "tb25": "",
+    "tb31": "",
+    "tb32": "",
+    "tb33": "",
+    "tb34": "",
+    "tb35": "",
+    "wheel": ""
+   },
+   "labels": {
+    "dis1L": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Files"
+    },
+    "dis1R": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Debug"
+    },
+    "dis2L": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Find"
+    },
+    "dis2R": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Ext"
+    },
+    "dis3L": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Git"
+    },
+    "dis3R": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Issues"
+    },
+    "tb11": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Copy"
+    },
+    "tb12": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Paste"
+    },
+    "tb13": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Cut"
+    },
+    "tb14": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Find"
+    },
+    "tb21": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Undo"
+    },
+    "tb22": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Redo"
+    },
+    "tb23": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Replace"
+    },
+    "tb24": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Comment"
+    },
+    "tb31": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Save"
+    },
+    "tb32": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Save all"
+    },
+    "tb33": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Format"
+    },
+    "tb34": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Rename"
+    },
+    "wheel": {
+     "mode": "over",
+     "pos": "middle",
+     "text": "VS Code"
+    }
+   },
+   "led_colors": {
+    "1": "#16a34a",
+    "2": "#dc2626",
+    "3": "#d97706",
+    "4": "#7c3aed",
+    "circle": "#2563eb"
+   },
+   "name": "Edit",
+   "profile": "default",
+   "side_layout": {
+    "L": "cells",
+    "R": "cells"
+   },
+   "tuning": {}
+  }
+ }
+}

@@ -149,6 +149,8 @@ middling speeds.
   workspace and per side.
 - **A starter profile** with Media, Editing and Browser workspaces, labelled and colour-coded,
   opened on a first run. After that the app reopens whatever profile you had last.
+- **A ready-made Visual Studio Code deck**: five workspaces (Edit, Navigate, Run, Git, View), 165
+  bound controls, chords done as macros and the Git commands driven through the command palette.
 - **Inspector in collapsible sections** (Action, Appearance, Advanced), remembered as you move
   between controls.
 - **Says what to do when there is nothing to see**: an unbound workspace, a search that matched
@@ -336,6 +338,16 @@ sudo systemctl daemon-reload && sudo systemctl enable --now ydotool
 
 `input_backend` discovers that socket automatically, and falls back to `xdotool` / `pyautogui` on
 X11. See [`packaging/`](packaging/) for the files and what each one is for.
+
+## Building a deck
+
+**[docs/HOW-TO-BUILD.md](docs/HOW-TO-BUILD.md)** is the full walkthrough: applications, profiles,
+pages, workspaces, actions, encoder feel, and dynamic switching, end to end. It ends with a section
+for an AI assistant building a profile on someone's behalf, since the way that goes wrong is
+specific and avoidable.
+
+The quick version: pick or add the **application**, make a **profile** in it, drag actions from the
+library onto the device, press **Save**. Turn on **Dynamic** and it follows what you are doing.
 
 ## Running
 

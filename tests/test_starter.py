@@ -1,4 +1,4 @@
-"""The profile a fresh install opens with.
+"""The profiles that ship with the app.
 
 It ships, so a broken one is broken for every new user and nothing else in the
 suite would notice: it is data, not code. These checks are the difference
@@ -24,6 +24,7 @@ from DeviceProfile import DeviceProfile, MODEL_CT, MODEL_LIVE_S   # noqa: E402
 
 c = Checks()
 
+DEFAULT_APP = "Default"
 APP = "Default"
 NAME = "Starter"
 REF = "%s/%s" % (APP, NAME)
@@ -162,5 +163,57 @@ c.eq("the generator reproduces the shipped file exactly",
 # -- it is the first-run default --------------------------------------------
 c.eq("it is visible in the default app's profile list",
      NAME in app_paths.list_profiles(APP), True)
+
+# -- every shipped profile, in every app -------------------------------------
+# The starter is not the only one now, and a profile written for a specific
+# application is exactly where a wrong key name hides: it is data, so nothing
+# else in the suite would notice.
+import macro                                                      # noqa: E402
+
+for app in sorted(os.listdir(os.path.join(REPO, "Profiles"))):
+    app_dir = os.path.join(REPO, "Profiles", app)
+    if not os.path.isdir(app_dir):
+        continue
+    for filename in sorted(os.listdir(app_dir)):
+        if not filename.endswith(".json") or filename == "app.json":
+            continue
+        profile = os.path.splitext(filename)[0]
+        shipped = LdConfiguration()
+        shipped.load(app_paths.make_ref(app, profile))
+        label = "%s/%s" % (app, profile)
+
+        problems = []
+        for ws in shipped.workspaces:
+            for slot, action in ws.actions.items():
+                if action.a_type == "none":
+                    continue
+                if action.a_type == "hotkey":
+                    try:
+                        if not input_backend._parse_combo(action.action):
+                            problems.append((slot, action.action, "empty"))
+                    except Exception as e:
+                        problems.append((slot, action.action, repr(e)))
+                elif action.a_type == "macro":
+                    steps, errors = macro.parse(action.action)
+                    if errors:
+                        problems.append((slot, action.action, errors))
+                    for kind, value in steps:
+                        if kind == "hotkey":
+                            try:
+                                input_backend._parse_combo(value)
+                            except Exception as e:
+                                problems.append((slot, value, repr(e)))
+                elif action.a_type == "scroll":
+                    if action.action not in ("up", "down", "left", "right"):
+                        problems.append((slot, action.action, "direction"))
+        c.eq("%s: every binding would actually fire" % label, problems, [])
+
+        # An app profile whose app.json points somewhere else is a profile
+        # dynamic mode will never reach.
+        if app != DEFAULT_APP:
+            meta_path = os.path.join(app_dir, "app.json")
+            c.eq("%s: the app says what focuses it" % app,
+                 bool(app_paths.app_matches(app)) if os.path.exists(meta_path)
+                 else False, True)
 
 sys.exit(c.done())

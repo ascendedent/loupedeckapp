@@ -1,0 +1,6 @@
+{
+ "match": [
+  "Code"
+ ],
+ "default_profile": "Visual Studio Code"
+}
