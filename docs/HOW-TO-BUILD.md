@@ -86,7 +86,9 @@ name, which is the point.
   something you are mid-change on gives you the saved version deliberately.
 - **Rename** and **Delete** do what they say. A profile that ships with the app
   can be edited (which writes your own copy) but not deleted from the
-  installation.
+  installation. Deleting keeps a copy in `Deleted/` inside your config
+  directory, so a misclick is undone by moving the file back; the twenty most
+  recent are kept.
 - **Import** / **Export** move one profile as a `.json` file. Importing checks
   the file before it appears in the list, and never overwrites: a name that is
   taken gets a numbered suffix.

@@ -1454,7 +1454,8 @@ class Backend(QObject):
         path = app_paths.user_app_dir(name)
         if not os.path.isdir(path):
             return
-        shutil.rmtree(path)
+        # Into the trash rather than gone: an application is a folder of work.
+        kept = app_paths.trash(path, "app %s" % name)
         for ref in [b["profile"] for b in self._pm.app_profiles]:
             if app_paths.split_ref(ref)[0] == name:
                 self._repoint_bindings(ref, None)
@@ -1465,7 +1466,8 @@ class Backend(QObject):
             if fallback:
                 self._ctl.load_profile(
                     app_paths.make_ref(app_paths.DEFAULT_APP, fallback[0]))
-        self.notify.emit("Deleted app %s" % name)
+        self.notify.emit("Deleted app %s%s"
+                         % (name, "" if kept else " (no copy kept)"))
         self.stateChanged.emit()
 
     @Slot(str)
@@ -1543,14 +1545,18 @@ class Backend(QObject):
             # app must not remove from its own installation.
             print("profiles: '%s' ships with the app and cannot be deleted" % name)
             return
-        os.remove(app_paths.profile_write_path(ref))
+        kept = app_paths.trash(app_paths.profile_write_path(ref),
+                               "%s %s.json" % (self.activeApp, name))
+        if not kept and os.path.exists(app_paths.profile_write_path(ref)):
+            os.remove(app_paths.profile_write_path(ref))
         self._repoint_bindings(ref, None)
         self._repoint_pages(name, None)
         if self._ctl.config.profile == ref:
             remaining = self.profiles
             if remaining:
                 self._ctl.load_profile(self._ref(remaining[0]))
-        self.notify.emit("Deleted %s" % name)
+        self.notify.emit("Deleted %s%s"
+                         % (name, "" if kept else " (no copy kept)"))
         self.stateChanged.emit()
 
     def _repoint_pages(self, old, new):
@@ -1797,6 +1803,15 @@ class Backend(QObject):
         self._pm.default_profile = ref or None
         self._pm.save()
         self.stateChanged.emit()
+
+    @Property("QVariantList", notify=stateChanged)
+    def deletedItems(self):
+        """What is in the trash, newest first, for the recovery list."""
+        return app_paths.list_trash()
+
+    @Property(str, notify=stateChanged)
+    def trashPath(self):
+        return app_paths.trash_dir()
 
     @Property("QStringList", notify=stateChanged)
     def allProfiles(self):

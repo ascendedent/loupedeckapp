@@ -386,6 +386,80 @@ def list_all_profiles_on_disk(base):
     return sorted(found)
 
 
+# Deleting a profile or an application removes work that took real time to
+# make, and an app is a whole folder of it. Deleted things go here first, so a
+# misclick is an inconvenience rather than an evening.
+TRASH = "Deleted"
+TRASH_KEEP = 20
+
+
+def trash_dir():
+    return os.path.join(user_dir(), TRASH)
+
+
+def _stamped_name(base):
+    """A name that does not collide, without needing a clock.
+
+    Deleting the same profile name twice is common (delete, remake, delete),
+    and the second one must not silently replace the first in the trash.
+    """
+    target = os.path.join(trash_dir(), base)
+    if not os.path.exists(target):
+        return target
+    n = 2
+    while os.path.exists("%s (%d)" % (target, n)):
+        n += 1
+    return "%s (%d)" % (target, n)
+
+
+def trash(path, label=None):
+    """Move a file or folder into the trash. Returns where it went, or "".
+
+    Failure is reported rather than raised: the caller is deleting something,
+    and being unable to keep a copy is not a reason to refuse.
+    """
+    if not os.path.exists(path):
+        return ""
+    try:
+        os.makedirs(trash_dir(), exist_ok=True)
+        target = _stamped_name(label or os.path.basename(path))
+        shutil.move(path, target)
+    except OSError as e:
+        print("app_paths: could not keep a copy of %s: %s" % (path, e))
+        return ""
+    prune_trash()
+    return target
+
+
+def list_trash():
+    """What is in the trash, newest first."""
+    base = trash_dir()
+    if not os.path.isdir(base):
+        return []
+    entries = []
+    for name in os.listdir(base):
+        path = os.path.join(base, name)
+        try:
+            entries.append((os.path.getmtime(path), name, path))
+        except OSError:
+            continue
+    entries.sort(reverse=True)
+    return [{"name": n, "path": p} for _, n, p in entries]
+
+
+def prune_trash(keep=TRASH_KEEP):
+    """Keep the most recent few. A trash that grows forever is a disk leak
+    dressed up as a safety net."""
+    for entry in list_trash()[keep:]:
+        try:
+            if os.path.isdir(entry["path"]):
+                shutil.rmtree(entry["path"])
+            else:
+                os.remove(entry["path"])
+        except OSError:
+            pass
+
+
 def migrate_to_apps():
     """Move a flat Profiles/ into Profiles/Default/.
 

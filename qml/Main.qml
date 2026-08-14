@@ -239,9 +239,20 @@ ApplicationWindow {
         title: "Delete app"
         standardButtons: Dialog.Yes | Dialog.No
         onAccepted: backend.deleteApp(backend.activeApp)
-        Text {
-            text: "Delete '" + backend.activeApp + "' and every profile in it?"
-            color: theme.text; font.pixelSize: 12; wrapMode: Text.WordWrap
+        ColumnLayout {
+            width: parent.width
+            spacing: 6
+            Text {
+                Layout.fillWidth: true
+                text: "Delete '" + backend.activeApp + "' and every profile in it?"
+                color: theme.text; font.pixelSize: 12; wrapMode: Text.WordWrap
+            }
+            Text {
+                Layout.fillWidth: true
+                text: "A copy is kept in " + backend.trashPath + ", so this can be "
+                      + "undone by moving the folder back."
+                color: theme.muted; font.pixelSize: 10; wrapMode: Text.WordWrap
+            }
         }
     }
 
@@ -568,10 +579,20 @@ ApplicationWindow {
         title: "Delete profile"
         standardButtons: Dialog.Yes | Dialog.No
         onAccepted: backend.deleteProfile(deleteDialog.target)
-        Text {
-            text: "Delete '" + deleteDialog.target + "'?\n"
-                  + "The file is removed and any app bindings to it are dropped."
-            color: theme.text; font.pixelSize: 12; wrapMode: Text.WordWrap
+        ColumnLayout {
+            width: parent.width
+            spacing: 6
+            Text {
+                Layout.fillWidth: true
+                text: "Delete '" + deleteDialog.target + "'?"
+                color: theme.text; font.pixelSize: 12; wrapMode: Text.WordWrap
+            }
+            Text {
+                Layout.fillWidth: true
+                text: "Any app bindings and pages pointing at it are dropped. A copy "
+                      + "is kept in " + backend.trashPath + "."
+                color: theme.muted; font.pixelSize: 10; wrapMode: Text.WordWrap
+            }
         }
     }
 

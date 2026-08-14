@@ -221,8 +221,12 @@ c.eq("going back to the owning app marks it live again",
      backend.activeProfileInApp, True)
 backend.selectApp("Premiere")
 
+# Deleting keeps a copy: an application is a folder of work, and a misclick
+# should be an inconvenience rather than an evening.
 backend.deleteApp("Premiere")
 c.eq("an app can be deleted", "Premiere" in backend.apps, False)
+c.eq("and a copy was kept",
+     any("Premiere" in e["name"] for e in backend.deletedItems), True)
 c.eq("the default app cannot be",
      (backend.deleteApp("Default"), "Default" in backend.apps)[1], True)
 
