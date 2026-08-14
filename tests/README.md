@@ -43,3 +43,4 @@ went, which on a multi-monitor desktop is not where the arithmetic said.
 | `test_packaging.py` | what a wheel would contain: module manifest, assets, desktop entry |
 | `test_setup.py` | first-run checks: severity, the summary the top bar reads, failure isolation |
 | `test_autostart.py` | the XDG autostart entry, including the stale-entry case |
+| `test_macos.py` | the macOS adapters as far as they can be checked from Linux |

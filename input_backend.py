@@ -320,10 +320,130 @@ _backend = None
 # Wayland because it is the only one that can inject into native Wayland
 # clients; on X11 the X-native tools are preferred but ydotool still works, so
 # it stays as a last resort rather than being excluded.
+class MacBackend(InputBackend):
+    """macOS, through AppleScript.
+
+    `osascript` is on every Mac, so there is nothing to install. What there is,
+    is a permission: synthesising input requires the app (or the terminal that
+    launched it) to be granted Accessibility rights in System Settings, and
+    until it is, every keystroke silently does nothing. health() says so.
+
+    UNVERIFIED. This is written from AppleScript's documented behaviour, not
+    from a Mac. Corrections welcome; see docs/MACOS.md.
+    """
+    name = "osascript"
+
+    # AppleScript spells the modifiers out and takes the rest as a keystroke.
+    MODIFIERS = {
+        "ctrl": "control down", "control": "control down",
+        "alt": "option down", "option": "option down",
+        "shift": "shift down",
+        "cmd": "command down", "command": "command down",
+        "super": "command down", "meta": "command down",
+    }
+
+    # Keys with no character to type: AppleScript addresses these by code.
+    KEY_CODES = {
+        "return": 36, "enter": 36, "tab": 48, "space": 49, "delete": 51,
+        "backspace": 51, "escape": 53, "esc": 53, "left": 123, "right": 124,
+        "down": 125, "up": 126, "home": 115, "end": 119,
+        "pageup": 116, "pagedown": 121,
+        "f1": 122, "f2": 120, "f3": 99, "f4": 118, "f5": 96, "f6": 97,
+        "f7": 98, "f8": 100, "f9": 101, "f10": 109, "f11": 103, "f12": 111,
+    }
+
+    def __init__(self):
+        self.bin = shutil.which("osascript")
+        self.last_error = ""
+
+    def available(self):
+        return bool(self.bin) and platform_env.os_name() == platform_env.MACOS
+
+    def health(self):
+        if not self.bin:
+            return False, "osascript not found (is this macOS?)"
+        if self.last_error:
+            # The permission failure is the one worth naming: it looks exactly
+            # like nothing happening.
+            if "1002" in self.last_error or "not allowed" in self.last_error.lower():
+                return False, ("macOS is refusing to let this app send "
+                               "keystrokes. Grant it Accessibility rights in "
+                               "System Settings > Privacy & Security > "
+                               "Accessibility, then check again.")
+            return False, "osascript failed: %s" % self.last_error
+        return True, "osascript (AppleScript)"
+
+    def _run(self, script):
+        try:
+            subprocess.run([self.bin, "-e", script], check=True,
+                           capture_output=True)
+            self.last_error = ""
+        except subprocess.CalledProcessError as e:
+            detail = (e.stderr or b"").decode(errors="replace").strip()
+            self.last_error = detail.splitlines()[-1] if detail else (
+                "exit %d" % e.returncode)
+            raise
+        except OSError as e:
+            self.last_error = str(e)
+            raise
+
+    def _keystroke_script(self, combo):
+        """One combo -> the AppleScript that sends it, or None if unmappable."""
+        parts = [p.strip().lower() for p in str(combo).split("+") if p.strip()]
+        if not parts:
+            return None
+        mods, key = [], None
+        for part in parts:
+            if part in self.MODIFIERS:
+                mod = self.MODIFIERS[part]
+                if mod not in mods:
+                    mods.append(mod)
+            else:
+                key = part
+        if key is None:
+            return None
+        using = (" using {%s}" % ", ".join(mods)) if mods else ""
+        if key in self.KEY_CODES:
+            action = "key code %d" % self.KEY_CODES[key]
+        elif len(key) == 1:
+            action = 'keystroke "%s"' % key.replace("\\", "\\\\").replace('"', '\\"')
+        else:
+            return None
+        return 'tell application "System Events" to %s%s' % (action, using)
+
+    def send_hotkey(self, combo, repeat=1):
+        script = self._keystroke_script(combo)
+        if script is None:
+            print("[input] osascript: cannot map combo %r" % combo)
+            return
+        for _ in range(max(1, int(repeat))):
+            self._run(script)
+
+    def type_text(self, text):
+        escaped = str(text).replace("\\", "\\\\").replace('"', '\\"')
+        self._run('tell application "System Events" to keystroke "%s"' % escaped)
+
+    def scroll(self, direction, amount=1):
+        # System Events has no scroll verb; arrow keys are the closest thing
+        # AppleScript alone can do. A pyobjc CGEvent scroll would be better and
+        # is the obvious next step for anyone with a Mac to test it on.
+        key = {"up": "up", "down": "down", "left": "left", "right": "right"}.get(
+            str(direction).strip().lower())
+        if not key:
+            return
+        script = self._keystroke_script(key)
+        if script is None:
+            return
+        for _ in range(max(1, int(amount))):
+            self._run(script)
+
+
 _ORDER = {
     platform_env.WAYLAND: [YdotoolBackend, XdotoolBackend, PyAutoGuiBackend],
     platform_env.X11: [XdotoolBackend, PyAutoGuiBackend, YdotoolBackend],
-    platform_env.NO_SESSION: [YdotoolBackend],
+    # macOS reports no X11/Wayland session, which is also what a headless Linux
+    # box looks like, so the platform decides rather than the session.
+    platform_env.NO_SESSION: [MacBackend, YdotoolBackend],
 }
 
 

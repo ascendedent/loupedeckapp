@@ -106,16 +106,71 @@ class KdotoolWatcher(WindowWatcher):
             self._thread.join(timeout=1)
 
 
+class MacWatcher(WindowWatcher):
+    """macOS frontmost application, through AppleScript.
+
+    Reports the **bundle identifier** as the class (`com.apple.Safari`), which
+    is macOS's stable name for an application, and the window title where the
+    app will admit to one. `wm_class` on Linux and `bundle_id` here are the
+    same idea and the profile schema stores whichever the platform gives
+    (PLAN 4.4).
+
+    UNVERIFIED. Written from AppleScript's documented behaviour, not from a
+    Mac; see docs/MACOS.md. Note that reading the frontmost app needs the same
+    Accessibility permission as sending keystrokes does.
+    """
+    name = "osascript"
+
+    FRONT_APP = (
+        'tell application "System Events" to get bundle identifier of '
+        'first application process whose frontmost is true')
+    FRONT_TITLE = (
+        'tell application "System Events" to tell (first application process '
+        'whose frontmost is true) to get name of front window')
+
+    def __init__(self, on_change=None, interval=0.4):
+        self.bin = shutil.which("osascript")
+        self.on_change = on_change
+        self.interval = interval
+        self._thread = None
+        self._stop = threading.Event()
+        self._last_class = None
+        self.last_pid = 0
+
+    def available(self):
+        import platform_env
+        return bool(self.bin) and platform_env.os_name() == platform_env.MACOS
+
+    def poll_once(self):
+        if not self.bin:
+            return ("", "")
+        bundle = _run([self.bin, "-e", self.FRONT_APP])
+        if not bundle:
+            return ("", "")
+        # Plenty of apps have no window, or refuse to name it; the bundle id is
+        # what dynamic mode matches on, so a missing title is not a failure.
+        title = _run([self.bin, "-e", self.FRONT_TITLE]) or ""
+        return (bundle, title)
+
+    # The loop is identical to the kdotool one; sharing it keeps the two
+    # watchers from drifting apart.
+    _loop = KdotoolWatcher._loop
+    start = KdotoolWatcher.start
+    stop = KdotoolWatcher.stop
+
+
 def get_watcher(on_change=None, interval=0.4):
     """Best available focus watcher for this session.
 
-    Only KDE has an implementation today; everywhere else falls back to a no-op
+    KDE and macOS have implementations; everywhere else falls back to a no-op
     watcher so dynamic mode degrades to "never switches" rather than failing.
-    A macOS frontmost-app watcher and a GNOME one slot in here.
+    A GNOME one slots in here.
     """
     # Availability, not desktop identity, decides: kdotool works wherever KWin
-    # is running, which XDG_CURRENT_DESKTOP does not always admit to.
-    w = KdotoolWatcher(on_change=on_change, interval=interval)
-    if w.available():
-        return w
+    # is running, which XDG_CURRENT_DESKTOP does not always admit to, and the
+    # macOS watcher refuses to claim a Linux session.
+    for cls in (KdotoolWatcher, MacWatcher):
+        w = cls(on_change=on_change, interval=interval)
+        if w.available():
+            return w
     return WindowWatcher()

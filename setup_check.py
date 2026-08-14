@@ -69,6 +69,14 @@ def check_device_permissions():
     is working, and nothing connects. The rule and the group are both needed
     and neither is obvious.
     """
+    if platform_env.os_name() == platform_env.MACOS:
+        # macOS opens USB serial devices without any of this: no udev, no
+        # group. Report what was found rather than a bare "fine".
+        ports = loupedeck_ports()
+        return _check("device_permissions", "Device permissions", True,
+                      "%s is available." % ports[0][0] if ports else
+                      "No Loupedeck is plugged in. macOS needs no udev rule or "
+                      "group membership for one.")
     if platform_env.os_name() != platform_env.LINUX:
         return _check("device_permissions", "Device permissions", True,
                       "Not a Linux session; no udev rule needed.")
@@ -113,6 +121,15 @@ def check_input():
         return _check("input", "Keyboard and mouse input", True,
                       "Using %s." % name)
     fix = ""
+    if platform_env.os_name() == platform_env.MACOS:
+        # Nothing to install: the permission is the whole problem, and it is
+        # granted in System Settings rather than from a command.
+        return _check(
+            "input", "Keyboard and mouse input", False,
+            detail + "\n\nOn macOS this is almost always the Accessibility "
+            "permission. Open System Settings > Privacy & Security > "
+            "Accessibility and allow this app (or the terminal you started it "
+            "from), then use Check again.")
     if platform_env.session_type() == platform_env.WAYLAND:
         fix = ("sudo dnf install ydotool        # or your package manager\n"
                "sudo mkdir -p /etc/systemd/system/ydotool.service.d\n"
@@ -127,6 +144,14 @@ def check_input():
 
 def check_window_watcher():
     """Only dynamic mode needs this, so it is optional."""
+    if platform_env.os_name() == platform_env.MACOS:
+        import window_watcher
+        watcher = window_watcher.get_watcher()
+        return _check(
+            "window_watcher", "Focused-app detection",
+            watcher.name != "none",
+            "Reading the frontmost app needs the same Accessibility permission "
+            "as sending keystrokes.", optional=True)
     if platform_env.desktop() != platform_env.KDE:
         return _check(
             "window_watcher", "Focused-app detection", False,
@@ -147,6 +172,10 @@ def check_window_watcher():
 
 def check_media():
     """Media actions go through playerctl (MPRIS) when it is there."""
+    if platform_env.os_name() == platform_env.MACOS:
+        return _check("media", "Media keys", True,
+                      "macOS handles media keys itself; playerctl is a Linux "
+                      "thing and is not needed here.", optional=True)
     if platform_env.has_tool("playerctl"):
         return _check("media", "Media keys", True,
                       "playerctl is installed.", optional=True)

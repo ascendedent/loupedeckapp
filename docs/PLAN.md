@@ -67,7 +67,9 @@ already Qt-free, so nothing outside those four files referenced them.
    hardware on this desk. `docs/LIVE-TESTING.md` sets out every assumption and what to report,
    and `scripts/verify/` is the toolkit for producing it.
 3. **UI polish**: workspace chrome, dirty guards, inspector structure, empty states.
-4. **macOS (M6)**: adapters, Accessibility UX, `.app`, support **10.14+**.
+4. **macOS (M6)**: the three adapters exist (`MacBackend`, `MacWatcher`, paths) and none has run
+   on a Mac; `docs/MACOS.md` says what to check. Still missing: media keys, real scrolling
+   (both want pyobjc), a LaunchAgent for autostart, and a `.app`.
 
 ---
 
@@ -618,7 +620,7 @@ held profile, because a switch that silently fails to happen is worse than one t
 
 - [x] `pyproject.toml` with a `loupedeckapp` entry point and `[device]` / `[x11]` extras
 - [x] Ship udev rule, ydotool socket drop-in and desktop entry in `packaging/`
-- [x] Automated tests (`tests/`, 531 checks): schema load/migrate, profile resolution,
+- [x] Automated tests (`tests/`, 576 checks): schema load/migrate, profile resolution,
       tuning/dispatch, platform factories, installed-asset layout, per-model control inventory,
       and an offscreen pass over the real QML (`test_ui.py`) for the wiring the core cannot see
 - [x] **Installable from a wheel**: `pip install ".[device]"` gives a `loupedeckapp` command, the
@@ -673,6 +675,17 @@ has exactly the access the user has. Both are in `packaging/`, with the trade-of
 - [ ] Keep `upstream` remote optional for cherry-picks
 
 ### I. macOS release (M6)
+
+**Written, never run.** The three adapters exist: `MacBackend` (AppleScript through `osascript`),
+`MacWatcher` (frontmost bundle id) and the Application Support path. `tests/test_macos.py` covers
+the combo translation, the escaping and the platform gates, which is everything that can be checked
+without a Mac. `docs/MACOS.md` is the report guide, and the known gaps are listed there: media keys
+and real scrolling both want pyobjc, autostart needs a LaunchAgent rather than an XDG entry, and
+there is no `.app` yet.
+
+The Accessibility permission is the thing to get right in the UX. Without it every keystroke
+silently does nothing, which is the exact failure mode this app works hardest to surface; the setup
+checks name it and `MacBackend.health()` recognises the error macOS returns.
 
 Sub-milestones:
 
