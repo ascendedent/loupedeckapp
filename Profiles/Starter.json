@@ -1,6 +1,6 @@
 {
  "profile": "Starter",
- "schema_version": 7,
+ "schema_version": 8,
  "workspaces": {
   "1": {
    "actions": {
@@ -309,6 +309,10 @@
    },
    "name": "Editing",
    "profile": "default",
+   "side_layout": {
+    "L": "cells",
+    "R": "cells"
+   },
    "tuning": {}
   },
   "2": {
@@ -618,6 +622,10 @@
    },
    "name": "Browser",
    "profile": "default",
+   "side_layout": {
+    "L": "cells",
+    "R": "cells"
+   },
    "tuning": {}
   },
   "3": {
@@ -873,6 +881,10 @@
    "led_colors": {},
    "name": "",
    "profile": "default",
+   "side_layout": {
+    "L": "cells",
+    "R": "cells"
+   },
    "tuning": {}
   },
   "4": {
@@ -1128,6 +1140,10 @@
    "led_colors": {},
    "name": "",
    "profile": "default",
+   "side_layout": {
+    "L": "cells",
+    "R": "cells"
+   },
    "tuning": {}
   },
   "5": {
@@ -1383,6 +1399,10 @@
    "led_colors": {},
    "name": "",
    "profile": "default",
+   "side_layout": {
+    "L": "cells",
+    "R": "cells"
+   },
    "tuning": {}
   },
   "6": {
@@ -1638,6 +1658,10 @@
    "led_colors": {},
    "name": "",
    "profile": "default",
+   "side_layout": {
+    "L": "cells",
+    "R": "cells"
+   },
    "tuning": {}
   },
   "7": {
@@ -1893,6 +1917,10 @@
    "led_colors": {},
    "name": "",
    "profile": "default",
+   "side_layout": {
+    "L": "cells",
+    "R": "cells"
+   },
    "tuning": {}
   },
   "circle": {
@@ -2201,6 +2229,10 @@
    },
    "name": "Media",
    "profile": "default",
+   "side_layout": {
+    "L": "cells",
+    "R": "cells"
+   },
    "tuning": {}
   }
  }

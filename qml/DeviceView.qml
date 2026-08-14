@@ -157,8 +157,13 @@ Item {
 
     component SideCell: Rectangle {
         property string ctlKey: ""
+        // "single" layout: one image for the whole strip, so the cell is as
+        // tall as the three it replaces, gaps included.
+        property bool tall: false
         property bool sel: dv.isSel(ctlKey)
-        width: 30; height: dv.keySize; radius: 6
+        width: 30
+        height: tall ? dv.keySize * 3 + dv.gap * 2 : dv.keySize
+        radius: 6
         color: theme.cell
         border.color: scDrop.containsDrag ? theme.accent
                     : (sel ? theme.ok : (dv.bound(ctlKey) ? theme.accent : theme.line))
@@ -172,7 +177,7 @@ Item {
             property var _l: dv.label(ctlKey)
             property bool _shrink: _l ? _l.mode === "shrink" : false
             property bool _top: _l ? _l.pos === "top" : false
-            property int _band: _shrink ? dv.shrinkBand(dv.keySize) : 0
+            property int _band: _shrink ? dv.shrinkBand(parent.height) : 0
             source: dv.img(ctlKey); visible: source != ""
             fillMode: Image.PreserveAspectFit; asynchronous: true
             anchors.fill: parent; anchors.leftMargin: 1; anchors.rightMargin: 1
@@ -233,13 +238,18 @@ Item {
                     }
                 }
 
-                // left side strip
+                // left side strip: three cells, or one tall image
                 ColumnLayout {
                     spacing: dv.gap
                     visible: backend.sideCellsLeft.length > 0
                     Repeater {
-                        model: backend.sideCellsLeft
-                        SideCell { ctlKey: modelData }
+                        model: backend.sideLayout["L"] === "single"
+                               ? backend.sideCellsLeft.slice(0, 1)
+                               : backend.sideCellsLeft
+                        SideCell {
+                            ctlKey: modelData
+                            tall: backend.sideLayout["L"] === "single"
+                        }
                     }
                 }
 
@@ -312,8 +322,13 @@ Item {
                     spacing: dv.gap
                     visible: backend.sideCellsRight.length > 0
                     Repeater {
-                        model: backend.sideCellsRight
-                        SideCell { ctlKey: modelData }
+                        model: backend.sideLayout["R"] === "single"
+                               ? backend.sideCellsRight.slice(0, 1)
+                               : backend.sideCellsRight
+                        SideCell {
+                            ctlKey: modelData
+                            tall: backend.sideLayout["R"] === "single"
+                        }
                     }
                 }
 

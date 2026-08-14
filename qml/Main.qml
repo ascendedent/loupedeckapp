@@ -1594,6 +1594,36 @@ ApplicationWindow {
                         id: editor
                         width: parent.width; spacing: 12
 
+                        // Side display layout. A strip is three buttons or one
+                        // image; this is per workspace, not per cell, because
+                        // the device draws the whole strip at once.
+                        ColumnLayout {
+                            visible: backend.selectedIsSideCell
+                            Layout.fillWidth: true; spacing: 6
+                            Text {
+                                text: "This side display"
+                                color: theme.muted; font.pixelSize: 12
+                            }
+                            ComboBox {
+                                objectName: "sideLayoutBox"
+                                Layout.fillWidth: true
+                                model: ["3 separate buttons", "one tall image"]
+                                currentIndex: backend.selectedSideLayout === "single" ? 1 : 0
+                                onActivated: backend.setSideLayout(
+                                    backend.selectedControl.charAt(4),
+                                    currentIndex === 1 ? "single" : "cells")
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                visible: backend.selectedSideLayout === "single"
+                                text: "The whole strip shows the first cell's image and runs its "
+                                      + "action. The other two keep their settings for when you "
+                                      + "switch back."
+                                color: theme.muted; font.pixelSize: 10
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+
                         // Workspace name (the eight round keys). Same field as
                         // the header chip, reachable from wherever you are.
                         ColumnLayout {

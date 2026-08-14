@@ -33,7 +33,7 @@ from device_controller import DeviceController
 from LdConfiguration import (LdConfiguration, SCHEMA_VERSION,
                              apply_default_bindings)
 from DeviceProfile import WHEEL_DISPLAY, WS_KEYS
-from LdConfiguration import (ROTATE_CONTROLS, TUNING_PRESETS, DEFAULT_TUNING,
+from LdConfiguration import (ROTATE_CONTROLS, SIDE_LAYOUTS, TUNING_PRESETS, DEFAULT_TUNING,
                              preset_to_tuning, tuning_to_preset)
 
 
@@ -216,6 +216,31 @@ class Backend(QObject):
     @Property("QStringList", notify=stateChanged)
     def sideCellsRight(self):
         return self._ctl.profile.side_cell_keys("R")
+
+    # -- side display layout (schema v8) ------------------------------------
+    @Property("QVariantMap", notify=stateChanged)
+    def sideLayout(self):
+        """{"L": "cells"|"single", "R": ...} for the menu on screen."""
+        return {side: self._ctl.side_layout(side) for side in ("L", "R")}
+
+    @Property(bool, notify=selectionChanged)
+    def selectedIsSideCell(self):
+        return bool(self._selected) and self._selected.startswith("dis")
+
+    @Property(str, notify=stateChanged)
+    def selectedSideLayout(self):
+        k = self._selected
+        return self._ctl.side_layout(k[4]) if k and k.startswith("dis") else ""
+
+    @Slot(str, str)
+    def setSideLayout(self, side, mode):
+        self._ctl.set_side_layout(side, mode)
+        self.selectionChanged.emit()
+        self.stateChanged.emit()
+
+    @Property("QStringList", constant=True)
+    def sideLayoutModes(self):
+        return list(SIDE_LAYOUTS)
 
     # -- window / tray -----------------------------------------------------
     @Property(bool, notify=stateChanged)
@@ -641,7 +666,7 @@ class Backend(QObject):
             return ""
         return self.keyImages.get(self._selected, "")
 
-    @Property(str, notify=selectionChanged)
+    @Property(str, notify=stateChanged)
     def selectedImageDims(self):
         """The device pixel size of the selected image control, e.g. '90 × 90
         px', shown as a hint (images are fit, not cropped, so this is the size to
@@ -654,6 +679,11 @@ class Backend(QObject):
             w, h = p.key_size
         elif k.startswith("dis"):
             w, h = p.side_cell_size
+            if self._ctl.side_layout(k[4]) == "single":
+                # One image for the strip, so the size to make is the strip's,
+                # not a cell's. Getting this wrong sends people off to crop a
+                # 60x90 image for a 60x270 space.
+                h *= p.side_cells
         elif k == WHEEL_DISPLAY:
             w, h = p.wheel_size or (0, 0)
         else:

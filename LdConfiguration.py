@@ -5,7 +5,7 @@ import macro
 import virtual_keyboard
 from DeviceProfile import CT_EXTRA_BUTTONS, WHEEL_DISPLAY, WS_KEYS
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 # Profile locations come from app_paths: reads prefer the user's copy and fall
 # back to the bundled one, writes always go to the user directory. This was once
@@ -22,6 +22,11 @@ TOUCH_ROWS = 3
 TOUCH_KEYS = ["tb%d%d" % (r, c)
               for r in range(1, TOUCH_ROWS + 1)
               for c in range(1, MAX_TOUCH_COLUMNS + 1)]
+
+# Side-display layout (schema v8). "cells" splits a strip into three buttons,
+# the way it has always worked; "single" makes it one image and one action.
+SIDE_LAYOUTS = ("cells", "single")
+DEFAULT_SIDE_LAYOUT = {"L": "cells", "R": "cells"}
 
 DIAL_KEY = "dial"
 DIAL_KEY_L = "dial-l"
@@ -271,6 +276,13 @@ class LdWorkspace:
     # give no clue what is on them; the header shows this when it is set and
     # falls back to "Workspace <n>" when it is not.
     self.name = ""
+
+    # schema v8: how each side display is used. "cells" is the original three
+    # separate buttons; "single" makes the whole strip one image and one
+    # action, which is what you want for a tall label or artwork. Keyed "L"/"R";
+    # the per-cell data stays in place either way, so switching back and forth
+    # loses nothing.
+    self.side_layout = dict(DEFAULT_SIDE_LAYOUT)
     action_keys = ["enc1L" , "enc1L-l", "enc1L-r",
                    "enc2L", "enc2L-l", "enc2L-r",
                    "enc3L", "enc3L-l", "enc3L-r",
@@ -372,6 +384,7 @@ class LdWorkspace:
   def to_JSON(self):
     s = {"profile": self.profile,
           "name": self.name,
+          "side_layout": dict(self.side_layout),
           "actions": {key: action.to_JSON() for key, action in self.actions.items()},
           "images": {key: image for key, image in self.images.items()},
           "labels": {key: dict(v) for key, v in self.labels.items()},
@@ -384,6 +397,10 @@ class LdWorkspace:
   def from_JSON(json_data):
     ldw = LdWorkspace(ws_profile=json_data["profile"])
     ldw.name = json_data.get("name", "")                    # v7
+    # v8; absent in older profiles, which used cells everywhere.
+    for side, mode in (json_data.get("side_layout") or {}).items():
+      if side in ldw.side_layout and mode in SIDE_LAYOUTS:
+        ldw.side_layout[side] = mode
     for key, action in json_data["actions"].items():
       ldw.actions[key] = LdAction.from_JSON(action)
     for key, image in json_data["images"].items():

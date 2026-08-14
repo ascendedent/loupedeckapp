@@ -26,7 +26,7 @@ from DeviceProfile import (DeviceProfile, DIAL_ID, WHEEL_DISPLAY, WS_KEYS,
                            forced_model)
 from LdConfiguration import (LdConfiguration, LdAction, LdSubmenu,
                              DEFAULT_TUNING, DIAL_KEY, ROTATE_CONTROLS,
-                             accel_steps, apply_default_bindings)
+                             SIDE_LAYOUTS, accel_steps, apply_default_bindings)
 
 import device_lib
 from device_lib import CBC, DeviceManager, LoupedeckLive
@@ -260,10 +260,28 @@ class DeviceController:
             row = int(name[2]); col = int(name[3])
             return (row - 1) * self.profile.columns + col - 1
 
+    def side_layout(self, side, ws=None):
+        """"cells" or "single" for one side display on the menu in view."""
+        menu = ws if ws is not None else self.current_menu()
+        return (getattr(menu, "side_layout", None) or {}).get(side, "cells")
+
+    def set_side_layout(self, side, mode):
+        """Split a side display into cells, or use it as one. Staged until
+        save()."""
+        if side not in ("L", "R") or mode not in SIDE_LAYOUTS:
+            return
+        self.current_menu().side_layout[side] = mode
+        self.dirty = True
+        self._emit("side-layout")
+
     def td_pos_to_display_name(self, x, y):
+        side = "L" if x < self.profile.side_width else "R"
+        # One image means one button: a touch anywhere on the strip is the
+        # first cell, which is the one that carries the image and the action.
+        if self.side_layout(side) == "single":
+            return "dis1" + side
         ch = self.profile.side_cell_size[1]
-        s = "dis" + str(floor(y / ch) + 1)
-        return s + ("L" if x < self.profile.side_width else "R")
+        return "dis" + str(floor(y / ch) + 1) + side
 
     def knob_to_enc_name(self, knob):
         row = {"T": 1, "C": 2}.get(knob[4], 3)
@@ -354,6 +372,17 @@ class DeviceController:
         self.device.draw_image(image, display=display, width=cw, height=ch,
                                x=x, y=(row - 1) * ch, auto_refresh=auto_refresh)
 
+    def set_img_to_side_display(self, image_path, side, label=None, bg_color=None):
+        """The whole strip as one image (schema v8 "single" layout)."""
+        display = self.profile.side_display_name(side)
+        x = self.profile.side_display_draw_x(side)
+        cw = self.profile.side_width
+        ch = self.profile.side_cell_size[1] * self.profile.side_cells
+        image = self._load_fit(image_path, (cw, ch), bg_color)
+        label_render.draw_label(image, label, bg_color)
+        self.device.draw_image(image, display=display, width=cw, height=ch,
+                               x=x, y=0)
+
     def set_img_to_wheel(self, image_path, label=None, bg_color=None):
         image = self._load_fit(image_path, self.profile.wheel_size, bg_color)
         label_render.draw_label(image, label, bg_color)
@@ -374,7 +403,15 @@ class DeviceController:
             if key.startswith("tb"):
                 self.set_img_to_touchbutton(path, self.tb_name_to_keycode(key), label, bg)
             elif key.startswith("dis"):
-                self.set_img_to_touchdisplay(path, key[4], int(key[3]), label=label, bg_color=bg)
+                side, row = key[4], int(key[3])
+                if self.side_layout(side, ws) == "single":
+                    # One image for the strip, taken from the first cell; the
+                    # other two keep their data but are not drawn.
+                    if row == 1:
+                        self.set_img_to_side_display(path, side, label, bg)
+                else:
+                    self.set_img_to_touchdisplay(path, side, row,
+                                                 label=label, bg_color=bg)
             elif key == WHEEL_DISPLAY and self.profile.has_wheel:
                 self.set_img_to_wheel(path, label, bg)
         self.apply_leds(ws)

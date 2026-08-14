@@ -169,8 +169,8 @@ Exact match preferred; then case-insensitive substring (existing behaviour for `
 
 ### 4.5 Config schema
 
-**Current:** schema **v7** (actions, fn_actions, images, labels, led_colors, bg_colors, tuning, a
-per-workspace `name`; CT dial/wheel/buttons). Older profiles load with migration-by-overlay
+**Current:** schema **v8** (actions, fn_actions, images, labels, led_colors, bg_colors, tuning, a
+per-workspace `name` and `side_layout`; CT dial/wheel/buttons). Older profiles load with migration-by-overlay
 (missing keys default to unbound). Touch keys are stored for five columns whatever the device, so a
 profile written on a CT opens on a Live S with its fifth column bindable.
 
@@ -182,6 +182,12 @@ hand-edited entry can never reach dispatch.
 
 **v7 (landed):** an optional `name` per workspace. Absent in older profiles, which read back as
 unnamed and display as "Workspace <n>".
+
+**v8 (landed):** `side_layout`, a per-workspace `{"L": ..., "R": ...}` choosing whether each side
+display is three buttons ("cells", the original behaviour and the default) or one tall image
+("single"). The per-cell data stays in place either way, so switching back and forth loses nothing;
+in single mode the first cell carries the image and the action and a touch anywhere on the strip
+resolves to it.
 
 Future schema bumps only when needed (e.g. side-display mode).
 
@@ -207,7 +213,7 @@ Future schema bumps only when needed (e.g. side-display mode).
 - [x] Live S / Live **device view** fidelity (hide wheel/dial when absent; 5-col Live S)
 - [x] Brightness control in UI
 - [x] Reconnect / hot-plug
-- [ ] Side displays: full-height single image **vs** 3 cells (configurable)
+- [x] Side displays: full-height single image **vs** 3 cells (configurable, schema v8)
 
 ### C. Platform adapters
 
@@ -622,7 +628,7 @@ held profile, because a switch that silently fails to happen is worse than one t
 
 - [x] `pyproject.toml` with a `loupedeckapp` entry point and `[device]` / `[x11]` extras
 - [x] Ship udev rule, ydotool socket drop-in and desktop entry in `packaging/`
-- [x] Automated tests (`tests/`, 610 checks): schema load/migrate, profile resolution,
+- [x] Automated tests (`tests/`, 631 checks): schema load/migrate, profile resolution,
       tuning/dispatch, platform factories, installed-asset layout, per-model control inventory,
       and an offscreen pass over the real QML (`test_ui.py`) for the wiring the core cannot see
 - [x] **Installable from a wheel**: `pip install ".[device]"` gives a `loupedeckapp` command, the
@@ -748,7 +754,7 @@ Medium-term (Phase C):
 - [x] Encoder adjustments: invert + Slow presets, no queue dependency (§5.D.1)
 - [x] Encoder adjustments: Fast presets, acceleration curve, scroll action (§5.D.1)
 - [x] Async action dispatch (off the message/callback thread) + rotate coalescing (§5.D.1)
-- [ ] Configurable side-display layout
+- [x] Configurable side-display layout (schema v8)
 - [x] Tray (`tray.py`) and autostart (`autostart.py`); an always-on runtime split still open
 - [ ] Plugin hooks (later)
 

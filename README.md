@@ -145,6 +145,8 @@ middling speeds.
   dynamic mode wants to switch profile mid-edit it waits (shown in the top bar) rather than
   interrupting with a dialog or losing the work.
 - **Copy / paste** a control's entire function onto another compatible control.
+- **Side displays your way**: three separate buttons, or one tall image for the whole strip, per
+  workspace and per side.
 - **A starter profile** with Media, Editing and Browser workspaces, labelled and colour-coded,
   opened on a first run. After that the app reopens whatever profile you had last.
 - **Inspector in collapsible sections** (Action, Appearance, Advanced), remembered as you move
@@ -167,7 +169,7 @@ middling speeds.
   re-check button.
 - **Survives unplugging**: the app connects when the device appears and reconnects when it comes
   back, returning to the workspace you were on. No restart needed.
-- JSON profiles (schema v7, backward compatible with older profiles; unknown fields
+- JSON profiles (schema v8, backward compatible with older profiles; unknown fields
   written by a newer build survive a load/save round-trip).
 
 ### Where your data lives
