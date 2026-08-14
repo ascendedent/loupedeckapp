@@ -20,8 +20,8 @@ application. All from a modern, dark PySide6/QML interface.
 | Device            | USB PID     | Status                                                                                   |
 |-------------------|-------------|------------------------------------------------------------------------------------------|
 | Loupedeck **CT**  | `2ec2:0003` | Primary target; full support incl. the 240×240 wheel screen, rotary dial, and CT buttons |
-| Loupedeck **Live**| `2ec2:0004` | Supported (upstream's original target)                                                   |
-| Loupedeck **Live S** | `2ec2:0006` | Supported (5-column geometry, no side screens, 2 dials, 4 round buttons)               |
+| Loupedeck **Live**| `2ec2:0004` | Supported, never tested on hardware ([help wanted](docs/LIVE-TESTING.md))                |
+| Loupedeck **Live S** | `2ec2:0006` | Geometry from published specs, never tested ([help wanted](docs/LIVE-TESTING.md))      |
 
 The model is detected from the USB product id. The vendored device library reports every model as
 `LoupedeckLive`, so CT-specific behaviour is enabled only when a wheel/dial is present. The device
@@ -288,7 +288,12 @@ loupedeckapp                  # if installed
 #   QT_QPA_PLATFORM=wayland .venv/bin/python qml_app.py     # or =xcb for XWayland
 ```
 
-Run the checks with `.venv/bin/python tests/run_all.py` (no device needed).
+Run the checks with `.venv/bin/python tests/run_all.py` (no device needed). Checks that do need
+hardware live in [`scripts/verify/`](scripts/verify/).
+
+**Have a Live or Live S?** Those models are supported from the library's source and published
+specs, and have never been run on real hardware. [docs/LIVE-TESTING.md](docs/LIVE-TESTING.md) says
+what is guesswork and how to report what your device actually does.
 
 ## Troubleshooting
 

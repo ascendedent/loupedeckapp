@@ -63,8 +63,9 @@ already Qt-free, so nothing outside those four files referenced them.
 ### Known gaps (ordered by agreed priority)
 
 1. **Ship Linux (M5)**: pin deps, packaging, udev/ydotool docs, starter profiles.
-2. **Functionality**: Live / Live S event decoding (the mirror is done; the knob and
-   button identifiers a Live S reports are still unverified, no hardware here).
+2. **Functionality**: Live / Live S event decoding. Not fixable from here: there is no such
+   hardware on this desk. `docs/LIVE-TESTING.md` sets out every assumption and what to report,
+   and `scripts/verify/` is the toolkit for producing it.
 3. **UI polish**: workspace chrome, dirty guards, inspector structure, empty states.
 4. **macOS (M6)**: adapters, Accessibility UX, `.app`, support **10.14+**.
 
@@ -640,7 +641,7 @@ held profile, because a switch that silently fails to happen is worse than one t
       window back to do it. Disabled with no tray available, where hiding would strand the app.
       Settings: tray on/off, close-to-tray, start-hidden.
 - [ ] **Flatpak** and/or **AppImage**
-- [ ] Promote useful `scratch/` probes to `scripts/verify/` smoke checks
+- [x] Promote useful `scratch/` probes to `scripts/verify/` (probe, event capture, render)
 
 **Assets in a flat layout.** The modules sit at the repo root rather than in a package directory,
 so `package-data` has nothing to attach to and the first wheel shipped the code with no `qml/`,
