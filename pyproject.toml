@@ -60,6 +60,7 @@ py-modules = [
     "ct_support",
     "label_render",
     "input_backend",
+    "installed_apps",
     "window_watcher",
     "profile_manager",
     "system_shortcuts",

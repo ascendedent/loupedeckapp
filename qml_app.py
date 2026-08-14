@@ -23,6 +23,7 @@ import autostart
 import macro
 import input_backend
 import device_lib
+import installed_apps
 import settings as settings_mod
 import setup_check
 import tray
@@ -68,6 +69,8 @@ class Backend(QObject):
         self._last_title = ""
         # An app being browsed that is not the loaded profile's, or "".
         self._browsing_app = ""
+        # Applications installed on this machine, read on first use.
+        self._installed = None
         # A profile switch dynamic mode wanted to make while edits were unsaved.
         self._pending_profile = ""
         # Whether the window is on screen. QML owns the window and tells us; the
@@ -1366,17 +1369,44 @@ class Backend(QObject):
             return "An app called '%s' already exists" % clean
         return ""
 
-    @Slot(str)
-    def createApp(self, name):
+    # -- what this machine has installed -----------------------------------
+    # Read once: scanning a few hundred desktop entries on every keystroke
+    # would be wasteful, and applications do not appear while a dialog is open.
+    @Property("QVariantList", notify=stateChanged)
+    def installedApps(self):
+        if self._installed is None:
+            self._installed = installed_apps.list_installed()
+        return self._installed
+
+    @Slot(str, result="QVariantList")
+    def searchInstalledApps(self, query):
+        """Installed applications matching a query, minus the ones already
+        added: offering an app you have is offering a name that will be
+        refused."""
+        taken = {a.lower() for a in app_paths.list_apps()}
+        return [e for e in installed_apps.search(query, self.installedApps)
+                if e["name"].lower() not in taken]
+
+    @Slot()
+    def rescanInstalledApps(self):
+        self._installed = None
+        self.stateChanged.emit()
+
+    @Slot(str, str)
+    def createApp(self, name, match=""):
         """A new application, with one empty profile in it.
 
         Empty apps are a trap: the app list would show something that cannot be
-        selected onto the device, so it gets a profile to start from.
+        selected onto the device, so it gets a profile to start from. `match`
+        is the window class that means it is focused, filled in by the picker
+        when the app was chosen from what is installed.
         """
         clean = self._clean_profile_name(name)
         if not clean or clean in app_paths.list_apps():
             return
         app_paths.ensure_user_app_dir(clean)
+        if match:
+            app_paths.set_app_matches(clean, [match])
         ref = app_paths.make_ref(clean, clean)
         cfg = apply_default_bindings(LdConfiguration(profile=ref))
         with open(app_paths.profile_write_path(ref), "w") as f:

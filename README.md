@@ -178,7 +178,9 @@ middling speeds.
 The same shape as the official software:
 
 - An **application** is the top level: Premiere Pro, OBS, or **Default** for everything else. It
-  owns its profiles, and it carries the window classes that mean it is in front.
+  owns its profiles, and it carries the window classes that mean it is in front. Adding one offers
+  a searchable list of what is actually installed on the machine, with the right window class
+  already attached, so nothing has to be typed from memory.
 - A **profile** is one full deck: every key, encoder, label and colour, across eight workspaces.
   Profiles belong to an application, so two applications can both have a profile called "Edit"
   without one meaning the other.
@@ -204,6 +206,11 @@ fallback. On disk that hierarchy is just directories:
 Profiles written before applications existed are moved into **Default** the first time you run a
 build that has them. Nothing is lost and nothing is copied: a copy would leave an old file where
 the app no longer looks.
+
+The installed-application list comes from the system's own records: XDG desktop entries on Linux
+(`/usr/share/applications` and the user, flatpak and snap locations), and `.app` bundles on macOS.
+The match key is whatever that platform considers authoritative, which is `StartupWMClass` on Linux
+(falling back to the executable's name) and the bundle identifier on macOS.
 
 ### Where your data lives
 

@@ -162,18 +162,33 @@ c.eq("whose profiles are what the list shows",
 
 c.eq("a new app needs a usable name",
      backend.validateAppName("bad/name") != "", True)
-backend.createApp("Premiere")
+# The picker offers what the machine has installed, so nobody has to type a
+# window class from memory.
+installed = find("installedAppsList")
+c.eq("the installed-app picker exists", installed is not None, True)
+offered = backend.searchInstalledApps("")
+c.eq("every offer carries a match key to bind with",
+     all(e.get("match") for e in offered), True)
+c.eq("an app already added is not offered again",
+     [e for e in backend.searchInstalledApps("") if e["name"] == "Default"], [])
+
+backend.createApp("Premiere", "adobe premiere pro")
 c.eq("creating one switches to it", backend.activeApp, "Premiere")
+c.eq("and a picked match is applied straight away",
+     backend.appMatches, ["adobe premiere pro"])
 c.eq("and it is in the list", "Premiere" in backend.apps, True)
 c.eq("with a profile to start from, not an empty shell",
      backend.profiles, ["Premiere"])
 c.eq("a name already taken is refused",
      backend.validateAppName("Premiere") != "", True)
 
-backend.addAppMatch("adobe premiere pro")
-c.eq("a window class can be attached", backend.appMatches, ["adobe premiere pro"])
 backend.addAppMatch("Adobe Premiere Pro")
-c.eq("adding the same one twice does nothing", len(backend.appMatches), 1)
+c.eq("adding the same one in another case does nothing",
+     len(backend.appMatches), 1)
+backend.addAppMatch("premiere.exe")
+c.eq("a second window class can be attached", len(backend.appMatches), 2)
+backend.removeAppMatch("premiere.exe")
+c.eq("and removed again", backend.appMatches, ["adobe premiere pro"])
 
 # Pages: one app, several decks, told apart by the window title.
 backend.addAppPage("Cutting", "Editing", "Premiere")

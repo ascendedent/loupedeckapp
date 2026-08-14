@@ -48,3 +48,4 @@ went, which on a multi-monitor desktop is not where the arithmetic said.
 | `test_startup.py` | which profile a launch opens, and what is remembered |
 | `test_sidedisplay.py` | side strips as cells or one image: routing, rendering, size hint |
 | `test_apps.py` | applications, their match rules, and the pages that switch inside them |
+| `test_installed.py` | reading installed applications: desktop entries, bundles, match keys |

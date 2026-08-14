@@ -115,34 +115,117 @@ ApplicationWindow {
         width: 380
         title: mode === "create" ? "New app" : "Rename app"
         standardButtons: Dialog.Ok | Dialog.Cancel
+        // The window class it should match. Set by picking from what is
+        // installed; blank when the name was typed by hand.
+        property string pickedMatch: ""
         onOpened: {
             appNameField.text = mode === "rename" ? backend.activeApp : ""
+            appDialog.pickedMatch = ""
+            appSearch.text = ""
             appNameField.forceActiveFocus()
         }
         onAccepted: {
             if (mode === "create")
-                backend.createApp(appNameField.text)
+                backend.createApp(appNameField.text, appDialog.pickedMatch)
             else
                 backend.renameApp(backend.activeApp, appNameField.text)
         }
         ColumnLayout {
             width: parent.width
             spacing: 8
+
+            // Installed applications. Typing a window class from memory is the
+            // worst way to add an app, so the machine is asked what it has and
+            // the match comes with the choice.
+            ColumnLayout {
+                visible: appDialog.mode === "create"
+                Layout.fillWidth: true; spacing: 6
+                TextField {
+                    id: appSearch
+                    objectName: "appSearchField"
+                    Layout.fillWidth: true
+                    placeholderText: "Search installed applications…"
+                    onTextChanged: installedList.model =
+                        backend.searchInstalledApps(text)
+                    Keys.onEscapePressed: text = ""
+                }
+                ListView {
+                    id: installedList
+                    objectName: "installedAppsList"
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 150
+                    clip: true; spacing: 2
+                    model: backend.searchInstalledApps("")
+                    delegate: Rectangle {
+                        required property var modelData
+                        width: ListView.view.width; height: 30
+                        radius: 6
+                        color: appDialog.pickedMatch === modelData.match
+                               ? theme.accent
+                               : (instHover.hovered ? theme.cell : theme.panel2)
+                        Behavior on color { ColorAnimation { duration: 110 } }
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 8; anchors.rightMargin: 8
+                            spacing: 8
+                            Text {
+                                text: modelData.name; color: theme.text
+                                font.pixelSize: 12
+                                Layout.fillWidth: true; elide: Text.ElideRight
+                            }
+                            Text {
+                                text: modelData.match; color: theme.muted
+                                font.pixelSize: 10; elide: Text.ElideRight
+                                Layout.maximumWidth: 130
+                            }
+                        }
+                        HoverHandler { id: instHover; cursorShape: Qt.PointingHandCursor }
+                        TapHandler {
+                            onTapped: {
+                                appNameField.text = modelData.name
+                                appDialog.pickedMatch = modelData.match
+                            }
+                        }
+                    }
+                }
+                Text {
+                    Layout.fillWidth: true
+                    visible: installedList.count === 0
+                    text: appSearch.text === ""
+                          ? "Nothing installed was found to offer. Type a name below "
+                            + "instead."
+                          : "No installed application matches “" + appSearch.text
+                            + "”. Type a name below instead."
+                    color: theme.muted; font.pixelSize: 10; wrapMode: Text.WordWrap
+                }
+            }
+
+            Text {
+                visible: appDialog.mode === "create"
+                text: "Name"; color: theme.muted; font.pixelSize: 11
+            }
             TextField {
                 id: appNameField
                 objectName: "appNameField"
                 Layout.fillWidth: true
                 placeholderText: "Premiere Pro, OBS, ..."
                 onAccepted: appDialog.accept()
+                // Typing over a picked name means the pick no longer applies.
+                onTextEdited: appDialog.pickedMatch = ""
             }
             Text {
+                // An untouched field is not a mistake. The warning waits until
+                // there is something to complain about.
+                readonly property string problem:
+                    appNameField.text === ""
+                    ? "" : backend.validateAppName(appNameField.text)
                 Layout.fillWidth: true
-                text: backend.validateAppName(appNameField.text) !== ""
-                      ? backend.validateAppName(appNameField.text)
-                      : "An app holds its own profiles and the windows that mean "
-                        + "it is in front."
-                color: backend.validateAppName(appNameField.text) !== ""
-                       ? theme.warn : theme.muted
+                text: problem !== "" ? problem
+                      : (appDialog.pickedMatch !== ""
+                         ? "Focusing “" + appDialog.pickedMatch + "” will switch to it."
+                         : "An app holds its own profiles and the windows that mean "
+                           + "it is in front. You can add those afterwards.")
+                color: problem !== "" ? theme.warn : theme.muted
                 font.pixelSize: 11; wrapMode: Text.WordWrap
             }
         }
