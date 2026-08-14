@@ -23,7 +23,7 @@ os.environ["QT_QPA_PLATFORM"] = "offscreen"
 c = Checks()
 
 try:
-    from PySide6.QtCore import QUrl, Qt
+    from PySide6.QtCore import QMetaObject, QUrl, Qt
     from PySide6.QtGui import QGuiApplication
     from PySide6.QtQml import QQmlApplicationEngine
     from PySide6.QtTest import QTest
@@ -152,6 +152,45 @@ prof_empty = find("profilesEmpty")
 c.eq("the profiles empty state exists", prof_empty is not None, True)
 c.eq("hidden while profiles exist",
      prof_empty.property("visible"), len(backend.profiles) == 0)
+
+# -- toasts ------------------------------------------------------------------
+toasts = find("toastArea")
+c.eq("the toast area exists", toasts is not None, True)
+
+
+def toast_texts():
+    """Text of every toast currently up."""
+    raw = toasts.property("toastTexts") or ""
+    return raw.split("\n") if raw else []
+
+
+QMetaObject.invokeMethod(toasts, "clearToasts")
+c.eq("the area can be cleared", toast_texts(), [])
+
+backend.notify.emit("Saved to work")
+c.eq("a notification becomes a toast", toast_texts(), ["Saved to work"])
+
+# Pressing Save twice should not stack two identical lines.
+backend.notify.emit("Saved to work")
+c.eq("a repeat re-times the one already up", toast_texts(), ["Saved to work"])
+
+backend.notify.emit("Copied Touch key 1,1")
+c.eq("a different one is added",
+     toast_texts(), ["Saved to work", "Copied Touch key 1,1"])
+
+# Four at once would cover the device mirror.
+for i in range(3):
+    backend.notify.emit("message %d" % i)
+c.eq("no more than three are kept", len(toast_texts()), 3)
+c.eq("and the newest survive", toast_texts()[-1], "message 2")
+
+backend.notify.emit("")
+c.eq("an empty message is not a toast", len(toast_texts()), 3)
+
+# The slots that raise them: this is what makes the signal worth having.
+before = len(toast_texts())
+backend.save()
+c.eq("saving says so", any("Saved" in t for t in toast_texts()), True)
 
 # -- tray / close behaviour --------------------------------------------------
 # Offscreen has no tray, which is the case worth pinning: hiding the window

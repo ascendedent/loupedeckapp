@@ -515,6 +515,62 @@ ApplicationWindow {
     }
 
     // small themed push-button used in the top bar
+    // A collapsible group in the inspector. The panel had grown to five
+    // unrelated blocks stacked in one scroll, where the thing you wanted was
+    // usually below the fold. Open state lives on root so it survives changing
+    // which control is selected: collapsing Appearance once should not have to
+    // be done again for the next key.
+    property var sectionOpen: ({"Action": true, "Appearance": true, "Advanced": false})
+
+    component Section: ColumnLayout {
+        id: sec
+        property string title: ""
+        default property alias content: sectionBody.data
+        readonly property bool open: root.sectionOpen[sec.title] !== false
+        Layout.fillWidth: true
+        spacing: 6
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 26
+            radius: theme.radius
+            color: secHover.hovered ? theme.cell : "transparent"
+            Behavior on color { ColorAnimation { duration: 120 } }
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 6; anchors.rightMargin: 6
+                spacing: 6
+                Text {
+                    text: sec.open ? "▾" : "▸"
+                    color: theme.muted; font.pixelSize: 10
+                }
+                Text {
+                    text: sec.title.toUpperCase()
+                    color: theme.muted; font.pixelSize: 10
+                    font.bold: true; font.letterSpacing: 1
+                    Layout.fillWidth: true
+                }
+            }
+            HoverHandler { id: secHover; cursorShape: Qt.PointingHandCursor }
+            TapHandler {
+                onTapped: {
+                    // Reassigned whole: QML does not see a property change from
+                    // mutating an object in place, so the arrow would not flip.
+                    var next = Object.assign({}, root.sectionOpen)
+                    next[sec.title] = !sec.open
+                    root.sectionOpen = next
+                }
+            }
+        }
+
+        ColumnLayout {
+            id: sectionBody
+            Layout.fillWidth: true
+            visible: sec.open
+            spacing: 10
+        }
+    }
+
     component ActionButton: Rectangle {
         id: ab
         property string label: ""
@@ -944,6 +1000,100 @@ ApplicationWindow {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    // ---- toasts -----------------------------------------------------------
+    // For things that happened and are finished: saved, copied, imported,
+    // device came back. A dialog would interrupt for something already done,
+    // and the console is invisible to anyone not running from a terminal.
+    // Errors keep their dialogs: those need an acknowledgement.
+    ListModel { id: toastModel }
+
+    function toast(text) {
+        if (!text)
+            return
+        // Repeating a message re-times the one already up rather than stacking
+        // a duplicate: pressing Save twice should not queue two identical
+        // lines.
+        for (var i = 0; i < toastModel.count; i++) {
+            if (toastModel.get(i).text === text) {
+                toastModel.setProperty(i, "born", Date.now())
+                return
+            }
+        }
+        toastModel.append({"text": text, "born": Date.now()})
+        if (toastModel.count > 3)
+            toastModel.remove(0)
+    }
+
+    Connections {
+        target: backend
+        function onNotify(text) { root.toast(text) }
+    }
+
+    // One timer for the lot: a Timer per toast would be three timers running
+    // to do what one can.
+    Timer {
+        running: toastModel.count > 0
+        interval: 250
+        repeat: true
+        onTriggered: {
+            var now = Date.now()
+            for (var i = toastModel.count - 1; i >= 0; i--) {
+                if (now - toastModel.get(i).born > 3400)
+                    toastModel.remove(i)
+            }
+        }
+    }
+
+    Column {
+        id: toastArea
+        objectName: "toastArea"
+        // Readable from a test: the delegates themselves are a QML list
+        // property, which does not cross into Python.
+        readonly property int toastCount: toastModel.count
+        readonly property string toastTexts: {
+            var out = []
+            for (var i = 0; i < toastModel.count; i++)
+                out.push(toastModel.get(i).text)
+            return out.join("\n")
+        }
+        function clearToasts() { toastModel.clear() }
+        z: 200
+        spacing: 6
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        // Sit above the empty-device hint rather than on top of it: both live
+        // at the bottom centre, and "nothing is bound here yet" is exactly the
+        // state in which a "Saved" toast turns up.
+        anchors.bottomMargin: 18 + (emptyHint.visible ? emptyHint.height + 14 : 0)
+        Repeater {
+            model: toastModel
+            Rectangle {
+                id: toastItem
+                required property string text
+                width: toastLabel.implicitWidth + 28
+                height: 32
+                radius: 16
+                color: theme.panel2
+                border.color: theme.line
+                // Fades in: appearing at full opacity next to the device mirror
+                // reads as a flash rather than a message.
+                opacity: 0
+                Component.onCompleted: opacity = 0.96
+                Behavior on opacity { NumberAnimation { duration: 160 } }
+                Text {
+                    id: toastLabel
+                    anchors.centerIn: parent
+                    text: toastItem.text
+                    color: theme.text
+                    font.pixelSize: 12
+                }
+                // A toast sits over the device mirror, so it can be dismissed
+                // rather than waited out.
+                TapHandler { onTapped: toastModel.clear() }
             }
         }
     }
@@ -1444,484 +1594,6 @@ ApplicationWindow {
                         id: editor
                         width: parent.width; spacing: 12
 
-                        // action slots (1 for most controls, 3 for encoder/dial)
-                        Repeater {
-                            model: backend.selectedSlots
-                            delegate: ColumnLayout {
-                                required property var modelData
-                                Layout.fillWidth: true; spacing: 4
-                                Text { text: modelData.label; color: theme.muted; font.pixelSize: 12 }
-                                ComboBox {
-                                    id: typeBox
-                                    Layout.fillWidth: true
-                                    model: backend.selectedActionTypes
-                                    currentIndex: Math.max(0, backend.selectedActionTypes.indexOf(modelData.type))
-                                    onActivated: backend.setActionSlot(modelData.slot, currentText, valueField.text)
-                                }
-                                // Fixed-choice values (scroll direction, media
-                                // transport) pick from a list; free text is for
-                                // the types that genuinely take arbitrary input.
-                                ComboBox {
-                                    id: choiceBox
-                                    Layout.fillWidth: true
-                                    visible: !!backend.valueOptions[typeBox.currentText]
-                                    textRole: "label"
-                                    model: backend.valueOptions[typeBox.currentText] || []
-                                    currentIndex: {
-                                        var opts = backend.valueOptions[typeBox.currentText] || []
-                                        for (var i = 0; i < opts.length; i++)
-                                            if (opts[i].value === modelData.value)
-                                                return i
-                                        return 0
-                                    }
-                                    onActivated: {
-                                        var opts = backend.valueOptions[typeBox.currentText] || []
-                                        if (opts[currentIndex])
-                                            backend.setActionSlot(modelData.slot,
-                                                                  typeBox.currentText,
-                                                                  opts[currentIndex].value)
-                                    }
-                                }
-                                TextField {
-                                    id: valueField
-                                    Layout.fillWidth: true
-                                    visible: typeBox.currentText !== "none"
-                                             && typeBox.currentText !== "back"
-                                             && typeBox.currentText !== "macro"
-                                             && !backend.valueOptions[typeBox.currentText]
-                                    text: modelData.value
-                                    color: theme.text
-                                    placeholderText: typeBox.currentText === "hotkey" ? "e.g. ctrl+c"
-                                                   : typeBox.currentText === "media" ? "play-pause / next / previous"
-                                                   : typeBox.currentText === "scroll" ? "up / down / left / right"
-                                                   : typeBox.currentText === "text" ? "text to type"
-                                                   : typeBox.currentText === "submenu" ? "submenu name"
-                                                   : "command to run"
-                                    placeholderTextColor: theme.muted
-                                    background: Rectangle {
-                                        radius: 6; color: theme.panel2
-                                        border.color: valueField.activeFocus ? theme.accent : theme.line
-                                    }
-                                    onEditingFinished: backend.setActionSlot(modelData.slot, typeBox.currentText, text)
-                                }
-                                // ---- macro editor ----
-                                // One step per line. A list editor would need a
-                                // schema change and a lot of UI; text keeps the
-                                // value a plain string and stays editable.
-                                ColumnLayout {
-                                    visible: typeBox.currentText === "macro"
-                                    Layout.fillWidth: true; spacing: 4
-
-                                    // Two views of the same value: a list of
-                                    // steps, and the raw text. The text is what
-                                    // is stored, so neither view is primary.
-                                    RowLayout {
-                                        Layout.fillWidth: true; spacing: 6
-                                        Text {
-                                            text: "Steps"; color: theme.muted
-                                            font.pixelSize: 11; Layout.fillWidth: true
-                                        }
-                                        ActionButton {
-                                            label: macroList.showText ? "List view" : "Text view"
-                                            onClicked: {
-                                                // Moving between views must not
-                                                // lose an unapplied edit.
-                                                if (!macroList.showText)
-                                                    macroField.text = modelData.value
-                                                macroList.showText = !macroList.showText
-                                            }
-                                        }
-                                    }
-
-                                    ColumnLayout {
-                                        id: macroList
-                                        property bool showText: false
-                                        visible: !showText
-                                        Layout.fillWidth: true
-                                        spacing: 3
-
-                                        function steps() { return backend.macroSteps(modelData.value) }
-
-                                        function commit(list) {
-                                            backend.setActionSlot(modelData.slot, "macro",
-                                                                  backend.macroText(list))
-                                        }
-
-                                        Repeater {
-                                            model: backend.macroSteps(modelData.value)
-                                            delegate: RowLayout {
-                                                required property var modelData
-                                                required property int index
-                                                Layout.fillWidth: true; spacing: 4
-
-                                                ComboBox {
-                                                    Layout.preferredWidth: 92
-                                                    model: backend.macroStepKinds
-                                                    currentIndex: backend.macroStepKinds.indexOf(parent.modelData.kind)
-                                                    onActivated: {
-                                                        var list = macroList.steps()
-                                                        list[parent.index].kind = currentText
-                                                        macroList.commit(list)
-                                                    }
-                                                }
-                                                TextField {
-                                                    Layout.fillWidth: true
-                                                    text: parent.modelData.value
-                                                    color: theme.text
-                                                    font.pixelSize: 11
-                                                    background: Rectangle {
-                                                        radius: 5; color: theme.panel2
-                                                        border.color: theme.line
-                                                    }
-                                                    onEditingFinished: {
-                                                        var list = macroList.steps()
-                                                        list[parent.index].value = text
-                                                        macroList.commit(list)
-                                                    }
-                                                }
-                                                Text {
-                                                    text: "↑"; color: theme.muted; font.pixelSize: 12
-                                                    visible: parent.index > 0
-                                                    HoverHandler { cursorShape: Qt.PointingHandCursor }
-                                                    TapHandler {
-                                                        onTapped: {
-                                                            var list = macroList.steps()
-                                                            var i = parent.index
-                                                            var t = list[i - 1]
-                                                            list[i - 1] = list[i]; list[i] = t
-                                                            macroList.commit(list)
-                                                        }
-                                                    }
-                                                }
-                                                Text {
-                                                    text: "✕"; color: theme.muted; font.pixelSize: 12
-                                                    HoverHandler { cursorShape: Qt.PointingHandCursor }
-                                                    TapHandler {
-                                                        onTapped: {
-                                                            var list = macroList.steps()
-                                                            list.splice(parent.index, 1)
-                                                            macroList.commit(list)
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        Text {
-                                            visible: backend.macroSteps(modelData.value).length === 0
-                                            text: "No steps yet."
-                                            color: theme.muted; font.pixelSize: 10
-                                        }
-
-                                        ActionButton {
-                                            label: "+ Add step"
-                                            onClicked: {
-                                                var list = macroList.steps()
-                                                list.push({kind: "hotkey", value: "ctrl+c"})
-                                                macroList.commit(list)
-                                            }
-                                        }
-                                    }
-
-                                    ScrollView {
-                                        visible: macroList.showText
-                                        Layout.fillWidth: true
-                                        Layout.preferredHeight: 110
-                                        clip: true
-                                        TextArea {
-                                            id: macroField
-                                            text: modelData.value
-                                            color: theme.text
-                                            font.family: "monospace"
-                                            font.pixelSize: 12
-                                            wrapMode: TextArea.NoWrap
-                                            placeholderText: "hotkey ctrl+c\nwait 200\nhotkey ctrl+v"
-                                            placeholderTextColor: theme.muted
-                                            background: Rectangle {
-                                                radius: 6; color: theme.panel2
-                                                border.color: macroField.activeFocus
-                                                              ? theme.accent : theme.line
-                                            }
-                                            onEditingFinished: backend.setActionSlot(
-                                                modelData.slot, "macro", text)
-                                        }
-                                    }
-
-                                    RowLayout {
-                                        visible: macroList.showText
-                                        Layout.fillWidth: true
-                                        Text {
-                                            Layout.fillWidth: true
-                                            text: backend.describeMacro(macroField.text)
-                                            color: backend.macroProblems(macroField.text).length > 0
-                                                   ? theme.warn : theme.muted
-                                            font.pixelSize: 10
-                                        }
-                                        ActionButton {
-                                            label: "Apply"
-                                            onClicked: backend.setActionSlot(
-                                                modelData.slot, "macro", macroField.text)
-                                        }
-                                    }
-
-                                    Repeater {
-                                        model: macroList.showText
-                                               ? backend.macroProblems(macroField.text) : []
-                                        delegate: Text {
-                                            required property string modelData
-                                            Layout.fillWidth: true
-                                            text: modelData; color: theme.warn
-                                            font.pixelSize: 10; wrapMode: Text.WordWrap
-                                        }
-                                    }
-
-                                    Text {
-                                        Layout.fillWidth: true
-                                        visible: macroList.showText
-                                        text: "Steps: hotkey · text · wait <ms> · scroll <dir> [n] "
-                                              + "· media · keyboard · command"
-                                        color: theme.muted; font.pixelSize: 10
-                                        wrapMode: Text.WordWrap
-                                    }
-                                }
-
-                                // hotkey helpers: record a live combo or pick a known one
-                                RowLayout {
-                                    visible: typeBox.currentText === "hotkey"
-                                    Layout.fillWidth: true; spacing: 8
-                                    ActionButton {
-                                        label: "⏺ Record"
-                                        onClicked: root.recordSlot = modelData.slot
-                                    }
-                                    ComboBox {
-                                        id: presetBox
-                                        Layout.fillWidth: true
-                                        textRole: "label"
-                                        // common shortcuts first, then this machine's configured ones
-                                        model: backend.commonHotkeys.concat(backend.systemShortcuts)
-                                        displayText: "Presets…"
-                                        onActivated: {
-                                            var item = model[currentIndex]
-                                            if (item) backend.setActionSlot(modelData.slot, "hotkey", item.value)
-                                        }
-                                    }
-                                }
-                                // navigate into a submenu to edit its keys
-                                ActionButton {
-                                    visible: typeBox.currentText === "submenu" && backend.selectedIsSubmenu
-                                    label: "Open submenu →"
-                                    onClicked: backend.enterSubmenu()
-                                }
-
-                                // ---- secondary (fn) binding ----
-                                // Collapsed unless it has one, so the common
-                                // case stays a single editor per slot.
-                                RowLayout {
-                                    Layout.fillWidth: true; spacing: 6
-                                    Text {
-                                        text: "fn"; color: theme.warn
-                                        font.pixelSize: 10; font.bold: true
-                                    }
-                                    ComboBox {
-                                        id: fnTypeBox
-                                        Layout.fillWidth: true
-                                        model: backend.selectedActionTypes
-                                        currentIndex: Math.max(0,
-                                            backend.selectedActionTypes.indexOf(modelData.fnType))
-                                        onActivated: backend.setFnActionSlot(
-                                            modelData.slot, currentText, fnValueField.text)
-                                    }
-                                }
-                                ComboBox {
-                                    visible: !!backend.valueOptions[fnTypeBox.currentText]
-                                    Layout.fillWidth: true
-                                    textRole: "label"
-                                    model: backend.valueOptions[fnTypeBox.currentText] || []
-                                    currentIndex: {
-                                        var opts = backend.valueOptions[fnTypeBox.currentText] || []
-                                        for (var i = 0; i < opts.length; i++)
-                                            if (opts[i].value === modelData.fnValue)
-                                                return i
-                                        return 0
-                                    }
-                                    onActivated: {
-                                        var opts = backend.valueOptions[fnTypeBox.currentText] || []
-                                        if (opts[currentIndex])
-                                            backend.setFnActionSlot(modelData.slot,
-                                                fnTypeBox.currentText, opts[currentIndex].value)
-                                    }
-                                }
-                                TextField {
-                                    id: fnValueField
-                                    Layout.fillWidth: true
-                                    visible: fnTypeBox.currentText !== "none"
-                                             && fnTypeBox.currentText !== "back"
-                                             && !backend.valueOptions[fnTypeBox.currentText]
-                                    text: modelData.fnValue
-                                    color: theme.text
-                                    placeholderText: "secondary, used while fn is held"
-                                    placeholderTextColor: theme.muted
-                                    background: Rectangle {
-                                        radius: 6; color: theme.panel2
-                                        border.color: fnValueField.activeFocus ? theme.warn : theme.line
-                                    }
-                                    onEditingFinished: backend.setFnActionSlot(
-                                        modelData.slot, fnTypeBox.currentText, text)
-                                }
-                            }
-                        }
-
-                        // image section (touch keys / side cells / wheel)
-                        ColumnLayout {
-                            visible: backend.selectedHasImage
-                            Layout.fillWidth: true; spacing: 6
-                            Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
-                            Text { text: "Image"; color: theme.muted; font.pixelSize: 12 }
-                            RowLayout {
-                                Layout.fillWidth: true; spacing: 10
-                                Rectangle {
-                                    width: 90; height: 90; radius: 8
-                                    color: theme.panel2; border.color: theme.line
-                                    Image {
-                                        anchors.fill: parent; anchors.margins: 3
-                                        source: backend.selectedImage; visible: source != ""
-                                        fillMode: Image.PreserveAspectFit; asynchronous: true
-                                    }
-                                    Text {
-                                        anchors.centerIn: parent; visible: backend.selectedImage == ""
-                                        text: "none"; color: theme.muted; font.pixelSize: 11
-                                    }
-                                }
-                                // helper: the exact device size to make a source
-                                // image (it's fit, never cropped or stretched)
-                                ColumnLayout {
-                                    Layout.fillWidth: true; spacing: 4
-                                    Text {
-                                        visible: backend.selectedImageDims !== ""
-                                        Layout.fillWidth: true; wrapMode: Text.WordWrap
-                                        text: "Best size: " + backend.selectedImageDims
-                                        color: theme.text; font.pixelSize: 12; font.bold: true
-                                    }
-                                    Text {
-                                        Layout.fillWidth: true; wrapMode: Text.WordWrap
-                                        text: "Images are scaled to fit, never cropped or stretched. Match this size for a pixel-perfect fill."
-                                        color: theme.muted; font.pixelSize: 10
-                                    }
-                                }
-                            }
-                            RowLayout {
-                                Layout.fillWidth: true; spacing: 8
-                                Button {
-                                    Layout.fillWidth: true; text: "Set image…"
-                                    onClicked: imageDialog.open()
-                                }
-                                Button {
-                                    text: "Clear"; enabled: backend.selectedImage != ""
-                                    onClicked: backend.clearImage(backend.selectedControl)
-                                }
-                            }
-
-                            // ---- text label (on by default; uncheck to hide) ----
-                            Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
-                            RowLayout {
-                                Layout.fillWidth: true
-                                Text { text: "Label"; color: theme.muted; font.pixelSize: 12
-                                    Layout.fillWidth: true; verticalAlignment: Text.AlignVCenter }
-                                CheckBox {
-                                    id: labelShow
-                                    text: "Show"
-                                    checked: backend.selectedLabelEnabled
-                                    onToggled: backend.setLabelEnabled(backend.selectedControl, checked)
-                                    contentItem: Text {
-                                        text: labelShow.text; color: theme.text; font.pixelSize: 12
-                                        leftPadding: labelShow.indicator.width + 6
-                                        verticalAlignment: Text.AlignVCenter
-                                    }
-                                }
-                            }
-                            TextField {
-                                id: labelField
-                                Layout.fillWidth: true
-                                enabled: backend.selectedLabelEnabled
-                                opacity: enabled ? 1.0 : 0.45
-                                text: backend.selectedLabelText
-                                color: theme.text
-                                placeholderText: "label text (blank = auto from action)"
-                                placeholderTextColor: theme.muted
-                                background: Rectangle {
-                                    radius: 6; color: theme.panel2
-                                    border.color: labelField.activeFocus ? theme.accent : theme.line
-                                }
-                                onEditingFinished: backend.setLabel(backend.selectedControl,
-                                    text, labelPos.currentText, labelMode.currentText,
-                                    backend.selectedLabelBarColor)
-                            }
-                            RowLayout {
-                                Layout.fillWidth: true; spacing: 8
-                                enabled: backend.selectedLabelEnabled
-                                opacity: enabled ? 1.0 : 0.45
-                                ComboBox {
-                                    id: labelPos
-                                    Layout.fillWidth: true
-                                    model: backend.labelPositions
-                                    currentIndex: Math.max(0, backend.labelPositions.indexOf(backend.selectedLabelPos))
-                                    onActivated: backend.setLabel(backend.selectedControl,
-                                        labelField.text, currentText, labelMode.currentText,
-                                        backend.selectedLabelBarColor)
-                                }
-                                ComboBox {
-                                    id: labelMode
-                                    Layout.fillWidth: true
-                                    // shrink only makes sense for a top/bottom band, not middle
-                                    property var modes: labelPos.currentText === "middle"
-                                        ? ["over", "bar"] : backend.labelModes
-                                    model: modes
-                                    currentIndex: Math.max(0, modes.indexOf(backend.selectedLabelMode))
-                                    onActivated: backend.setLabel(backend.selectedControl,
-                                        labelField.text, labelPos.currentText, currentText,
-                                        backend.selectedLabelBarColor)
-                                }
-                            }
-                            // ---- label bar colour (bar / shrink modes) ----
-                            RowLayout {
-                                visible: labelMode.currentText === "bar" || labelMode.currentText === "shrink"
-                                enabled: backend.selectedLabelEnabled
-                                opacity: enabled ? 1.0 : 0.45
-                                Layout.fillWidth: true; spacing: 8
-                                Text { text: "Bar colour"; color: theme.muted; font.pixelSize: 12
-                                    Layout.alignment: Qt.AlignVCenter }
-                                Rectangle {
-                                    width: 34; height: 22; radius: 6
-                                    color: backend.selectedLabelBarColor !== "" ? backend.selectedLabelBarColor : theme.panel2
-                                    border.color: theme.line
-                                }
-                                Button { text: "Pick…"; onClicked: barDialog.open() }
-                                Button {
-                                    text: "Reset"; enabled: backend.selectedLabelBarColor !== ""
-                                    onClicked: backend.setLabel(backend.selectedControl, labelField.text,
-                                        labelPos.currentText, labelMode.currentText, "")
-                                }
-                                Item { Layout.fillWidth: true }
-                            }
-
-                            // ---- background colour (image-bearing controls) ----
-                            Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
-                            Text { text: "Background colour"; color: theme.muted; font.pixelSize: 12 }
-                            RowLayout {
-                                Layout.fillWidth: true; spacing: 8
-                                Rectangle {
-                                    width: 40; height: 26; radius: 6
-                                    color: backend.selectedBg !== "" ? backend.selectedBg : theme.panel2
-                                    border.color: theme.line
-                                }
-                                Button { Layout.fillWidth: true; text: "Pick…"; onClicked: bgDialog.open() }
-                                Button {
-                                    text: "Off"; enabled: backend.selectedBg !== ""
-                                    onClicked: backend.setBg(backend.selectedControl, "")
-                                }
-                            }
-                        }
-
                         // Workspace name (the eight round keys). Same field as
                         // the header chip, reachable from wherever you are.
                         ColumnLayout {
@@ -1948,101 +1620,593 @@ ApplicationWindow {
                             }
                         }
 
-                        // LED colour (physical buttons: workspace + CT buttons)
-                        ColumnLayout {
-                            visible: backend.selectedHasLed
-                            Layout.fillWidth: true; spacing: 6
-                            Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
-                            Text { text: "LED colour"; color: theme.muted; font.pixelSize: 12 }
-                            RowLayout {
-                                Layout.fillWidth: true; spacing: 8
-                                Rectangle {
-                                    width: 40; height: 26; radius: 6
-                                    color: backend.selectedLed !== "" ? backend.selectedLed : theme.panel2
-                                    border.color: theme.line
-                                }
-                                Button {
-                                    Layout.fillWidth: true; text: "Pick…"
-                                    onClicked: ledDialog.open()
-                                }
-                                Button {
-                                    text: "Off"; enabled: backend.selectedLed !== ""
-                                    onClicked: backend.setLed(backend.selectedControl, "")
+                Section {
+                    title: "Action"
+
+                            // action slots (1 for most controls, 3 for encoder/dial)
+                            Repeater {
+                                model: backend.selectedSlots
+                                delegate: ColumnLayout {
+                                    required property var modelData
+                                    Layout.fillWidth: true; spacing: 4
+                                    Text { text: modelData.label; color: theme.muted; font.pixelSize: 12 }
+                                    ComboBox {
+                                        id: typeBox
+                                        Layout.fillWidth: true
+                                        model: backend.selectedActionTypes
+                                        currentIndex: Math.max(0, backend.selectedActionTypes.indexOf(modelData.type))
+                                        onActivated: backend.setActionSlot(modelData.slot, currentText, valueField.text)
+                                    }
+                                    // Fixed-choice values (scroll direction, media
+                                    // transport) pick from a list; free text is for
+                                    // the types that genuinely take arbitrary input.
+                                    ComboBox {
+                                        id: choiceBox
+                                        Layout.fillWidth: true
+                                        visible: !!backend.valueOptions[typeBox.currentText]
+                                        textRole: "label"
+                                        model: backend.valueOptions[typeBox.currentText] || []
+                                        currentIndex: {
+                                            var opts = backend.valueOptions[typeBox.currentText] || []
+                                            for (var i = 0; i < opts.length; i++)
+                                                if (opts[i].value === modelData.value)
+                                                    return i
+                                            return 0
+                                        }
+                                        onActivated: {
+                                            var opts = backend.valueOptions[typeBox.currentText] || []
+                                            if (opts[currentIndex])
+                                                backend.setActionSlot(modelData.slot,
+                                                                      typeBox.currentText,
+                                                                      opts[currentIndex].value)
+                                        }
+                                    }
+                                    TextField {
+                                        id: valueField
+                                        Layout.fillWidth: true
+                                        visible: typeBox.currentText !== "none"
+                                                 && typeBox.currentText !== "back"
+                                                 && typeBox.currentText !== "macro"
+                                                 && !backend.valueOptions[typeBox.currentText]
+                                        text: modelData.value
+                                        color: theme.text
+                                        placeholderText: typeBox.currentText === "hotkey" ? "e.g. ctrl+c"
+                                                       : typeBox.currentText === "media" ? "play-pause / next / previous"
+                                                       : typeBox.currentText === "scroll" ? "up / down / left / right"
+                                                       : typeBox.currentText === "text" ? "text to type"
+                                                       : typeBox.currentText === "submenu" ? "submenu name"
+                                                       : "command to run"
+                                        placeholderTextColor: theme.muted
+                                        background: Rectangle {
+                                            radius: 6; color: theme.panel2
+                                            border.color: valueField.activeFocus ? theme.accent : theme.line
+                                        }
+                                        onEditingFinished: backend.setActionSlot(modelData.slot, typeBox.currentText, text)
+                                    }
+                                    // ---- macro editor ----
+                                    // One step per line. A list editor would need a
+                                    // schema change and a lot of UI; text keeps the
+                                    // value a plain string and stays editable.
+                                    ColumnLayout {
+                                        visible: typeBox.currentText === "macro"
+                                        Layout.fillWidth: true; spacing: 4
+
+                                        // Two views of the same value: a list of
+                                        // steps, and the raw text. The text is what
+                                        // is stored, so neither view is primary.
+                                        RowLayout {
+                                            Layout.fillWidth: true; spacing: 6
+                                            Text {
+                                                text: "Steps"; color: theme.muted
+                                                font.pixelSize: 11; Layout.fillWidth: true
+                                            }
+                                            ActionButton {
+                                                label: macroList.showText ? "List view" : "Text view"
+                                                onClicked: {
+                                                    // Moving between views must not
+                                                    // lose an unapplied edit.
+                                                    if (!macroList.showText)
+                                                        macroField.text = modelData.value
+                                                    macroList.showText = !macroList.showText
+                                                }
+                                            }
+                                        }
+
+                                        ColumnLayout {
+                                            id: macroList
+                                            property bool showText: false
+                                            visible: !showText
+                                            Layout.fillWidth: true
+                                            spacing: 3
+
+                                            function steps() { return backend.macroSteps(modelData.value) }
+
+                                            function commit(list) {
+                                                backend.setActionSlot(modelData.slot, "macro",
+                                                                      backend.macroText(list))
+                                            }
+
+                                            Repeater {
+                                                model: backend.macroSteps(modelData.value)
+                                                delegate: RowLayout {
+                                                    required property var modelData
+                                                    required property int index
+                                                    Layout.fillWidth: true; spacing: 4
+
+                                                    ComboBox {
+                                                        Layout.preferredWidth: 92
+                                                        model: backend.macroStepKinds
+                                                        currentIndex: backend.macroStepKinds.indexOf(parent.modelData.kind)
+                                                        onActivated: {
+                                                            var list = macroList.steps()
+                                                            list[parent.index].kind = currentText
+                                                            macroList.commit(list)
+                                                        }
+                                                    }
+                                                    TextField {
+                                                        Layout.fillWidth: true
+                                                        text: parent.modelData.value
+                                                        color: theme.text
+                                                        font.pixelSize: 11
+                                                        background: Rectangle {
+                                                            radius: 5; color: theme.panel2
+                                                            border.color: theme.line
+                                                        }
+                                                        onEditingFinished: {
+                                                            var list = macroList.steps()
+                                                            list[parent.index].value = text
+                                                            macroList.commit(list)
+                                                        }
+                                                    }
+                                                    Text {
+                                                        text: "↑"; color: theme.muted; font.pixelSize: 12
+                                                        visible: parent.index > 0
+                                                        HoverHandler { cursorShape: Qt.PointingHandCursor }
+                                                        TapHandler {
+                                                            onTapped: {
+                                                                var list = macroList.steps()
+                                                                var i = parent.index
+                                                                var t = list[i - 1]
+                                                                list[i - 1] = list[i]; list[i] = t
+                                                                macroList.commit(list)
+                                                            }
+                                                        }
+                                                    }
+                                                    Text {
+                                                        text: "✕"; color: theme.muted; font.pixelSize: 12
+                                                        HoverHandler { cursorShape: Qt.PointingHandCursor }
+                                                        TapHandler {
+                                                            onTapped: {
+                                                                var list = macroList.steps()
+                                                                list.splice(parent.index, 1)
+                                                                macroList.commit(list)
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            Text {
+                                                visible: backend.macroSteps(modelData.value).length === 0
+                                                text: "No steps yet."
+                                                color: theme.muted; font.pixelSize: 10
+                                            }
+
+                                            ActionButton {
+                                                label: "+ Add step"
+                                                onClicked: {
+                                                    var list = macroList.steps()
+                                                    list.push({kind: "hotkey", value: "ctrl+c"})
+                                                    macroList.commit(list)
+                                                }
+                                            }
+                                        }
+
+                                        ScrollView {
+                                            visible: macroList.showText
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 110
+                                            clip: true
+                                            TextArea {
+                                                id: macroField
+                                                text: modelData.value
+                                                color: theme.text
+                                                font.family: "monospace"
+                                                font.pixelSize: 12
+                                                wrapMode: TextArea.NoWrap
+                                                placeholderText: "hotkey ctrl+c\nwait 200\nhotkey ctrl+v"
+                                                placeholderTextColor: theme.muted
+                                                background: Rectangle {
+                                                    radius: 6; color: theme.panel2
+                                                    border.color: macroField.activeFocus
+                                                                  ? theme.accent : theme.line
+                                                }
+                                                onEditingFinished: backend.setActionSlot(
+                                                    modelData.slot, "macro", text)
+                                            }
+                                        }
+
+                                        RowLayout {
+                                            visible: macroList.showText
+                                            Layout.fillWidth: true
+                                            Text {
+                                                Layout.fillWidth: true
+                                                text: backend.describeMacro(macroField.text)
+                                                color: backend.macroProblems(macroField.text).length > 0
+                                                       ? theme.warn : theme.muted
+                                                font.pixelSize: 10
+                                            }
+                                            ActionButton {
+                                                label: "Apply"
+                                                onClicked: backend.setActionSlot(
+                                                    modelData.slot, "macro", macroField.text)
+                                            }
+                                        }
+
+                                        Repeater {
+                                            model: macroList.showText
+                                                   ? backend.macroProblems(macroField.text) : []
+                                            delegate: Text {
+                                                required property string modelData
+                                                Layout.fillWidth: true
+                                                text: modelData; color: theme.warn
+                                                font.pixelSize: 10; wrapMode: Text.WordWrap
+                                            }
+                                        }
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            visible: macroList.showText
+                                            text: "Steps: hotkey · text · wait <ms> · scroll <dir> [n] "
+                                                  + "· media · keyboard · command"
+                                            color: theme.muted; font.pixelSize: 10
+                                            wrapMode: Text.WordWrap
+                                        }
+                                    }
+
+                                    // hotkey helpers: record a live combo or pick a known one
+                                    RowLayout {
+                                        visible: typeBox.currentText === "hotkey"
+                                        Layout.fillWidth: true; spacing: 8
+                                        ActionButton {
+                                            label: "⏺ Record"
+                                            onClicked: root.recordSlot = modelData.slot
+                                        }
+                                        ComboBox {
+                                            id: presetBox
+                                            Layout.fillWidth: true
+                                            textRole: "label"
+                                            // common shortcuts first, then this machine's configured ones
+                                            model: backend.commonHotkeys.concat(backend.systemShortcuts)
+                                            displayText: "Presets…"
+                                            onActivated: {
+                                                var item = model[currentIndex]
+                                                if (item) backend.setActionSlot(modelData.slot, "hotkey", item.value)
+                                            }
+                                        }
+                                    }
+                                    // navigate into a submenu to edit its keys
+                                    ActionButton {
+                                        visible: typeBox.currentText === "submenu" && backend.selectedIsSubmenu
+                                        label: "Open submenu →"
+                                        onClicked: backend.enterSubmenu()
+                                    }
+
+                                    // ---- secondary (fn) binding ----
+                                    // Collapsed unless it has one, so the common
+                                    // case stays a single editor per slot.
+                                    RowLayout {
+                                        Layout.fillWidth: true; spacing: 6
+                                        Text {
+                                            text: "fn"; color: theme.warn
+                                            font.pixelSize: 10; font.bold: true
+                                        }
+                                        ComboBox {
+                                            id: fnTypeBox
+                                            Layout.fillWidth: true
+                                            model: backend.selectedActionTypes
+                                            currentIndex: Math.max(0,
+                                                backend.selectedActionTypes.indexOf(modelData.fnType))
+                                            onActivated: backend.setFnActionSlot(
+                                                modelData.slot, currentText, fnValueField.text)
+                                        }
+                                    }
+                                    ComboBox {
+                                        visible: !!backend.valueOptions[fnTypeBox.currentText]
+                                        Layout.fillWidth: true
+                                        textRole: "label"
+                                        model: backend.valueOptions[fnTypeBox.currentText] || []
+                                        currentIndex: {
+                                            var opts = backend.valueOptions[fnTypeBox.currentText] || []
+                                            for (var i = 0; i < opts.length; i++)
+                                                if (opts[i].value === modelData.fnValue)
+                                                    return i
+                                            return 0
+                                        }
+                                        onActivated: {
+                                            var opts = backend.valueOptions[fnTypeBox.currentText] || []
+                                            if (opts[currentIndex])
+                                                backend.setFnActionSlot(modelData.slot,
+                                                    fnTypeBox.currentText, opts[currentIndex].value)
+                                        }
+                                    }
+                                    TextField {
+                                        id: fnValueField
+                                        Layout.fillWidth: true
+                                        visible: fnTypeBox.currentText !== "none"
+                                                 && fnTypeBox.currentText !== "back"
+                                                 && !backend.valueOptions[fnTypeBox.currentText]
+                                        text: modelData.fnValue
+                                        color: theme.text
+                                        placeholderText: "secondary, used while fn is held"
+                                        placeholderTextColor: theme.muted
+                                        background: Rectangle {
+                                            radius: 6; color: theme.panel2
+                                            border.color: fnValueField.activeFocus ? theme.warn : theme.line
+                                        }
+                                        onEditingFinished: backend.setFnActionSlot(
+                                            modelData.slot, fnTypeBox.currentText, text)
+                                    }
                                 }
                             }
-                        }
+                }
 
-                        // Encoder feel (rotate controls: encoders + CT dial)
-                        ColumnLayout {
-                            id: tuningSection
-                            visible: backend.selectedHasTuning
-                            Layout.fillWidth: true; spacing: 6
+                Section {
+                    title: "Appearance"
+                    visible: backend.selectedHasImage || backend.selectedHasLed
 
-                            // The dropdown is index-based, so map to and from the
-                            // preset id the backend speaks. An empty selectedPreset
-                            // means a hand-edited combination no preset covers; the
-                            // dropdown then shows nothing rather than lying.
-                            function presetIndex(id) {
-                                for (var i = 0; i < backend.tuningPresets.length; i++)
-                                    if (backend.tuningPresets[i].id === id)
-                                        return i
-                                return -1
-                            }
-
-                            // Whatever speed is showing, so the checkboxes can
-                            // resend it without changing it.
-                            function currentPresetId() {
-                                var i = presetBox.currentIndex
-                                return i >= 0 && i < backend.tuningPresets.length
-                                    ? backend.tuningPresets[i].id : "original"
-                            }
-
-                            Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
-                            Text { text: "Encoder feel"; color: theme.muted; font.pixelSize: 12 }
-
-                            RowLayout {
-                                Layout.fillWidth: true; spacing: 8
-                                Text {
-                                    text: "Speed"; color: theme.muted
-                                    font.pixelSize: 12; Layout.preferredWidth: 46
+                            // image section (touch keys / side cells / wheel)
+                            ColumnLayout {
+                                visible: backend.selectedHasImage
+                                Layout.fillWidth: true; spacing: 6
+                                Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
+                                Text { text: "Image"; color: theme.muted; font.pixelSize: 12 }
+                                RowLayout {
+                                    Layout.fillWidth: true; spacing: 10
+                                    Rectangle {
+                                        width: 90; height: 90; radius: 8
+                                        color: theme.panel2; border.color: theme.line
+                                        Image {
+                                            anchors.fill: parent; anchors.margins: 3
+                                            source: backend.selectedImage; visible: source != ""
+                                            fillMode: Image.PreserveAspectFit; asynchronous: true
+                                        }
+                                        Text {
+                                            anchors.centerIn: parent; visible: backend.selectedImage == ""
+                                            text: "none"; color: theme.muted; font.pixelSize: 11
+                                        }
+                                    }
+                                    // helper: the exact device size to make a source
+                                    // image (it's fit, never cropped or stretched)
+                                    ColumnLayout {
+                                        Layout.fillWidth: true; spacing: 4
+                                        Text {
+                                            visible: backend.selectedImageDims !== ""
+                                            Layout.fillWidth: true; wrapMode: Text.WordWrap
+                                            text: "Best size: " + backend.selectedImageDims
+                                            color: theme.text; font.pixelSize: 12; font.bold: true
+                                        }
+                                        Text {
+                                            Layout.fillWidth: true; wrapMode: Text.WordWrap
+                                            text: "Images are scaled to fit, never cropped or stretched. Match this size for a pixel-perfect fill."
+                                            color: theme.muted; font.pixelSize: 10
+                                        }
+                                    }
                                 }
-                                ComboBox {
-                                    id: presetBox
+                                RowLayout {
+                                    Layout.fillWidth: true; spacing: 8
+                                    Button {
+                                        Layout.fillWidth: true; text: "Set image…"
+                                        onClicked: imageDialog.open()
+                                    }
+                                    Button {
+                                        text: "Clear"; enabled: backend.selectedImage != ""
+                                        onClicked: backend.clearImage(backend.selectedControl)
+                                    }
+                                }
+
+                                // ---- text label (on by default; uncheck to hide) ----
+                                Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
+                                RowLayout {
                                     Layout.fillWidth: true
-                                    model: backend.tuningPresets
-                                    textRole: "label"
-                                    currentIndex: tuningSection.presetIndex(backend.selectedPreset)
-                                    onActivated: backend.setTuning(
-                                        backend.tuningPresets[currentIndex].id,
-                                        invertBox.checked, accelBox.checked)
+                                    Text { text: "Label"; color: theme.muted; font.pixelSize: 12
+                                        Layout.fillWidth: true; verticalAlignment: Text.AlignVCenter }
+                                    CheckBox {
+                                        id: labelShow
+                                        text: "Show"
+                                        checked: backend.selectedLabelEnabled
+                                        onToggled: backend.setLabelEnabled(backend.selectedControl, checked)
+                                        contentItem: Text {
+                                            text: labelShow.text; color: theme.text; font.pixelSize: 12
+                                            leftPadding: labelShow.indicator.width + 6
+                                            verticalAlignment: Text.AlignVCenter
+                                        }
+                                    }
+                                }
+                                TextField {
+                                    id: labelField
+                                    Layout.fillWidth: true
+                                    enabled: backend.selectedLabelEnabled
+                                    opacity: enabled ? 1.0 : 0.45
+                                    text: backend.selectedLabelText
+                                    color: theme.text
+                                    placeholderText: "label text (blank = auto from action)"
+                                    placeholderTextColor: theme.muted
+                                    background: Rectangle {
+                                        radius: 6; color: theme.panel2
+                                        border.color: labelField.activeFocus ? theme.accent : theme.line
+                                    }
+                                    onEditingFinished: backend.setLabel(backend.selectedControl,
+                                        text, labelPos.currentText, labelMode.currentText,
+                                        backend.selectedLabelBarColor)
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true; spacing: 8
+                                    enabled: backend.selectedLabelEnabled
+                                    opacity: enabled ? 1.0 : 0.45
+                                    ComboBox {
+                                        id: labelPos
+                                        Layout.fillWidth: true
+                                        model: backend.labelPositions
+                                        currentIndex: Math.max(0, backend.labelPositions.indexOf(backend.selectedLabelPos))
+                                        onActivated: backend.setLabel(backend.selectedControl,
+                                            labelField.text, currentText, labelMode.currentText,
+                                            backend.selectedLabelBarColor)
+                                    }
+                                    ComboBox {
+                                        id: labelMode
+                                        Layout.fillWidth: true
+                                        // shrink only makes sense for a top/bottom band, not middle
+                                        property var modes: labelPos.currentText === "middle"
+                                            ? ["over", "bar"] : backend.labelModes
+                                        model: modes
+                                        currentIndex: Math.max(0, modes.indexOf(backend.selectedLabelMode))
+                                        onActivated: backend.setLabel(backend.selectedControl,
+                                            labelField.text, labelPos.currentText, currentText,
+                                            backend.selectedLabelBarColor)
+                                    }
+                                }
+                                // ---- label bar colour (bar / shrink modes) ----
+                                RowLayout {
+                                    visible: labelMode.currentText === "bar" || labelMode.currentText === "shrink"
+                                    enabled: backend.selectedLabelEnabled
+                                    opacity: enabled ? 1.0 : 0.45
+                                    Layout.fillWidth: true; spacing: 8
+                                    Text { text: "Bar colour"; color: theme.muted; font.pixelSize: 12
+                                        Layout.alignment: Qt.AlignVCenter }
+                                    Rectangle {
+                                        width: 34; height: 22; radius: 6
+                                        color: backend.selectedLabelBarColor !== "" ? backend.selectedLabelBarColor : theme.panel2
+                                        border.color: theme.line
+                                    }
+                                    Button { text: "Pick…"; onClicked: barDialog.open() }
+                                    Button {
+                                        text: "Reset"; enabled: backend.selectedLabelBarColor !== ""
+                                        onClicked: backend.setLabel(backend.selectedControl, labelField.text,
+                                            labelPos.currentText, labelMode.currentText, "")
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                }
+
+                                // ---- background colour (image-bearing controls) ----
+                                Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
+                                Text { text: "Background colour"; color: theme.muted; font.pixelSize: 12 }
+                                RowLayout {
+                                    Layout.fillWidth: true; spacing: 8
+                                    Rectangle {
+                                        width: 40; height: 26; radius: 6
+                                        color: backend.selectedBg !== "" ? backend.selectedBg : theme.panel2
+                                        border.color: theme.line
+                                    }
+                                    Button { Layout.fillWidth: true; text: "Pick…"; onClicked: bgDialog.open() }
+                                    Button {
+                                        text: "Off"; enabled: backend.selectedBg !== ""
+                                        onClicked: backend.setBg(backend.selectedControl, "")
+                                    }
                                 }
                             }
 
-                            CheckBox {
-                                id: invertBox
-                                text: "Invert direction"
-                                checked: backend.selectedInvert
-                                onToggled: backend.setTuning(
-                                    tuningSection.currentPresetId(), checked,
-                                    accelBox.checked)
+                            // LED colour (physical buttons: workspace + CT buttons)
+                            ColumnLayout {
+                                visible: backend.selectedHasLed
+                                Layout.fillWidth: true; spacing: 6
+                                Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
+                                Text { text: "LED colour"; color: theme.muted; font.pixelSize: 12 }
+                                RowLayout {
+                                    Layout.fillWidth: true; spacing: 8
+                                    Rectangle {
+                                        width: 40; height: 26; radius: 6
+                                        color: backend.selectedLed !== "" ? backend.selectedLed : theme.panel2
+                                        border.color: theme.line
+                                    }
+                                    Button {
+                                        Layout.fillWidth: true; text: "Pick…"
+                                        onClicked: ledDialog.open()
+                                    }
+                                    Button {
+                                        text: "Off"; enabled: backend.selectedLed !== ""
+                                        onClicked: backend.setLed(backend.selectedControl, "")
+                                    }
+                                }
                             }
+                }
 
-                            CheckBox {
-                                id: accelBox
-                                text: "Accelerate when spun"
-                                checked: backend.selectedAccel
-                                onToggled: backend.setTuning(
-                                    tuningSection.currentPresetId(),
-                                    invertBox.checked, checked)
-                            }
+                Section {
+                    title: "Advanced"
+                    visible: backend.selectedHasTuning
 
-                            Text {
-                                Layout.fillWidth: true
-                                text: backend.selectedTuningSummary
-                                color: theme.muted; font.pixelSize: 11
-                                wrapMode: Text.WordWrap
+                            // Encoder feel (rotate controls: encoders + CT dial)
+                            ColumnLayout {
+                                id: tuningSection
+                                visible: backend.selectedHasTuning
+                                Layout.fillWidth: true; spacing: 6
+
+                                // The dropdown is index-based, so map to and from the
+                                // preset id the backend speaks. An empty selectedPreset
+                                // means a hand-edited combination no preset covers; the
+                                // dropdown then shows nothing rather than lying.
+                                function presetIndex(id) {
+                                    for (var i = 0; i < backend.tuningPresets.length; i++)
+                                        if (backend.tuningPresets[i].id === id)
+                                            return i
+                                    return -1
+                                }
+
+                                // Whatever speed is showing, so the checkboxes can
+                                // resend it without changing it.
+                                function currentPresetId() {
+                                    var i = presetBox.currentIndex
+                                    return i >= 0 && i < backend.tuningPresets.length
+                                        ? backend.tuningPresets[i].id : "original"
+                                }
+
+                                Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
+                                Text { text: "Encoder feel"; color: theme.muted; font.pixelSize: 12 }
+
+                                RowLayout {
+                                    Layout.fillWidth: true; spacing: 8
+                                    Text {
+                                        text: "Speed"; color: theme.muted
+                                        font.pixelSize: 12; Layout.preferredWidth: 46
+                                    }
+                                    ComboBox {
+                                        id: presetBox
+                                        Layout.fillWidth: true
+                                        model: backend.tuningPresets
+                                        textRole: "label"
+                                        currentIndex: tuningSection.presetIndex(backend.selectedPreset)
+                                        onActivated: backend.setTuning(
+                                            backend.tuningPresets[currentIndex].id,
+                                            invertBox.checked, accelBox.checked)
+                                    }
+                                }
+
+                                CheckBox {
+                                    id: invertBox
+                                    text: "Invert direction"
+                                    checked: backend.selectedInvert
+                                    onToggled: backend.setTuning(
+                                        tuningSection.currentPresetId(), checked,
+                                        accelBox.checked)
+                                }
+
+                                CheckBox {
+                                    id: accelBox
+                                    text: "Accelerate when spun"
+                                    checked: backend.selectedAccel
+                                    onToggled: backend.setTuning(
+                                        tuningSection.currentPresetId(),
+                                        invertBox.checked, checked)
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: backend.selectedTuningSummary
+                                    color: theme.muted; font.pixelSize: 11
+                                    wrapMode: Text.WordWrap
+                                }
                             }
-                        }
+                }
                     }
                 }
             }

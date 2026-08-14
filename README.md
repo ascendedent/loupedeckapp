@@ -145,6 +145,8 @@ middling speeds.
   dynamic mode wants to switch profile mid-edit it waits (shown in the top bar) rather than
   interrupting with a dialog or losing the work.
 - **Copy / paste** a control's entire function onto another compatible control.
+- **Inspector in collapsible sections** (Action, Appearance, Advanced), remembered as you move
+  between controls.
 - **Says what to do when there is nothing to see**: an unbound workspace, a search that matched
   nothing, and an empty profile list each explain themselves rather than looking broken.
 - **Name your workspaces**. The header shows the name of the one on the device and falls back to

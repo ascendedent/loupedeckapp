@@ -50,6 +50,9 @@ class Backend(QObject):
     # tray turned on or off: main() creates or tears the icon down
     trayConfigChanged = Signal()
     setupChanged = Signal()
+    # A line of text for the toast area: things that happened and are done,
+    # where a dialog would be an interruption and the console is invisible.
+    notify = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -65,6 +68,9 @@ class Backend(QObject):
         # Whether the window is on screen. QML owns the window and tells us; the
         # tray needs to know which of show/hide to offer.
         self._window_visible = True
+        # Last device connection state seen, so a reconnect can be announced
+        # once rather than on every state refresh.
+        self._was_connected = False
         # Machine setup (udev rule, input backend, helper tools). Run once at
         # startup and on demand: these are all things the user changes outside
         # the app, so a cached answer is fine until they say they fixed it.
@@ -109,6 +115,12 @@ class Backend(QObject):
         self._ctl.close()
 
     def _on_state_main(self, kind):
+        if kind == "connected":
+            now = self._ctl.connected
+            if now != self._was_connected:
+                self._was_connected = now
+                self.notify.emit("%s connected" % self._ctl.profile.display_name
+                                 if now else "Device disconnected")
         self.stateChanged.emit()
 
     def _on_focus_main(self, wm_class, title):
@@ -1027,6 +1039,7 @@ class Backend(QObject):
     def save(self):
         self._ctl.save()
         self._apply_pending_profile()
+        self.notify.emit("Saved to %s" % self.activeProfile)
         self.selectionChanged.emit()
         self.stateChanged.emit()
 
@@ -1091,6 +1104,7 @@ class Backend(QObject):
             "slots": slots,
             "image": (menu.images.get(key, "") if (menu and self.selectedHasImage) else None),
         }
+        self.notify.emit("Copied %s" % self._label(key))
         self.selectionChanged.emit()
 
     @Slot()
@@ -1103,6 +1117,7 @@ class Backend(QObject):
         img = self._clipboard.get("image")
         if img is not None and self.selectedHasImage:
             self._ctl.set_image(key, img)
+        self.notify.emit("Pasted onto %s" % self._label(key))
         self.stateChanged.emit()
 
     # -- slots -------------------------------------------------------------
@@ -1153,6 +1168,7 @@ class Backend(QObject):
         with open(app_paths.profile_write_path(clean), "w") as f:
             json.dump(cfg.to_JSON(), f, indent=True)
         self._ctl.load_profile(clean)
+        self.notify.emit("Created %s" % clean)
         self.stateChanged.emit()
 
     @Slot(str, str)
@@ -1172,6 +1188,7 @@ class Backend(QObject):
         with open(app_paths.profile_write_path(clean), "w") as f:
             json.dump(data, f, indent=True)
         self._ctl.load_profile(clean)
+        self.notify.emit("Duplicated %s to %s" % (source, clean))
         self.stateChanged.emit()
 
     @Slot(str, str)
@@ -1194,6 +1211,7 @@ class Backend(QObject):
         self._repoint_bindings(old, clean)
         if self._ctl.config.profile == old:
             self._ctl.load_profile(clean)
+        self.notify.emit("Renamed %s to %s" % (old, clean))
         self.stateChanged.emit()
 
     @Slot(str)
@@ -1213,6 +1231,7 @@ class Backend(QObject):
             remaining = self.profiles
             if remaining:
                 self._ctl.load_profile(remaining[0])
+        self.notify.emit("Deleted %s" % name)
         self.stateChanged.emit()
 
     def _repoint_bindings(self, old, new):
@@ -1255,6 +1274,7 @@ class Backend(QObject):
         except (OSError, ValueError) as e:
             return "Could not export: %s" % e
         print("exported '%s' to %s" % (name, path))
+        self.notify.emit("Exported %s" % os.path.basename(path))
         return ""
 
     @Slot(str, result=str)
@@ -1305,6 +1325,7 @@ class Backend(QObject):
             json.dump(data, f, indent=True)
         print("imported %s as '%s'" % (path, name))
         self._ctl.load_profile(name)
+        self.notify.emit("Imported as %s" % name)
         self.stateChanged.emit()
         return ""
 
