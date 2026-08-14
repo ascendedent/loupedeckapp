@@ -362,8 +362,9 @@ loupedeckapp                  # if installed
 Run the checks with `.venv/bin/python tests/run_all.py` (no device needed). Checks that do need
 hardware live in [`scripts/verify/`](scripts/verify/).
 
-**On macOS?** The adapters are written and have never run on a Mac. See
-[docs/MACOS.md](docs/MACOS.md) for what exists and what to check.
+**On macOS?** The adapters are written and have never run on a Mac. If you have one and a
+Loupedeck, [docs/MACOS-TESTING.md](docs/MACOS-TESTING.md) is what to run and what to send back;
+[docs/MACOS.md](docs/MACOS.md) is the same ground for anyone changing the code.
 
 **Have a Live or Live S?** Those models are supported from the library's source and published
 specs, and have never been run on real hardware. [docs/LIVE-TESTING.md](docs/LIVE-TESTING.md) says

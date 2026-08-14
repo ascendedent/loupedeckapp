@@ -7,6 +7,10 @@ based on, and what someone with a Mac would need to check.
 The same arrangement as [LIVE-TESTING.md](LIVE-TESTING.md), for the same
 reason: guesses are more useful when they are labelled.
 
+**Testing it rather than changing it?** [MACOS-TESTING.md](MACOS-TESTING.md) is
+the same ground aimed at someone with a Mac and a device, with the steps to run
+and a template for what to send back.
+
 ---
 
 ## What exists
@@ -93,8 +97,6 @@ python3 -m venv .venv
 
 ## Reporting
 
-Open an issue titled `macOS report:` at
-https://github.com/ascendedent/loupedeckapp/issues with your macOS version, how
-you started the app, and what happened at each step above. Corrections to this
-file are more valuable than anything else, since everything in it is a guess
-until someone says otherwise.
+[MACOS-TESTING.md](MACOS-TESTING.md) has the steps and the template. Corrections
+to this file are more valuable than anything else, since everything in it is a
+guess until someone says otherwise.
