@@ -358,6 +358,8 @@ ApplicationWindow {
     // Unless it is not being discarded: with close-to-tray on, the window is
     // only being hidden, the draft is still there, and a prompt would be an
     // interruption asking about nothing.
+    // Last error from writing the autostart entry, shown next to its switch.
+    property string autostartError: ""
     property bool forceClose: false
     // A quit was asked for (tray menu), as opposed to the window being closed.
     // Closing the window with the tray on does not end the app.
@@ -896,6 +898,30 @@ ApplicationWindow {
                                     checked: backend.startHidden
                                     onToggled: backend.setStartHidden(checked)
                                 }
+                            }
+
+                            Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
+
+                            RowLayout {
+                                Layout.fillWidth: true; spacing: 6
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: "Start with the session"
+                                    color: theme.muted; font.pixelSize: 11
+                                }
+                                Switch {
+                                    objectName: "autostartSwitch"
+                                    checked: backend.autostartEnabled
+                                    onToggled: root.autostartError = backend.setAutostart(checked)
+                                }
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                text: root.autostartError !== "" ? root.autostartError
+                                      : backend.autostartDetail
+                                color: (root.autostartError !== "" || backend.autostartStale)
+                                       ? theme.warn : theme.muted
+                                font.pixelSize: 10; wrapMode: Text.WordWrap
                             }
 
                             Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }

@@ -616,7 +616,7 @@ held profile, because a switch that silently fails to happen is worse than one t
 
 - [x] `pyproject.toml` with a `loupedeckapp` entry point and `[device]` / `[x11]` extras
 - [x] Ship udev rule, ydotool socket drop-in and desktop entry in `packaging/`
-- [x] Automated tests (`tests/`, 450 checks): schema load/migrate, profile resolution,
+- [x] Automated tests (`tests/`, 518 checks): schema load/migrate, profile resolution,
       tuning/dispatch, platform factories, installed-asset layout, per-model control inventory,
       and an offscreen pass over the real QML (`test_ui.py`) for the wiring the core cannot see
 - [x] **Installable from a wheel**: `pip install ".[device]"` gives a `loupedeckapp` command, the
@@ -628,6 +628,10 @@ held profile, because a switch that silently fails to happen is worse than one t
       something is wrong. The commands are selectable text rather than a button that runs them:
       they need root, and an app that asks for a password to run something the user has not read
       is not one to hand a password to.
+- [x] **Autostart** (`autostart.py`): an XDG entry, which KDE and GNOME both read. From a
+      checkout it names the interpreter and script absolutely, since a login session has neither
+      the virtualenv nor the launch directory. A stale entry (app moved, venv rebuilt) is detected
+      and reported: the session still runs it, so nothing otherwise says why the app never started.
 - [ ] **A distro-friendly path** (Flatpak and/or AppImage).
 - [x] **System tray** (`tray.py`): show/hide, live profile with a switcher, dynamic-mode toggle,
       quit. Closing the window hides it; the unsaved-changes guard does not prompt on close (the
@@ -715,7 +719,7 @@ Medium-term (Phase C):
 - [ ] Encoder adjustments: Fast presets, acceleration curve, scroll action (§5.D.1)
 - [ ] Async action dispatch (off the message/callback thread) + rotate coalescing (§5.D.1)
 - [ ] Configurable side-display layout
-- [x] Tray (`tray.py`); autostart and an always-on runtime split still open
+- [x] Tray (`tray.py`) and autostart (`autostart.py`); an always-on runtime split still open
 - [ ] Plugin hooks (later)
 
 ---

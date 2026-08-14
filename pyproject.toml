@@ -66,6 +66,7 @@ py-modules = [
     "platform_env",
     "action_library",
     "app_paths",
+    "autostart",
     "macro",
     "tray",
     "settings",

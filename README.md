@@ -237,6 +237,18 @@ and asks first.
 All of that is under the gear in the top bar, along with brightness. If your desktop has no tray,
 the toggles are disabled and closing the window quits, since hiding it would leave no way back.
 
+### Starting with your session
+
+**Start with the session** writes an XDG autostart entry (`~/.config/autostart/loupedeckapp.desktop`),
+which KDE and GNOME both read. Combine it with **Start hidden** and the app comes up in the tray
+with your profile already on the device.
+
+From a checkout the entry has to name the interpreter and the script by absolute path, because a
+login session has neither your virtualenv nor the directory you launched from. If the app moves or
+its virtualenv is rebuilt elsewhere the entry goes stale, which is otherwise silent: the session
+still runs it and nothing starts. The preferences panel says so when that happens; turn the switch
+off and on again to repoint it.
+
 ### Device permissions
 
 Let your user reach the device without `sudo`. The rule covers all three models:

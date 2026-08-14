@@ -18,6 +18,7 @@ from PySide6.QtQml import QQmlApplicationEngine
 
 import action_library
 import app_paths
+import autostart
 import macro
 import input_backend
 import device_lib
@@ -212,6 +213,30 @@ class Backend(QObject):
         """Whether closing the window should hide it instead of quitting. False
         with no tray to close to: hiding the window then leaves no way back."""
         return self._settings.close_to_tray and tray.available()
+
+    # -- autostart ---------------------------------------------------------
+    @Property(bool, notify=stateChanged)
+    def autostartEnabled(self):
+        return autostart.enabled()
+
+    @Property(bool, notify=stateChanged)
+    def autostartStale(self):
+        """On, but pointing at something else. The session still runs whatever
+        the entry says, so nothing looks wrong until the app never starts."""
+        on, current, _ = autostart.status()
+        return on and not current
+
+    @Property(str, notify=stateChanged)
+    def autostartDetail(self):
+        return autostart.status()[2]
+
+    @Slot(bool, result=str)
+    def setAutostart(self, enabled):
+        """Returns "" or a message: writing into the config directory can fail,
+        and a toggle that silently does not stick is worse than an error."""
+        error = autostart.enable() if enabled else autostart.disable()
+        self.stateChanged.emit()
+        return error
 
     @Property(bool, notify=stateChanged)
     def startHidden(self):

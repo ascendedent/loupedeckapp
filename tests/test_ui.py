@@ -14,6 +14,9 @@ from _harness import Checks
 
 tmp = tempfile.mkdtemp()
 os.environ["LOUPEDECKAPP_CONFIG_DIR"] = os.path.join(tmp, "config")
+# Autostart writes under XDG_CONFIG_HOME. Redirect it too, or toggling the
+# switch below would install a real entry into the developer's session.
+os.environ["XDG_CONFIG_HOME"] = os.path.join(tmp, "config")
 # Forced, not defaulted: a test must never put a window on the desktop.
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
@@ -152,6 +155,18 @@ if prefs is not None:
     prefs.setProperty("visible", True)
     c.eq("and opens", prefs.property("opened"), True)
     prefs.setProperty("visible", False)
+
+# Autostart writes into XDG_CONFIG_HOME, which points at this test's temp
+# directory, so toggling it here cannot touch the real session.
+auto = find("autostartSwitch")
+c.eq("the autostart switch exists", auto is not None, True)
+if auto is not None:
+    c.eq("it starts off", backend.autostartEnabled, False)
+    c.eq("turning it on reports no error", backend.setAutostart(True), "")
+    c.eq("and it reads as on", backend.autostartEnabled, True)
+    c.eq("pointing at this copy", backend.autostartStale, False)
+    c.eq("turning it off again", backend.setAutostart(False), "")
+    c.eq("leaves nothing behind", backend.autostartEnabled, False)
 
 # Brightness moved in there when the top bar ran out of room, so it has to
 # still reach the device settings from its new home.
