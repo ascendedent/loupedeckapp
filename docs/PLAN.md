@@ -632,13 +632,15 @@ held profile, because a switch that silently fails to happen is worse than one t
 - [x] Empty states: nothing bound on the device, no library match, no profiles
 - [x] Toasts for things that happened and are done (saved, copied, imported, device back)
 - [x] Inspector collapsible sections (Action / Appearance / Advanced)
-- [ ] Optional later: split fat `Backend` QObject; photoreal device chrome
+- [x] Split the fat `Backend` QObject: profile and application file handling moved to
+      `profile_store` (Qt-free, 500 lines out of a 2150-line Qt object)
+- [ ] Optional later: photoreal device chrome
 
 ### G. Packaging & distribution (M5 Linux first)
 
 - [x] `pyproject.toml` with a `loupedeckapp` entry point and `[device]` / `[x11]` extras
 - [x] Ship udev rule, ydotool socket drop-in and desktop entry in `packaging/`
-- [x] Automated tests (`tests/`, 874 checks): schema load/migrate, profile resolution,
+- [x] Automated tests (`tests/`, 924 checks): schema load/migrate, profile resolution,
       tuning/dispatch, platform factories, installed-asset layout, per-model control inventory,
       and an offscreen pass over the real QML (`test_ui.py`) for the wiring the core cannot see
 - [x] **Installable from a wheel**: `pip install ".[device]"` gives a `loupedeckapp` command, the
@@ -785,7 +787,8 @@ Medium-term (Phase C):
 - [x] Inspector sections (Action / Appearance / Advanced)
 - [x] Rotary tuning row: Invert checkbox + speed preset dropdown (§5.D.1)
 - [x] Hide empty library categories
-- [ ] Optional: thinner Backend bridge; richer device chrome
+- [x] Thinner Backend bridge (`profile_store`)
+- [ ] Optional: richer device chrome
 
 ---
 

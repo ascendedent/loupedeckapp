@@ -51,3 +51,4 @@ went, which on a multi-monitor desktop is not where the arithmetic said.
 | `test_installed.py` | reading installed applications: desktop entries, bundles, match keys |
 | `test_watchers.py` | reading the focused window per desktop, and choosing a watcher |
 | `test_trash.py` | deleting keeps a copy, without growing without limit |
+| `test_profilestore.py` | profile and application file handling, with no Qt involved |

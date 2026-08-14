@@ -69,6 +69,7 @@ py-modules = [
     "installed_apps",
     "window_watcher",
     "profile_manager",
+    "profile_store",
     "system_shortcuts",
     "platform_env",
     "action_library",

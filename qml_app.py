@@ -28,6 +28,7 @@ import settings as settings_mod
 import setup_check
 import tray
 import platform_env
+import profile_store
 import window_watcher
 import system_shortcuts
 from profile_manager import ProfileManager
@@ -1372,21 +1373,11 @@ class Backend(QObject):
             self._settings.save()
 
     # -- profile lifecycle -------------------------------------------------
-    @staticmethod
-    def _clean_profile_name(name):
-        """A profile name becomes a filename, so keep it to something that
-        cannot escape the Profiles directory or collide with path syntax."""
-        name = (name or "").strip()
-        if not name:
-            return ""
-        bad = set('/\\:*?"<>|')
-        if any(ch in bad for ch in name) or name in (".", ".."):
-            return ""
-        return name
-
+    # -- profiles and applications -----------------------------------------
+    # The file handling lives in profile_store, which is Qt-free and testable
+    # on its own. What is left here is the bridge: which app is on screen, what
+    # the controller should load next, and telling the user what happened.
     def _profile_path(self, name, app=None):
-        """Where a profile *would* be read from, user copy preferred. Scoped to
-        the app on screen unless one is named."""
         return app_paths.profile_read_path(app or self.activeApp, name)
 
     def _ref(self, name, app=None):
@@ -1394,28 +1385,17 @@ class Backend(QObject):
 
     @Property("QStringList", constant=True)
     def profileNameRules(self):
-        return ["Cannot be empty", "No / \\ : * ? \" < > |"]
+        return list(profile_store.NAME_RULES)
 
     @Slot(str, result=str)
     def validateProfileName(self, name):
-        """'' when the name is usable, otherwise why it is not. Lets the UI
+        """"" when the name is usable, otherwise why it is not. Lets the UI
         explain the problem before the button is pressed."""
-        clean = self._clean_profile_name(name)
-        if not clean:
-            return "Enter a name without / \\ : * ? \" < > |"
-        if os.path.exists(self._profile_path(clean)):
-            return "A profile called '%s' already exists" % clean
-        return ""
+        return profile_store.validate_profile(self.activeApp, name)
 
-    # -- application lifecycle ---------------------------------------------
     @Slot(str, result=str)
     def validateAppName(self, name):
-        clean = self._clean_profile_name(name)
-        if not clean:
-            return "Enter a name without / \\ : * ? \" < > |"
-        if clean in app_paths.list_apps():
-            return "An app called '%s' already exists" % clean
-        return ""
+        return profile_store.validate_app(name)
 
     # -- what this machine has installed -----------------------------------
     # Read once: scanning a few hundred desktop entries on every keystroke
@@ -1442,39 +1422,18 @@ class Backend(QObject):
 
     @Slot(str, str)
     def createApp(self, name, match=""):
-        """A new application, with one empty profile in it.
-
-        Empty apps are a trap: the app list would show something that cannot be
-        selected onto the device, so it gets a profile to start from. `match`
-        is the window class that means it is focused, filled in by the picker
-        when the app was chosen from what is installed.
-        """
-        clean = self._clean_profile_name(name)
-        if not clean or clean in app_paths.list_apps():
+        app, error = profile_store.create_app(name, match)
+        if error:
             return
-        app_paths.ensure_user_app_dir(clean)
-        if match:
-            app_paths.set_app_matches(clean, [match])
-        ref = app_paths.make_ref(clean, clean)
-        cfg = apply_default_bindings(LdConfiguration(profile=ref))
-        with open(app_paths.profile_write_path(ref), "w") as f:
-            json.dump(cfg.to_JSON(), f, indent=True)
-        app_paths.set_app_default_profile(clean, clean)
-        self._browsing_app = clean
-        self.notify.emit("Created app %s" % clean)
+        self._browsing_app = app
+        self.notify.emit("Created app %s" % app)
         self.stateChanged.emit()
 
     @Slot(str, str)
     def renameApp(self, old, name):
-        clean = self._clean_profile_name(name)
-        if not clean or not old or clean == old:
+        clean = profile_store.clean_name(name)
+        if profile_store.rename_app(old, name):
             return
-        if clean in app_paths.list_apps() or old == app_paths.DEFAULT_APP:
-            return
-        src = app_paths.user_app_dir(old)
-        if not os.path.isdir(src):
-            return
-        os.rename(src, app_paths.user_app_dir(clean))
         # Every reference to it moves too, or dynamic mode resolves to a folder
         # that is no longer there.
         for binding in self._pm.app_profiles:
@@ -1496,15 +1455,10 @@ class Backend(QObject):
 
     @Slot(str)
     def deleteApp(self, name):
-        """Remove an application and everything in it."""
-        if not name or name == app_paths.DEFAULT_APP:
+        kept, error = profile_store.delete_app(name)
+        if error:
+            print("apps: %s" % error)
             return
-        path = app_paths.user_app_dir(name)
-        if not os.path.isdir(path):
-            return
-        # Into the trash rather than gone: an application is a folder of work.
-        kept = app_paths.trash(path, "app %s" % name,
-                               {"kind": "app", "app": name})
         for ref in [b["profile"] for b in self._pm.app_profiles]:
             if app_paths.split_ref(ref)[0] == name:
                 self._repoint_bindings(ref, None)
@@ -1521,85 +1475,42 @@ class Backend(QObject):
 
     @Slot(str)
     def createProfile(self, name):
-        """New empty profile, saved to disk and loaded."""
-        clean = self._clean_profile_name(name)
-        if not clean or os.path.exists(self._profile_path(clean)):
+        ref, error = profile_store.create_profile(self.activeApp, name)
+        if error:
             return
-        ref = self._ref(clean)
-        cfg = apply_default_bindings(LdConfiguration(profile=ref))
-        with open(app_paths.profile_write_path(ref), "w") as f:
-            json.dump(cfg.to_JSON(), f, indent=True)
-        self._ctl.load_profile(ref)
-        self._remember_profile(ref)
-        self.notify.emit("Created %s" % clean)
-        self.stateChanged.emit()
+        self._load_and_remember(ref)
+        self.notify.emit("Created %s" % app_paths.split_ref(ref)[1])
 
     @Slot(str, str)
     def duplicateProfile(self, source, name):
-        """Copy `source` to `name` and switch to it. Copies the file rather
-        than the in-memory config, so unsaved edits are deliberately not
-        carried over: what you duplicate is what is on disk."""
-        clean = self._clean_profile_name(name)
-        if not clean or not source or os.path.exists(self._profile_path(clean)):
+        ref, error = profile_store.duplicate_profile(self.activeApp, source, name)
+        if error:
             return
-        src = self._profile_path(source)
-        if not os.path.exists(src):
-            return
-        with open(src) as f:
-            data = json.load(f)
-        ref = self._ref(clean)
-        data["profile"] = ref
-        with open(app_paths.profile_write_path(ref), "w") as f:
-            json.dump(data, f, indent=True)
-        self._ctl.load_profile(ref)
-        self._remember_profile(ref)
-        self.notify.emit("Duplicated %s to %s" % (source, clean))
-        self.stateChanged.emit()
+        self._load_and_remember(ref)
+        self.notify.emit("Duplicated %s to %s"
+                         % (source, app_paths.split_ref(ref)[1]))
 
     @Slot(str, str)
     def renameProfile(self, old, name):
-        clean = self._clean_profile_name(name)
-        if not clean or not old or clean == old:
+        ref, old_ref, error = profile_store.rename_profile(
+            self.activeApp, old, name)
+        if error:
             return
-        src = self._profile_path(old)
-        if not os.path.exists(src) or os.path.exists(self._profile_path(clean)):
-            return
-        with open(src) as f:
-            data = json.load(f)
-        ref, old_ref = self._ref(clean), self._ref(old)
-        data["profile"] = ref
-        with open(app_paths.profile_write_path(ref), "w") as f:
-            json.dump(data, f, indent=True)
-        # Only a user copy can be removed; a bundled original stays put, so a
-        # renamed starter profile leaves the original still available.
-        if app_paths.is_user_profile(old_ref):
-            os.remove(app_paths.profile_write_path(old_ref))
         self._repoint_bindings(old_ref, ref)
-        self._repoint_pages(old, clean)
+        self._repoint_pages(old, app_paths.split_ref(ref)[1])
         if self._ctl.config.profile == old_ref:
-            self._ctl.load_profile(ref)
-            self._remember_profile(ref)
-        self.notify.emit("Renamed %s to %s" % (old, clean))
+            self._load_and_remember(ref)
+        self.notify.emit("Renamed %s to %s" % (old, app_paths.split_ref(ref)[1]))
         self.stateChanged.emit()
 
     @Slot(str)
     def deleteProfile(self, name):
-        """Delete a profile and drop any app bindings that pointed at it, so
-        dynamic mode cannot resolve to a profile that no longer exists."""
-        if not name:
+        """Delete a profile and drop anything that pointed at it, so dynamic
+        mode cannot resolve to a profile that no longer exists."""
+        ref, kept, error = profile_store.delete_profile(self.activeApp, name)
+        if error:
+            print("profiles: %s" % error)
             return
-        ref = self._ref(name)
-        if not app_paths.is_user_profile(ref):
-            # Nothing writable to delete: this is a bundled profile, which the
-            # app must not remove from its own installation.
-            print("profiles: '%s' ships with the app and cannot be deleted" % name)
-            return
-        kept = app_paths.trash(
-            app_paths.profile_write_path(ref),
-            "%s %s.json" % (self.activeApp, name),
-            {"kind": "profile", "app": self.activeApp, "name": name})
-        if not kept and os.path.exists(app_paths.profile_write_path(ref)):
-            os.remove(app_paths.profile_write_path(ref))
         self._repoint_bindings(ref, None)
         self._repoint_pages(name, None)
         if self._ctl.config.profile == ref:
@@ -1608,6 +1519,11 @@ class Backend(QObject):
                 self._ctl.load_profile(self._ref(remaining[0]))
         self.notify.emit("Deleted %s%s"
                          % (name, "" if kept else " (no copy kept)"))
+        self.stateChanged.emit()
+
+    def _load_and_remember(self, ref):
+        self._ctl.load_profile(ref)
+        self._remember_profile(ref)
         self.stateChanged.emit()
 
     def _repoint_pages(self, old, new):
@@ -1646,317 +1562,69 @@ class Backend(QObject):
         if changed:
             self._pm.save()
 
-    # -- import / export ---------------------------------------------------
+    # -- import and export --------------------------------------------------
     @Slot(str, str, result=str)
     def exportProfile(self, name, file_url):
-        """Write `name` to a file the user picked. Returns "" or an error.
+        error = profile_store.export_profile(
+            self.activeApp, name, self._local(file_url))
+        if not error:
+            self.notify.emit("Exported %s" % name)
+        return error
 
-        Exports what is on disk, not the in-memory draft, so an export is
-        always something that can be re-imported and reproduced.
-        """
-        path = QUrl(file_url).toLocalFile() if file_url else ""
-        if not name or not path:
-            return "Nothing to export"
-        if not path.lower().endswith(".json"):
-            path += ".json"
-        try:
-            with open(self._profile_path(name)) as f:
-                data = json.load(f)
-            with open(path, "w") as f:
-                json.dump(data, f, indent=True)
-        except (OSError, ValueError) as e:
-            return "Could not export: %s" % e
-        print("exported '%s' to %s" % (name, path))
-        self.notify.emit("Exported %s" % os.path.basename(path))
+    @Slot(str, result=str)
+    def importProfile(self, file_url):
+        name, error = profile_store.import_profile(
+            self.activeApp, self._local(file_url))
+        if error:
+            return error
+        self._load_and_remember(self._ref(name))
+        self.notify.emit("Imported as %s" % name)
         return ""
-
-    # An application is a folder, so sharing one means sharing the folder.
-    # Bundling it into a single file is what makes that something a person can
-    # actually send to somebody.
-    APP_BUNDLE_KIND = "loupedeckapp.application"
 
     @Slot(str, result=str)
     def exportApp(self, file_url):
-        """Write the whole application, profiles and all, to one file."""
-        path = QUrl(file_url).toLocalFile() if file_url else ""
-        app = self.activeApp
-        if not path:
-            return "Nothing to export"
-        if not path.lower().endswith(".json"):
-            path += ".json"
-        names = app_paths.list_profiles(app)
-        if not names:
-            return "'%s' has no profiles to export" % app
-        try:
-            bundle = dict(self._app_bundle(app),
-                          kind=self.APP_BUNDLE_KIND,
-                          schema_version=SCHEMA_VERSION)
-            with open(path, "w") as f:
-                json.dump(bundle, f, indent=True)
-        except (OSError, ValueError) as e:
-            return "Could not export: %s" % e
-        print("exported app '%s' (%d profiles) to %s" % (app, len(names), path))
-        self.notify.emit("Exported %s" % os.path.basename(path))
-        return ""
-
-    BACKUP_KIND = "loupedeckapp.backup"
-
-    def _app_bundle(self, app):
-        """One application as data. Shared by the app export and the backup."""
-        bundle = {
-            "app": app,
-            "match": app_paths.app_matches(app),
-            "default_profile": app_paths.app_default_profile(app),
-            "pages": app_paths.app_pages(app),
-            "profiles": {},
-        }
-        for name in app_paths.list_profiles(app):
-            with open(self._profile_path(name, app)) as f:
-                bundle["profiles"][name] = json.load(f)
-        return bundle
-
-    @Slot(str, result=str)
-    def exportEverything(self, file_url):
-        """Every application, plus the dynamic bindings and preferences.
-
-        The thing to keep before reinstalling, or to carry to another machine.
-        Profiles that ship with the app are included: a backup you have to
-        reconstruct from two sources is not a backup.
-        """
-        path = QUrl(file_url).toLocalFile() if file_url else ""
-        if not path:
-            return "Nothing to export"
-        if not path.lower().endswith(".json"):
-            path += ".json"
-        backup = {
-            "kind": self.BACKUP_KIND,
-            "schema_version": SCHEMA_VERSION,
-            "apps": [],
-            "settings": dict(self._settings.values),
-            "dynamic": {
-                "dynamic_mode": self._pm.dynamic_mode,
-                "default_profile": self._pm.default_profile,
-                "app_profiles": self._pm.app_profiles,
-            },
-        }
-        try:
-            for app in app_paths.list_apps():
-                bundle = self._app_bundle(app)
-                if bundle["profiles"]:
-                    backup["apps"].append(bundle)
-            with open(path, "w") as f:
-                json.dump(backup, f, indent=True)
-        except (OSError, ValueError) as e:
-            return "Could not export: %s" % e
-        count = sum(len(a["profiles"]) for a in backup["apps"])
-        print("backed up %d applications, %d profiles to %s"
-              % (len(backup["apps"]), count, path))
-        self.notify.emit("Backed up %d profiles" % count)
-        return ""
-
-    @Slot(str, result=str)
-    def importEverything(self, file_url):
-        """Restore a backup, adding rather than replacing.
-
-        Every application arrives as a new one, suffixed if the name is taken,
-        because a restore that overwrites is a restore you cannot undo. Sorting
-        out the duplicates afterwards is tedious; losing today's work is not
-        recoverable.
-
-        Preferences and dynamic bindings are deliberately not restored: they
-        point at profiles by name, and after suffixing those names no longer
-        mean what the file said.
-        """
-        path = QUrl(file_url).toLocalFile() if file_url else ""
-        if not path:
-            return "No file chosen"
-        try:
-            with open(path) as f:
-                backup = json.load(f)
-        except OSError as e:
-            return "Could not read the file: %s" % e
-        except ValueError:
-            return "That file is not valid JSON"
-        if not isinstance(backup, dict) or backup.get("kind") != self.BACKUP_KIND:
-            return ("That is not a backup. A single application imports with "
-                    "Import app, a single profile with Import.")
-        apps = backup.get("apps")
-        if not isinstance(apps, list) or not apps:
-            return "That backup has nothing in it"
-        version = backup.get("schema_version", 1)
-        try:
-            if int(version) > SCHEMA_VERSION:
-                return ("Backup is schema v%s; this build understands v%s"
-                        % (version, SCHEMA_VERSION))
-        except (TypeError, ValueError):
-            return "Backup has an unreadable schema_version"
-
-        restored, profiles = [], 0
-        for bundle in apps:
-            if not isinstance(bundle, dict):
-                continue
-            payload = dict(bundle)
-            payload["kind"] = self.APP_BUNDLE_KIND
-            payload["schema_version"] = version
-            error = self._restore_app(payload)
-            if error:
-                return "Could not restore '%s': %s" % (bundle.get("app"), error)
-            restored.append(payload["app"])
-            profiles += len(payload.get("profiles") or {})
-        self.notify.emit("Restored %d applications, %d profiles"
-                         % (len(restored), profiles))
-        self.stateChanged.emit()
-        return ""
-
-    def _restore_app(self, bundle):
-        """Write one application bundle in as a new app. "" or an error."""
-        profiles = bundle.get("profiles")
-        if not isinstance(profiles, dict) or not profiles:
-            return "it has no profiles"
-        for name, data in profiles.items():
-            if not self._clean_profile_name(name):
-                return "profile name '%s' cannot be used" % name
-            try:
-                LdConfiguration().from_JSON(data)
-            except Exception as e:
-                return "profile '%s' is unreadable: %s" % (name, e)
-        base = self._clean_profile_name(bundle.get("app") or "")
-        if not base:
-            return "it has no usable name"
-        app, n = base, 2
-        while app in app_paths.list_apps():
-            app, n = "%s %d" % (base, n), n + 1
-        bundle["app"] = app
-        app_paths.ensure_user_app_dir(app)
-        for name, data in profiles.items():
-            data["profile"] = app_paths.make_ref(app, name)
-            with open(app_paths.profile_write_path(app, name), "w") as f:
-                json.dump(data, f, indent=True)
-        app_paths.set_app_matches(app, bundle.get("match") or [])
-        app_paths.set_app_pages(app, bundle.get("pages") or [])
-        default = bundle.get("default_profile")
-        if default in profiles:
-            app_paths.set_app_default_profile(app, default)
-        return ""
+        error = profile_store.export_app(self.activeApp, self._local(file_url))
+        if not error:
+            self.notify.emit("Exported %s" % self.activeApp)
+        return error
 
     @Slot(str, result=str)
     def importApp(self, file_url):
-        """Read an exported application in as a new one.
-
-        Validated before anything is written, and never merged into an existing
-        app: a name that is taken gets a numbered suffix, so importing someone
-        else's Premiere setup cannot quietly overwrite yours.
-        """
-        path = QUrl(file_url).toLocalFile() if file_url else ""
-        if not path:
-            return "No file chosen"
-        try:
-            with open(path) as f:
-                bundle = json.load(f)
-        except OSError as e:
-            return "Could not read the file: %s" % e
-        except ValueError:
-            return "That file is not valid JSON"
-
-        if not isinstance(bundle, dict) or bundle.get("kind") != self.APP_BUNDLE_KIND:
-            return ("That is not an exported application. A single profile "
-                    "imports with Import in the profile list.")
-        profiles = bundle.get("profiles")
-        if not isinstance(profiles, dict) or not profiles:
-            return "That application has no profiles in it"
-        version = bundle.get("schema_version", 1)
-        try:
-            if int(version) > SCHEMA_VERSION:
-                return ("Application is schema v%s; this build understands v%s"
-                        % (version, SCHEMA_VERSION))
-        except (TypeError, ValueError):
-            return "Application has an unreadable schema_version"
-        # Prove every profile loads before any of them appears in the list.
-        for name, data in profiles.items():
-            if not self._clean_profile_name(name):
-                return "Profile name '%s' cannot be used" % name
-            try:
-                LdConfiguration().from_JSON(data)
-            except Exception as e:
-                return "Profile '%s' could not be read: %s: %s" % (
-                    name, type(e).__name__, e)
-
-        base = self._clean_profile_name(bundle.get("app") or "")
-        if not base:
-            return "Application has no usable name"
-        app, n = base, 2
-        while app in app_paths.list_apps():
-            app, n = "%s %d" % (base, n), n + 1
-
-        app_paths.ensure_user_app_dir(app)
-        for name, data in profiles.items():
-            data["profile"] = app_paths.make_ref(app, name)
-            with open(app_paths.profile_write_path(app, name), "w") as f:
-                json.dump(data, f, indent=True)
-        app_paths.set_app_matches(app, bundle.get("match") or [])
-        app_paths.set_app_pages(app, bundle.get("pages") or [])
-        default = bundle.get("default_profile")
-        if default in profiles:
-            app_paths.set_app_default_profile(app, default)
-        print("imported app '%s' (%d profiles) from %s"
-              % (app, len(profiles), path))
+        app, error = profile_store.import_app(self._local(file_url))
+        if error:
+            return error
         self._browsing_app = app
         self.notify.emit("Imported %s" % app)
         self.stateChanged.emit()
         return ""
 
     @Slot(str, result=str)
-    def importProfile(self, file_url):
-        """Read a profile file into the user's profile directory.
+    def exportEverything(self, file_url):
+        profiles, error = profile_store.export_backup(
+            self._local(file_url), self._settings.values,
+            {"dynamic_mode": self._pm.dynamic_mode,
+             "default_profile": self._pm.default_profile,
+             "app_profiles": self._pm.app_profiles})
+        if not error:
+            self.notify.emit("Backed up %d profiles" % profiles)
+        return error
 
-        Validates before writing: an unreadable or wrong-shaped file must not
-        land in the profile list as something that fails only when loaded. The
-        name comes from the file, with a numeric suffix if it is taken, so an
-        import never silently overwrites an existing profile.
-        """
-        path = QUrl(file_url).toLocalFile() if file_url else ""
-        if not path:
-            return "No file chosen"
-        try:
-            with open(path) as f:
-                data = json.load(f)
-        except OSError as e:
-            return "Could not read the file: %s" % e
-        except ValueError:
-            return "That file is not valid JSON"
-
-        if not isinstance(data, dict) or "workspaces" not in data:
-            return "That does not look like a profile (no workspaces)"
-        version = data.get("schema_version", 1)
-        try:
-            if int(version) > SCHEMA_VERSION:
-                return ("Profile is schema v%s; this build understands v%s"
-                        % (version, SCHEMA_VERSION))
-        except (TypeError, ValueError):
-            return "Profile has an unreadable schema_version"
-        # Prove it actually loads before it appears in the list.
-        try:
-            LdConfiguration().from_JSON(data)
-        except Exception as e:
-            return "Profile could not be read: %s: %s" % (type(e).__name__, e)
-
-        base = self._clean_profile_name(
-            data.get("profile") or os.path.splitext(os.path.basename(path))[0])
-        if not base:
-            return "Profile has no usable name"
-        name, n = base, 2
-        while os.path.exists(self._profile_path(name)):
-            name, n = "%s %d" % (base, n), n + 1
-
-        ref = self._ref(name)
-        data["profile"] = ref
-        with open(app_paths.profile_write_path(ref), "w") as f:
-            json.dump(data, f, indent=True)
-        print("imported %s as '%s'" % (path, ref))
-        self._ctl.load_profile(ref)
-        self.notify.emit("Imported as %s" % name)
+    @Slot(str, result=str)
+    def importEverything(self, file_url):
+        apps, profiles, error = profile_store.import_backup(self._local(file_url))
+        if error:
+            return error
+        self.notify.emit("Restored %d applications, %d profiles"
+                         % (len(apps), profiles))
         self.stateChanged.emit()
         return ""
+
+    @staticmethod
+    def _local(file_url):
+        """A file:// URL from a dialog as a path. QML deals in URLs; nothing
+        below this line should have to know that."""
+        return QUrl(file_url).toLocalFile() if file_url else ""
+
 
     # -- dynamic mode: focused app -> profile bindings ---------------------
     @Property("QVariantList", notify=stateChanged)

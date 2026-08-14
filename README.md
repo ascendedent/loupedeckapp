@@ -444,6 +444,7 @@ The core is Qt-free and layered, so the UI sits on top of reusable services:
 | `DeviceProfile` | Per-model geometry (screens, key maps) + USB-PID model detection. |
 | `ct_support` | Runtime support for the CT wheel / dial / buttons over the vendored library. |
 | `input_backend` | OS input: ydotool → xdotool → pyautogui, auto-selected. |
+| `profile_store` | Creating, copying, deleting, importing and exporting profiles and applications on disk. Qt-free. |
 | `window_watcher` / `profile_manager` | Focused-app detection, and resolving it to an application, a page and a profile. |
 | `device_controller` | Connect, render a profile to the device, route events to actions, and dispatch rotate events through a coalescing queue. |
 | `LdConfiguration` | Profile data model + JSON persistence (schema v5), incl. encoder tuning. |
