@@ -33,48 +33,49 @@ from qml_app import Backend                                       # noqa: E402
 
 backend = Backend()
 
-available = app_paths.list_profiles()
-c.eq("the shipped profiles are visible",
-     "Starter" in available and "testbothactions" in available, True)
+available = app_paths.list_all_profiles()
+c.eq("the shipped profiles are visible, inside the default app",
+     "Default/Starter" in available and "Default/testbothactions" in available,
+     True)
 
 # -- first run ---------------------------------------------------------------
 c.eq("nothing has been opened before", backend._settings.last_profile, "")
 c.eq("so a first run opens the starter",
-     backend._startup_profile(), "Starter")
+     backend._startup_profile(), "Default/Starter")
 
 # -- afterwards --------------------------------------------------------------
 backend.loadProfile("testbothactions")
-c.eq("opening one records it",
-     backend._settings.last_profile, "testbothactions")
+c.eq("opening one records it by reference",
+     backend._settings.last_profile, "Default/testbothactions")
 c.eq("and it is what the next launch would open",
-     backend._startup_profile(), "testbothactions")
+     backend._startup_profile(), "Default/testbothactions")
 c.eq("the choice survives a restart",
-     Backend()._startup_profile(), "testbothactions")
+     Backend()._startup_profile(), "Default/testbothactions")
 
 # -- a profile that has gone away --------------------------------------------
-backend._settings.last_profile = "deleted-by-hand"
+backend._settings.last_profile = "Default/deleted-by-hand"
 c.eq("a remembered profile that no longer exists falls back to the starter",
-     backend._startup_profile(), "Starter")
+     backend._startup_profile(), "Default/Starter")
 
 # -- neither ------------------------------------------------------------------
-real_list = app_paths.list_profiles
-app_paths.list_profiles = lambda: ["something-else"]
+real_list = app_paths.list_all_profiles
+app_paths.list_all_profiles = lambda: ["Other/something-else"]
 try:
     c.eq("with no starter, whatever exists is opened",
-         backend._startup_profile(), "something-else")
-    app_paths.list_profiles = lambda: []
+         backend._startup_profile(), "Other/something-else")
+    app_paths.list_all_profiles = lambda: []
     c.eq("with nothing at all, nothing is opened rather than guessed",
          backend._startup_profile(), "")
 finally:
-    app_paths.list_profiles = real_list
+    app_paths.list_all_profiles = real_list
 
 # -- dynamic mode must not overwrite the memory ------------------------------
 # It switches profiles constantly; remembering those would mean the app opens
 # wherever you last happened to be looking, not what you chose.
-backend._settings.last_profile = "Starter"
-backend._ctl.load_profile("testbothactions")      # what dynamic mode calls
+backend._settings.last_profile = "Default/Starter"
+backend._ctl.load_profile("Default/testbothactions")   # what dynamic mode calls
 c.eq("a switch the user did not make is not remembered",
-     backend._settings.last_profile, "Starter")
+     backend._settings.last_profile, "Default/Starter")
 
 backend.shutdown()
 # Leave without unwinding: Qt objects outliving the interpreter's teardown make

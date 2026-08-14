@@ -24,8 +24,10 @@ from DeviceProfile import DeviceProfile, MODEL_CT, MODEL_LIVE_S   # noqa: E402
 
 c = Checks()
 
+APP = "Default"
 NAME = "Starter"
-path = os.path.join(REPO, "Profiles", NAME + ".json")
+REF = "%s/%s" % (APP, NAME)
+path = os.path.join(REPO, "Profiles", APP, NAME + ".json")
 c.eq("the starter profile ships", os.path.exists(path), True)
 
 with open(path) as f:
@@ -33,11 +35,11 @@ with open(path) as f:
 
 c.eq("it is written at the current schema",
      raw.get("schema_version"), SCHEMA_VERSION)
-c.eq("and knows its own name", raw.get("profile"), NAME)
+c.eq("and knows which app it belongs to", raw.get("profile"), REF)
 
 cfg = LdConfiguration()
-cfg.load(NAME)
-c.eq("it loads through the normal path", cfg.profile, NAME)
+cfg.load(REF)
+c.eq("it loads through the normal path", cfg.profile, REF)
 
 # -- what is in it -----------------------------------------------------------
 named = [ws.name for ws in cfg.workspaces if ws.name]
@@ -158,6 +160,7 @@ c.eq("the generator reproduces the shipped file exactly",
      json.loads(json.dumps(raw, sort_keys=True)))
 
 # -- it is the first-run default --------------------------------------------
-c.eq("it is visible to the profile list", NAME in app_paths.list_profiles(), True)
+c.eq("it is visible in the default app's profile list",
+     NAME in app_paths.list_profiles(APP), True)
 
 sys.exit(c.done())

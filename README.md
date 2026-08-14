@@ -162,8 +162,9 @@ middling speeds.
   the way while you are typing in a field.
 - **Import / export** profiles as JSON. Importing checks the file before adding it, and never
   overwrites an existing profile: a name that is taken gets a numbered suffix.
-- **Dynamic mode**: switches the active profile when the focused desktop app changes (KDE Wayland,
-  via KWin scripting).
+- **Dynamic mode**: switches the deck to follow what you are doing, on two levels. Focus an
+  application and its profile loads; change what that application is showing and a **page** inside
+  it can load a different profile again (KDE Wayland, via KWin scripting).
 - **Brightness** control, remembered between runs and re-applied on reconnect.
 - **Tells you when input is broken** rather than silently doing nothing, with the reason and a
   re-check button.
@@ -171,6 +172,38 @@ middling speeds.
   back, returning to the workspace you were on. No restart needed.
 - JSON profiles (schema v8, backward compatible with older profiles; unknown fields
   written by a newer build survive a load/save round-trip).
+
+### Applications, profiles and pages
+
+The same shape as the official software:
+
+- An **application** is the top level: Premiere Pro, OBS, or **Default** for everything else. It
+  owns its profiles, and it carries the window classes that mean it is in front.
+- A **profile** is one full deck: every key, encoder, label and colour, across eight workspaces.
+  Profiles belong to an application, so two applications can both have a profile called "Edit"
+  without one meaning the other.
+- A **page** switches profile *inside* an application. Premiere Pro is one app, but Cut, Edit and
+  Sound each want a different deck. A page matches on the window title, which is the only signal
+  finer than the window class that a Linux compositor gives us, and the first matching page wins,
+  so their order is their precedence.
+
+Resolution goes application, then page, then the app's own default profile, then the global
+fallback. On disk that hierarchy is just directories:
+
+```
+~/.config/loupedeckapp/Profiles/
+├── Default/
+│   ├── app.json          which profile this app uses, and what focuses it
+│   └── Starter.json
+└── Premiere Pro/
+    ├── app.json
+    ├── Cut.json
+    └── Sound.json
+```
+
+Profiles written before applications existed are moved into **Default** the first time you run a
+build that has them. Nothing is lost and nothing is copied: a copy would leave an old file where
+the app no longer looks.
 
 ### Where your data lives
 
@@ -370,7 +403,7 @@ The core is Qt-free and layered, so the UI sits on top of reusable services:
 | `DeviceProfile` | Per-model geometry (screens, key maps) + USB-PID model detection. |
 | `ct_support` | Runtime support for the CT wheel / dial / buttons over the vendored library. |
 | `input_backend` | OS input: ydotool → xdotool → pyautogui, auto-selected. |
-| `window_watcher` / `profile_manager` | Focused-app detection + per-app profile bindings (dynamic mode). |
+| `window_watcher` / `profile_manager` | Focused-app detection, and resolving it to an application, a page and a profile. |
 | `device_controller` | Connect, render a profile to the device, route events to actions, and dispatch rotate events through a coalescing queue. |
 | `LdConfiguration` | Profile data model + JSON persistence (schema v5), incl. encoder tuning. |
 | `platform_env` | The only module that reads `sys.platform` / `XDG_*` / `DISPLAY`. |

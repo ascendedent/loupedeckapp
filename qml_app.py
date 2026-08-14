@@ -8,6 +8,7 @@ Run:  QT_QPA_PLATFORM=xcb .venv/bin/python qml_app.py
 """
 
 import os
+import shutil
 import sys
 import glob
 import json
@@ -63,6 +64,10 @@ class Backend(QObject):
         # own window first, so polling at click time would always answer
         # "Loupedeck Config"; remember what you were actually in instead.
         self._last_app = ""
+        # Title of that window, which is what an app's pages match on.
+        self._last_title = ""
+        # An app being browsed that is not the loaded profile's, or "".
+        self._browsing_app = ""
         # A profile switch dynamic mode wanted to make while edits were unsaved.
         self._pending_profile = ""
         # Whether the window is on screen. QML owns the window and tells us; the
@@ -106,17 +111,18 @@ class Backend(QObject):
     STARTER_PROFILE = "Starter"
 
     def _startup_profile(self):
-        """Which profile to open on launch.
+        """Which profile to open on launch, as an "App/Profile" reference.
 
         The one you had open last, so the device comes back the way you left
         it. Failing that the starter, so a first run is a working deck rather
         than a blank one. Failing that whatever exists, because a profile list
         with something in it and nothing loaded is a confusing place to start.
         """
-        available = app_paths.list_profiles()
+        available = app_paths.list_all_profiles()
         if not available:
             return ""
-        for candidate in (self._settings.last_profile, self.STARTER_PROFILE):
+        starter = app_paths.make_ref(app_paths.DEFAULT_APP, self.STARTER_PROFILE)
+        for candidate in (self._settings.last_profile, starter):
             if candidate and candidate in available:
                 return candidate
         return available[0]
@@ -151,9 +157,13 @@ class Backend(QObject):
             if wm_class != self._last_app:
                 self._last_app = wm_class
                 self.stateChanged.emit()      # refresh the bind button's label
+            # Kept for the pages editor, which matches on the title: you cannot
+            # write a rule for a window you cannot see the title of.
+            self._last_title = title or ""
         if not self._pm.dynamic_mode:
             return
-        name = self._pm.resolve(wm_class)
+        # Title as well as class: an app's pages are told apart by it.
+        name = self._pm.resolve(wm_class, title)
         if not name or name == self._ctl.config.profile:
             return
         if self._ctl.dirty:
@@ -414,13 +424,129 @@ class Backend(QObject):
     def dynamicMode(self):
         return self._pm.dynamic_mode
 
+    # -- applications and their profiles -----------------------------------
+    # An application owns a folder of profiles and the window classes that mean
+    # it is in front. The profile list in the UI is always the current app's.
+    @Property(str, notify=stateChanged)
+    def activeRef(self):
+        """The full "App/Profile" reference of what is loaded."""
+        return self._ctl.config.profile or ""
+
+    @Property(str, notify=stateChanged)
+    def activeApp(self):
+        """The app being edited. Normally the loaded profile's, but it can be
+        switched to browse another app without loading anything from it."""
+        if self._browsing_app:
+            return self._browsing_app
+        return app_paths.split_ref(self.activeRef)[0]
+
     @Property(str, notify=stateChanged)
     def activeProfile(self):
-        return self._ctl.config.profile or "(none)"
+        name = app_paths.split_ref(self.activeRef)[1]
+        return name or "(none)"
+
+    @Property(bool, notify=stateChanged)
+    def activeProfileInApp(self):
+        """Whether the loaded profile belongs to the app on screen. False while
+        browsing another app, where the profile list highlights nothing."""
+        return app_paths.split_ref(self.activeRef)[0] == self.activeApp
+
+    @Property("QStringList", notify=stateChanged)
+    def apps(self):
+        return app_paths.list_apps()
 
     @Property("QStringList", notify=stateChanged)
     def profiles(self):
-        return app_paths.list_profiles()
+        return app_paths.list_profiles(self.activeApp)
+
+    @Slot(str)
+    def selectApp(self, app):
+        """Show an app's profiles. Deliberately does not load one: switching
+        app in the UI should not change what the device is doing until a
+        profile is picked."""
+        if app in app_paths.list_apps():
+            self._browsing_app = ("" if app == app_paths.split_ref(self.activeRef)[0]
+                                  else app)
+            self.stateChanged.emit()
+
+    @Property("QStringList", notify=stateChanged)
+    def appMatches(self):
+        """Window classes that make the current app the focused one."""
+        return app_paths.app_matches(self.activeApp)
+
+    @Slot(str)
+    def addAppMatch(self, wm_class):
+        wm_class = (wm_class or "").strip()
+        if not wm_class:
+            return
+        matches = app_paths.app_matches(self.activeApp)
+        if wm_class.lower() not in [m.lower() for m in matches]:
+            app_paths.set_app_matches(self.activeApp, matches + [wm_class])
+        self.stateChanged.emit()
+
+    @Slot(str)
+    def removeAppMatch(self, wm_class):
+        matches = [m for m in app_paths.app_matches(self.activeApp)
+                   if m.lower() != (wm_class or "").lower()]
+        app_paths.set_app_matches(self.activeApp, matches)
+        self.stateChanged.emit()
+
+    @Property(str, notify=stateChanged)
+    def appDefaultProfile(self):
+        """The profile dynamic mode loads for this app when no page matches."""
+        return app_paths.app_default_profile(self.activeApp)
+
+    @Slot(str)
+    def setAppDefaultProfile(self, name):
+        app_paths.set_app_default_profile(self.activeApp, name)
+        self.stateChanged.emit()
+
+    # -- pages inside an application ---------------------------------------
+    @Property(str, notify=stateChanged)
+    def focusedTitle(self):
+        """Title of the last window that was not ours, for writing a page rule
+        against. A rule for a title you cannot see is guesswork."""
+        return self._last_title
+
+    @Property("QVariantList", notify=stateChanged)
+    def appPages(self):
+        return app_paths.app_pages(self.activeApp)
+
+    @Slot(str, str, str)
+    def addAppPage(self, name, match, profile):
+        """A page is a named window-title rule pointing at one of this app's
+        profiles: Premiere Pro is one app, but Cut, Edit and Sound each want a
+        different deck."""
+        name = (name or "").strip()
+        profile = (profile or "").strip()
+        if not name or profile not in app_paths.list_profiles(self.activeApp):
+            return
+        pages = [p for p in app_paths.app_pages(self.activeApp)
+                 if p["name"].lower() != name.lower()]
+        pages.append({"name": name, "match": (match or "").strip(),
+                      "profile": profile})
+        app_paths.set_app_pages(self.activeApp, pages)
+        self.notify.emit("Page '%s' set" % name)
+        self.stateChanged.emit()
+
+    @Slot(str)
+    def removeAppPage(self, name):
+        pages = [p for p in app_paths.app_pages(self.activeApp)
+                 if p["name"].lower() != (name or "").lower()]
+        app_paths.set_app_pages(self.activeApp, pages)
+        self.stateChanged.emit()
+
+    @Slot(int, int)
+    def moveAppPage(self, index, delta):
+        """Pages are tried in order, so their order is the precedence and has
+        to be editable."""
+        pages = app_paths.app_pages(self.activeApp)
+        target = index + delta
+        if not (0 <= index < len(pages) and 0 <= target < len(pages)):
+            return
+        pages[index], pages[target] = pages[target], pages[index]
+        app_paths.set_app_pages(self.activeApp, pages)
+        self.stateChanged.emit()
 
     @Property("QStringList", constant=True)
     def actionCategories(self):
@@ -1176,8 +1302,11 @@ class Backend(QObject):
     # -- slots -------------------------------------------------------------
     @Slot(str)
     def loadProfile(self, name):
-        self._ctl.load_profile(name)
-        self._remember_profile(name)
+        """`name` is a profile in the app on screen, or a full reference."""
+        ref = name if app_paths.REF_SEP in (name or "") else self._ref(name)
+        self._ctl.load_profile(ref)
+        self._remember_profile(ref)
+        self._browsing_app = ""
         self.stateChanged.emit()
 
     def _remember_profile(self, name):
@@ -1204,9 +1333,13 @@ class Backend(QObject):
             return ""
         return name
 
-    def _profile_path(self, name):
-        """Where a profile *would* be read from, user copy preferred."""
-        return app_paths.profile_read_path(name)
+    def _profile_path(self, name, app=None):
+        """Where a profile *would* be read from, user copy preferred. Scoped to
+        the app on screen unless one is named."""
+        return app_paths.profile_read_path(app or self.activeApp, name)
+
+    def _ref(self, name, app=None):
+        return app_paths.make_ref(app or self.activeApp, name)
 
     @Property("QStringList", constant=True)
     def profileNameRules(self):
@@ -1223,17 +1356,100 @@ class Backend(QObject):
             return "A profile called '%s' already exists" % clean
         return ""
 
+    # -- application lifecycle ---------------------------------------------
+    @Slot(str, result=str)
+    def validateAppName(self, name):
+        clean = self._clean_profile_name(name)
+        if not clean:
+            return "Enter a name without / \\ : * ? \" < > |"
+        if clean in app_paths.list_apps():
+            return "An app called '%s' already exists" % clean
+        return ""
+
+    @Slot(str)
+    def createApp(self, name):
+        """A new application, with one empty profile in it.
+
+        Empty apps are a trap: the app list would show something that cannot be
+        selected onto the device, so it gets a profile to start from.
+        """
+        clean = self._clean_profile_name(name)
+        if not clean or clean in app_paths.list_apps():
+            return
+        app_paths.ensure_user_app_dir(clean)
+        ref = app_paths.make_ref(clean, clean)
+        cfg = apply_default_bindings(LdConfiguration(profile=ref))
+        with open(app_paths.profile_write_path(ref), "w") as f:
+            json.dump(cfg.to_JSON(), f, indent=True)
+        app_paths.set_app_default_profile(clean, clean)
+        self._browsing_app = clean
+        self.notify.emit("Created app %s" % clean)
+        self.stateChanged.emit()
+
+    @Slot(str, str)
+    def renameApp(self, old, name):
+        clean = self._clean_profile_name(name)
+        if not clean or not old or clean == old:
+            return
+        if clean in app_paths.list_apps() or old == app_paths.DEFAULT_APP:
+            return
+        src = app_paths.user_app_dir(old)
+        if not os.path.isdir(src):
+            return
+        os.rename(src, app_paths.user_app_dir(clean))
+        # Every reference to it moves too, or dynamic mode resolves to a folder
+        # that is no longer there.
+        for binding in self._pm.app_profiles:
+            b_app, b_name = app_paths.split_ref(binding["profile"])
+            if b_app == old:
+                binding["profile"] = app_paths.make_ref(clean, b_name)
+        if self._pm.default_profile:
+            d_app, d_name = app_paths.split_ref(self._pm.default_profile)
+            if d_app == old:
+                self._pm.default_profile = app_paths.make_ref(clean, d_name)
+        self._pm.save()
+        cur_app, cur_name = app_paths.split_ref(self.activeRef)
+        if cur_app == old:
+            self._ctl.config.profile = app_paths.make_ref(clean, cur_name)
+        if self._browsing_app == old:
+            self._browsing_app = clean
+        self.notify.emit("Renamed app %s to %s" % (old, clean))
+        self.stateChanged.emit()
+
+    @Slot(str)
+    def deleteApp(self, name):
+        """Remove an application and everything in it."""
+        if not name or name == app_paths.DEFAULT_APP:
+            return
+        path = app_paths.user_app_dir(name)
+        if not os.path.isdir(path):
+            return
+        shutil.rmtree(path)
+        for ref in [b["profile"] for b in self._pm.app_profiles]:
+            if app_paths.split_ref(ref)[0] == name:
+                self._repoint_bindings(ref, None)
+        if self._browsing_app == name:
+            self._browsing_app = ""
+        if app_paths.split_ref(self.activeRef)[0] == name:
+            fallback = app_paths.list_profiles(app_paths.DEFAULT_APP)
+            if fallback:
+                self._ctl.load_profile(
+                    app_paths.make_ref(app_paths.DEFAULT_APP, fallback[0]))
+        self.notify.emit("Deleted app %s" % name)
+        self.stateChanged.emit()
+
     @Slot(str)
     def createProfile(self, name):
         """New empty profile, saved to disk and loaded."""
         clean = self._clean_profile_name(name)
         if not clean or os.path.exists(self._profile_path(clean)):
             return
-        cfg = apply_default_bindings(LdConfiguration(profile=clean))
-        with open(app_paths.profile_write_path(clean), "w") as f:
+        ref = self._ref(clean)
+        cfg = apply_default_bindings(LdConfiguration(profile=ref))
+        with open(app_paths.profile_write_path(ref), "w") as f:
             json.dump(cfg.to_JSON(), f, indent=True)
-        self._ctl.load_profile(clean)
-        self._remember_profile(clean)
+        self._ctl.load_profile(ref)
+        self._remember_profile(ref)
         self.notify.emit("Created %s" % clean)
         self.stateChanged.emit()
 
@@ -1250,11 +1466,12 @@ class Backend(QObject):
             return
         with open(src) as f:
             data = json.load(f)
-        data["profile"] = clean
-        with open(app_paths.profile_write_path(clean), "w") as f:
+        ref = self._ref(clean)
+        data["profile"] = ref
+        with open(app_paths.profile_write_path(ref), "w") as f:
             json.dump(data, f, indent=True)
-        self._ctl.load_profile(clean)
-        self._remember_profile(clean)
+        self._ctl.load_profile(ref)
+        self._remember_profile(ref)
         self.notify.emit("Duplicated %s to %s" % (source, clean))
         self.stateChanged.emit()
 
@@ -1268,17 +1485,19 @@ class Backend(QObject):
             return
         with open(src) as f:
             data = json.load(f)
-        data["profile"] = clean
-        with open(app_paths.profile_write_path(clean), "w") as f:
+        ref, old_ref = self._ref(clean), self._ref(old)
+        data["profile"] = ref
+        with open(app_paths.profile_write_path(ref), "w") as f:
             json.dump(data, f, indent=True)
         # Only a user copy can be removed; a bundled original stays put, so a
         # renamed starter profile leaves the original still available.
-        if app_paths.is_user_profile(old):
-            os.remove(app_paths.profile_write_path(old))
-        self._repoint_bindings(old, clean)
-        if self._ctl.config.profile == old:
-            self._ctl.load_profile(clean)
-            self._remember_profile(clean)
+        if app_paths.is_user_profile(old_ref):
+            os.remove(app_paths.profile_write_path(old_ref))
+        self._repoint_bindings(old_ref, ref)
+        self._repoint_pages(old, clean)
+        if self._ctl.config.profile == old_ref:
+            self._ctl.load_profile(ref)
+            self._remember_profile(ref)
         self.notify.emit("Renamed %s to %s" % (old, clean))
         self.stateChanged.emit()
 
@@ -1288,19 +1507,38 @@ class Backend(QObject):
         dynamic mode cannot resolve to a profile that no longer exists."""
         if not name:
             return
-        if not app_paths.is_user_profile(name):
+        ref = self._ref(name)
+        if not app_paths.is_user_profile(ref):
             # Nothing writable to delete: this is a bundled profile, which the
             # app must not remove from its own installation.
             print("profiles: '%s' ships with the app and cannot be deleted" % name)
             return
-        os.remove(app_paths.profile_write_path(name))
-        self._repoint_bindings(name, None)
-        if self._ctl.config.profile == name:
+        os.remove(app_paths.profile_write_path(ref))
+        self._repoint_bindings(ref, None)
+        self._repoint_pages(name, None)
+        if self._ctl.config.profile == ref:
             remaining = self.profiles
             if remaining:
-                self._ctl.load_profile(remaining[0])
+                self._ctl.load_profile(self._ref(remaining[0]))
         self.notify.emit("Deleted %s" % name)
         self.stateChanged.emit()
+
+    def _repoint_pages(self, old, new):
+        """Follow a profile rename inside the app's pages, or drop the page
+        when the profile is gone: a page pointing at nothing would switch the
+        device to a blank deck."""
+        pages = app_paths.app_pages(self.activeApp)
+        changed, kept = False, []
+        for page in pages:
+            if page["profile"] != old:
+                kept.append(page)
+                continue
+            changed = True
+            if new is not None:
+                page["profile"] = new
+                kept.append(page)
+        if changed:
+            app_paths.set_app_pages(self.activeApp, kept)
 
     def _repoint_bindings(self, old, new):
         """Follow a rename, or drop the entry entirely when new is None."""
@@ -1335,7 +1573,7 @@ class Backend(QObject):
         if not path.lower().endswith(".json"):
             path += ".json"
         try:
-            with open(app_paths.profile_read_path(name)) as f:
+            with open(self._profile_path(name)) as f:
                 data = json.load(f)
             with open(path, "w") as f:
                 json.dump(data, f, indent=True)
@@ -1385,14 +1623,15 @@ class Backend(QObject):
         if not base:
             return "Profile has no usable name"
         name, n = base, 2
-        while os.path.exists(app_paths.profile_read_path(name)):
+        while os.path.exists(self._profile_path(name)):
             name, n = "%s %d" % (base, n), n + 1
 
-        data["profile"] = name
-        with open(app_paths.profile_write_path(name), "w") as f:
+        ref = self._ref(name)
+        data["profile"] = ref
+        with open(app_paths.profile_write_path(ref), "w") as f:
             json.dump(data, f, indent=True)
-        print("imported %s as '%s'" % (path, name))
-        self._ctl.load_profile(name)
+        print("imported %s as '%s'" % (path, ref))
+        self._ctl.load_profile(ref)
         self.notify.emit("Imported as %s" % name)
         self.stateChanged.emit()
         return ""
@@ -1410,7 +1649,7 @@ class Backend(QObject):
     def activeProfileIsUser(self):
         """False for a profile that ships with the app: it can be edited (which
         writes a user copy) but never deleted from the installation."""
-        return app_paths.is_user_profile(self._ctl.config.profile or "")
+        return app_paths.is_user_profile(self.activeRef or "")
 
     @Property(str, notify=stateChanged)
     def defaultProfile(self):
@@ -1418,10 +1657,18 @@ class Backend(QObject):
         return self._pm.default_profile or ""
 
     @Slot(str)
-    def setDefaultProfile(self, name):
-        self._pm.default_profile = name or None
+    def setDefaultProfile(self, ref):
+        """The fallback is app-wide, so it is named by full reference: which
+        app it comes from is part of the answer."""
+        self._pm.default_profile = ref or None
         self._pm.save()
         self.stateChanged.emit()
+
+    @Property("QStringList", notify=stateChanged)
+    def allProfiles(self):
+        """Every profile in every app, as references. For the fallback, which
+        is not scoped to the app on screen."""
+        return app_paths.list_all_profiles()
 
     @Property(str, notify=stateChanged)
     def focusedApp(self):
@@ -1502,6 +1749,12 @@ def main():
     moved = app_paths.migrate_legacy()
     if moved:
         print("migrated to %s: %s" % (app_paths.user_dir(), ", ".join(moved)))
+    # Profiles used to sit loose in one directory; they belong to an
+    # application now. Runs before anything reads the profile list.
+    into_apps = app_paths.migrate_to_apps()
+    if into_apps:
+        print("moved into the %s app: %s"
+              % (app_paths.DEFAULT_APP, ", ".join(into_apps)))
     print("%s | %s" % (platform_env.describe(), app_paths.describe()))
     engine = QQmlApplicationEngine()
     backend = Backend()

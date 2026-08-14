@@ -91,9 +91,11 @@ py-modules = [
     "Images/emoji_laugh_90x90.png",
     "Images/submenu_back_button.png",
 ]
-"share/loupedeckapp/Profiles" = [
-    "Profiles/Starter.json",
-    "Profiles/testbothactions.json",
+# Profiles live inside an application folder now; the shipped ones belong to
+# the default app.
+"share/loupedeckapp/Profiles/Default" = [
+    "Profiles/Default/Starter.json",
+    "Profiles/Default/testbothactions.json",
 ]
 # setup_check points at these by path, so an install that leaves them out
 # tells the user to copy a file that is not there.

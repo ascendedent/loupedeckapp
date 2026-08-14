@@ -21,6 +21,8 @@ bundled = os.path.join(tmp, "install")
 os.makedirs(os.path.join(bundled, "Profiles"))
 app_paths.BUNDLED_DIR = bundled
 
+APP = app_paths.DEFAULT_APP
+
 
 def write_profile(directory, name, marker):
     os.makedirs(directory, exist_ok=True)
@@ -31,7 +33,7 @@ def write_profile(directory, name, marker):
 
 
 # -- resolution ----------------------------------------------------------------
-write_profile(app_paths.bundled_profiles_dir(), "starter", "bundled")
+write_profile(app_paths.bundled_app_dir(APP), "starter", "bundled")
 c.eq("a bundled profile is listed", app_paths.list_profiles(), ["starter"])
 c.eq("it reads from the bundled directory",
      app_paths.profile_read_path("starter").startswith(bundled), True)
@@ -47,7 +49,7 @@ cfg.workspaces[0].labels["tb11"] = {"text": "edited"}
 cfg.save("starter")
 c.eq("saving created a user copy", app_paths.is_user_profile("starter"), True)
 c.eq("the bundled original is untouched",
-     json.load(open(os.path.join(app_paths.bundled_profiles_dir(), "starter.json")))
+     json.load(open(os.path.join(app_paths.bundled_app_dir(APP), "starter.json")))
      ["workspaces"]["circle"]["labels"]["tb11"]["text"], "bundled")
 c.eq("the name is still listed once", app_paths.list_profiles(), ["starter"])
 again = LdConfiguration(); again.load("starter")
@@ -60,7 +62,7 @@ c.eq("deleting the user copy reveals the original again",
      restored.workspaces[0].labels["tb11"]["text"], "bundled")
 
 # -- a user-only profile -------------------------------------------------------
-write_profile(app_paths.user_profiles_dir(), "mine", "user")
+write_profile(app_paths.user_app_dir(APP), "mine", "user")
 c.eq("user and bundled profiles merge in the listing",
      app_paths.list_profiles(), ["mine", "starter"])
 c.eq("a user-only profile is writable", app_paths.is_user_profile("mine"), True)
@@ -75,7 +77,7 @@ os.environ["LOUPEDECKAPP_CONFIG_DIR"] = mig
 legacy = os.path.join(tmp, "legacy")
 os.makedirs(os.path.join(legacy, "Profiles"))
 app_paths.BUNDLED_DIR = legacy
-write_profile(os.path.join(legacy, "Profiles"), "old", "legacy")
+write_profile(os.path.join(legacy, "Profiles", APP), "old", "legacy")
 with open(os.path.join(legacy, "dynamic_profiles.json"), "w") as f:
     json.dump({"dynamic_mode": True, "default_profile": "old",
                "app_profiles": []}, f)
@@ -84,21 +86,21 @@ moved = app_paths.migrate_legacy()
 c.eq("migration copies the profile and the bindings",
      sorted(moved), ["dynamic_profiles.json", "old.json"])
 c.eq("the profile landed in the user directory",
-     os.path.exists(os.path.join(mig, "Profiles", "old.json")), True)
+     os.path.exists(os.path.join(mig, "Profiles", APP, "old.json")), True)
 c.eq("the bindings landed too",
      os.path.exists(os.path.join(mig, "dynamic_profiles.json")), True)
 c.eq("the legacy copies are left in place (copy, not move)",
-     os.path.exists(os.path.join(legacy, "Profiles", "old.json")), True)
+     os.path.exists(os.path.join(legacy, "Profiles", APP, "old.json")), True)
 
 c.eq("running it again copies nothing", app_paths.migrate_legacy(), [])
 
 # A user who deleted a shipped profile must not have it resurrected.
-os.remove(os.path.join(mig, "Profiles", "old.json"))
-write_profile(os.path.join(mig, "Profiles"), "kept", "user")
+os.remove(os.path.join(mig, "Profiles", APP, "old.json"))
+write_profile(os.path.join(mig, "Profiles", APP), "kept", "user")
 c.eq("migration does not re-seed once the user has any profile",
      app_paths.migrate_legacy(), [])
 c.eq("the deleted one stays deleted",
-     os.path.exists(os.path.join(mig, "Profiles", "old.json")), False)
+     os.path.exists(os.path.join(mig, "Profiles", APP, "old.json")), False)
 
 # -- installed layout ----------------------------------------------------------
 # From a checkout the assets sit beside the module; installed from a wheel the
@@ -142,5 +144,33 @@ try:
          False)
 finally:
     os.environ.pop(app_paths.PREFIX_OVERRIDE, None)
+
+# -- flat profiles move into the default app ----------------------------------
+# Profiles used to sit loose in one directory. They belong to an application
+# now, and one written with no application in mind belongs to the default.
+flat = os.path.join(tmp, "config3")
+os.environ["LOUPEDECKAPP_CONFIG_DIR"] = flat
+os.makedirs(os.path.join(flat, "Profiles"))
+write_profile(os.path.join(flat, "Profiles"), "loose", "flat")
+
+moved = app_paths.migrate_to_apps()
+c.eq("a loose profile is reported as moved", moved, ["loose"])
+c.eq("it is now inside the default app",
+     os.path.exists(os.path.join(flat, "Profiles", APP, "loose.json")), True)
+c.eq("and is no longer loose (moved, not copied): an edit to one copy would "
+     "otherwise be invisible to the other",
+     os.path.exists(os.path.join(flat, "Profiles", "loose.json")), False)
+c.eq("it resolves by bare name, the way older references spell it",
+     os.path.exists(app_paths.profile_read_path("loose")), True)
+c.eq("running it again moves nothing", app_paths.migrate_to_apps(), [])
+
+# A half-finished migration: the app folder already has it and the loose file
+# was written again since. The app folder is where the app reads and writes.
+write_profile(os.path.join(flat, "Profiles"), "loose", "stale")
+c.eq("a stale loose copy is discarded, not promoted",
+     app_paths.migrate_to_apps(), [])
+c.eq("and the one inside the app survives",
+     json.load(open(os.path.join(flat, "Profiles", APP, "loose.json")))
+     ["workspaces"]["circle"]["labels"]["tb11"]["text"], "flat")
 
 sys.exit(c.done())

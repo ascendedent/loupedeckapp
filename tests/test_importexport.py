@@ -68,7 +68,8 @@ c.eq("it did not overwrite the original",
      sorted(app_paths.list_profiles()), ["source", "source 2"])
 c.eq("and it became the active profile", get("activeProfile"), "source 2")
 c.eq("the name inside the file was rewritten to match",
-     json.load(open(app_paths.profile_read_path("source 2")))["profile"], "source 2")
+     json.load(open(app_paths.profile_read_path("source 2")))["profile"],
+     "Default/source 2")
 
 b.importProfile(url(out))
 c.eq("importing again suffixes rather than clobbering",

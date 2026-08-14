@@ -46,13 +46,13 @@ c.eq("editing marks the profile dirty", get("dirty"), True)
 
 b._on_focus_main("firefox", "")
 c.eq("a dirty profile is NOT switched away from", get("activeProfile"), "alpha")
-c.eq("the switch is held, not dropped", get("pendingProfile"), "beta")
+c.eq("the switch is held, not dropped", get("pendingProfile"), "Default/beta")
 c.eq("the edit survives",
      b._ctl.current_menu().actions["tb11"].action, "ctrl+j")
 
 # repeated focus events must not spam or lose the held switch
 b._on_focus_main("firefox", "")
-c.eq("a repeated focus event changes nothing", get("pendingProfile"), "beta")
+c.eq("a repeated focus event changes nothing", get("pendingProfile"), "Default/beta")
 
 # -- resolving the draft applies the held switch -------------------------------
 b.save()
@@ -68,7 +68,7 @@ c.eq("the edit was written to disk",
 b.loadProfile("alpha")
 b.setActionSlot("tb12", "hotkey", "ctrl+k")
 b._on_focus_main("firefox", "")
-c.eq("held again", get("pendingProfile"), "beta")
+c.eq("held again", get("pendingProfile"), "Default/beta")
 b.revert()
 c.eq("reverting applies the held switch too", get("activeProfile"), "beta")
 c.eq("and clears it", get("pendingProfile"), "")

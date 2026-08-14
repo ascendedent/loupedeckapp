@@ -105,6 +105,127 @@ ApplicationWindow {
         }
     }
 
+    // ---- applications -----------------------------------------------------
+    Dialog {
+        id: appDialog
+        objectName: "appDialog"
+        property string mode: "create"
+        anchors.centerIn: Overlay.overlay
+        modal: true
+        width: 380
+        title: mode === "create" ? "New app" : "Rename app"
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        onOpened: {
+            appNameField.text = mode === "rename" ? backend.activeApp : ""
+            appNameField.forceActiveFocus()
+        }
+        onAccepted: {
+            if (mode === "create")
+                backend.createApp(appNameField.text)
+            else
+                backend.renameApp(backend.activeApp, appNameField.text)
+        }
+        ColumnLayout {
+            width: parent.width
+            spacing: 8
+            TextField {
+                id: appNameField
+                objectName: "appNameField"
+                Layout.fillWidth: true
+                placeholderText: "Premiere Pro, OBS, ..."
+                onAccepted: appDialog.accept()
+            }
+            Text {
+                Layout.fillWidth: true
+                text: backend.validateAppName(appNameField.text) !== ""
+                      ? backend.validateAppName(appNameField.text)
+                      : "An app holds its own profiles and the windows that mean "
+                        + "it is in front."
+                color: backend.validateAppName(appNameField.text) !== ""
+                       ? theme.warn : theme.muted
+                font.pixelSize: 11; wrapMode: Text.WordWrap
+            }
+        }
+    }
+
+    Dialog {
+        id: deleteAppDialog
+        anchors.centerIn: Overlay.overlay
+        modal: true
+        width: 380
+        title: "Delete app"
+        standardButtons: Dialog.Yes | Dialog.No
+        onAccepted: backend.deleteApp(backend.activeApp)
+        Text {
+            text: "Delete '" + backend.activeApp + "' and every profile in it?"
+            color: theme.text; font.pixelSize: 12; wrapMode: Text.WordWrap
+        }
+    }
+
+    Dialog {
+        id: pageDialog
+        objectName: "pageDialog"
+        anchors.centerIn: Overlay.overlay
+        modal: true
+        width: 420
+        title: "Page in " + backend.activeApp
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        onOpened: {
+            pageName.text = ""
+            // The title of the window you were last in: writing a rule for a
+            // window whose title you cannot see is guesswork.
+            pageMatch.text = backend.focusedTitle
+            pageName.forceActiveFocus()
+        }
+        onAccepted: backend.addAppPage(pageName.text, pageMatch.text,
+                                       backend.profiles[pageProfile.currentIndex])
+        ColumnLayout {
+            width: parent.width
+            spacing: 8
+            RowLayout {
+                Layout.fillWidth: true; spacing: 6
+                Text { text: "Name"; color: theme.muted; font.pixelSize: 11
+                    Layout.preferredWidth: 60 }
+                TextField {
+                    id: pageName
+                    objectName: "pageNameField"
+                    Layout.fillWidth: true
+                    placeholderText: "Cut, Edit, Sound, ..."
+                }
+            }
+            RowLayout {
+                Layout.fillWidth: true; spacing: 6
+                Text { text: "Title has"; color: theme.muted; font.pixelSize: 11
+                    Layout.preferredWidth: 60 }
+                TextField {
+                    id: pageMatch
+                    objectName: "pageMatchField"
+                    Layout.fillWidth: true
+                    placeholderText: "text from the window title"
+                }
+            }
+            RowLayout {
+                Layout.fillWidth: true; spacing: 6
+                Text { text: "Profile"; color: theme.muted; font.pixelSize: 11
+                    Layout.preferredWidth: 60 }
+                ComboBox {
+                    id: pageProfile
+                    objectName: "pageProfileBox"
+                    Layout.fillWidth: true
+                    model: backend.profiles
+                }
+            }
+            Text {
+                Layout.fillWidth: true
+                text: backend.focusedTitle === ""
+                      ? "Focus the window you want this page for and reopen this, and "
+                        + "its title is filled in for you."
+                      : "Last focused window: “" + backend.focusedTitle + "”"
+                color: theme.muted; font.pixelSize: 10; wrapMode: Text.WordWrap
+            }
+        }
+    }
+
     // ---- machine setup ----------------------------------------------------
     // Everything here was a paragraph in the README you had to know to look
     // for. A first run where nothing happens and nothing says why is the worst
@@ -1336,6 +1457,42 @@ ApplicationWindow {
             ColumnLayout {
                 anchors.fill: parent; anchors.margins: 12; spacing: 10
 
+                // The application. Everything below is scoped to it: an app
+                // owns its profiles and the window classes that mean it is in
+                // front, which is what dynamic mode switches on.
+                RowLayout {
+                    Layout.fillWidth: true; spacing: 6
+                    visible: !rightPanel.profilesCollapsed
+                    Text {
+                        text: "App"; color: theme.muted; font.pixelSize: 12
+                    }
+                    ComboBox {
+                        objectName: "appBox"
+                        Layout.fillWidth: true
+                        model: backend.apps
+                        currentIndex: backend.apps.indexOf(backend.activeApp)
+                        onActivated: backend.selectApp(backend.apps[currentIndex])
+                    }
+                    ActionButton {
+                        label: "+"
+                        onClicked: { appDialog.mode = "create"; appDialog.open() }
+                    }
+                }
+                Flow {
+                    Layout.fillWidth: true
+                    visible: !rightPanel.profilesCollapsed
+                            && backend.activeApp !== "Default"
+                    spacing: 6
+                    ActionButton {
+                        label: "Rename app"
+                        onClicked: { appDialog.mode = "rename"; appDialog.open() }
+                    }
+                    ActionButton {
+                        label: "Delete app"
+                        onClicked: deleteAppDialog.open()
+                    }
+                }
+
                 RowLayout {
                     Layout.fillWidth: true
                     Text {
@@ -1447,15 +1604,18 @@ ApplicationWindow {
                     visible: !rightPanel.profilesCollapsed
                     Layout.fillWidth: true; height: 1; color: theme.line
                 }
+                // What makes this app the focused one, and which of its
+                // profiles each of its pages wants. This is dynamic mode: the
+                // window class picks the app, the window title picks the page.
                 ColumnLayout {
-                    visible: !rightPanel.profilesCollapsed
                     Layout.fillWidth: true; spacing: 6
+                    visible: !rightPanel.profilesCollapsed
 
                     RowLayout {
                         Layout.fillWidth: true
                         Text {
-                            text: "App bindings"; color: theme.muted; font.pixelSize: 12
-                            Layout.fillWidth: true
+                            text: "Dynamic switching"; color: theme.muted
+                            font.pixelSize: 12; Layout.fillWidth: true
                         }
                         Text {
                             text: backend.dynamicMode ? "on" : "off"
@@ -1464,72 +1624,157 @@ ApplicationWindow {
                         }
                     }
 
-                    // Binds whatever window is focused *now*, so the button has
-                    // to say what that is before you press it.
+                    // -- window classes that mean this app --------------------
+                    Text {
+                        Layout.fillWidth: true
+                        text: backend.appMatches.length === 0
+                              ? "Nothing focuses " + backend.activeApp + " yet. Focus the "
+                                + "application, then add it below."
+                              : "Focusing any of these switches to " + backend.activeApp + "."
+                        color: theme.muted; font.pixelSize: 11; wrapMode: Text.WordWrap
+                    }
+
                     ActionButton {
                         Layout.fillWidth: true
                         label: backend.focusedApp === ""
                                ? "No focused app detected"
-                               : "Bind " + backend.focusedApp + " → " + backend.activeProfile
+                               : "Add " + backend.focusedApp + " to " + backend.activeApp
                         enabledFlag: backend.focusedApp !== ""
-                        onClicked: backend.bindFocusedApp(backend.activeProfile)
+                        onClicked: backend.addAppMatch(backend.focusedApp)
                     }
 
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 4
+                        Repeater {
+                            model: backend.appMatches
+                            Rectangle {
+                                required property string modelData
+                                width: matchText.width + 30; height: 24; radius: 12
+                                color: theme.panel2; border.color: theme.line
+                                Text {
+                                    id: matchText
+                                    anchors.centerIn: parent; anchors.horizontalCenterOffset: -6
+                                    text: parent.modelData
+                                    color: theme.text; font.pixelSize: 11
+                                }
+                                Text {
+                                    anchors.right: parent.right; anchors.rightMargin: 7
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: "✕"; font.pixelSize: 10
+                                    color: mHover.hovered ? theme.text : theme.muted
+                                    HoverHandler { id: mHover; cursorShape: Qt.PointingHandCursor }
+                                    TapHandler { onTapped: backend.removeAppMatch(parent.modelData) }
+                                }
+                            }
+                        }
+                    }
+
+                    // -- which profile the app uses by default ----------------
+                    RowLayout {
+                        Layout.fillWidth: true; spacing: 6
+                        visible: backend.profiles.length > 0
+                        Text { text: "Uses"; color: theme.muted; font.pixelSize: 11 }
+                        ComboBox {
+                            objectName: "appDefaultBox"
+                            Layout.fillWidth: true
+                            model: backend.profiles
+                            currentIndex: backend.profiles.indexOf(backend.appDefaultProfile)
+                            onActivated: backend.setAppDefaultProfile(
+                                backend.profiles[currentIndex])
+                        }
+                    }
+
+                    // -- pages ------------------------------------------------
+                    // Premiere Pro is one app, but Cut, Edit and Sound each
+                    // want a different deck. The title is the only signal
+                    // finer than the window class, so a page matches on it.
+                    Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text {
+                            text: "Pages"; color: theme.muted; font.pixelSize: 12
+                            Layout.fillWidth: true
+                        }
+                        ActionButton {
+                            label: "+"
+                            enabledFlag: backend.profiles.length > 0
+                            onClicked: pageDialog.open()
+                        }
+                    }
                     Text {
                         Layout.fillWidth: true
-                        visible: backend.appBindings.length === 0
-                        text: "No apps bound yet. Focus an app, then bind it to the "
-                              + "profile you want it to use."
-                        color: theme.muted; font.pixelSize: 11; wrapMode: Text.WordWrap
+                        visible: backend.appPages.length === 0
+                        text: "No pages. Add one to switch profile on a window title, "
+                              + "the way an editing app changes workspace."
+                        color: theme.muted; font.pixelSize: 10; wrapMode: Text.WordWrap
                     }
-
-                    ListView {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: Math.min(contentHeight, 110)
-                        visible: backend.appBindings.length > 0
-                        clip: true; spacing: 3
-                        model: backend.appBindings
-                        delegate: Rectangle {
+                    Repeater {
+                        model: backend.appPages
+                        Rectangle {
                             required property var modelData
-                            width: ListView.view.width; height: 28
+                            required property int index
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 30
                             radius: 6; color: theme.panel2
                             RowLayout {
                                 anchors.fill: parent
                                 anchors.leftMargin: 8; anchors.rightMargin: 4
                                 spacing: 6
                                 Text {
-                                    text: modelData.app; color: theme.text
-                                    font.pixelSize: 11; Layout.fillWidth: true
-                                    elide: Text.ElideRight
-                                }
-                                Text {
-                                    text: "→ " + modelData.profile; color: theme.muted
+                                    text: parent.parent.modelData.name; color: theme.text
                                     font.pixelSize: 11; elide: Text.ElideRight
-                                    Layout.maximumWidth: 90
+                                    Layout.maximumWidth: 70
                                 }
                                 Text {
-                                    text: "✕"; color: rm.hovered ? theme.text : theme.muted
-                                    font.pixelSize: 12; rightPadding: 6
-                                    HoverHandler { id: rm; cursorShape: Qt.PointingHandCursor }
-                                    TapHandler { onTapped: backend.removeBinding(modelData.app) }
+                                    text: "“" + parent.parent.modelData.match + "”"
+                                    color: theme.muted; font.pixelSize: 10
+                                    elide: Text.ElideRight; Layout.fillWidth: true
+                                }
+                                Text {
+                                    text: "→ " + parent.parent.modelData.profile
+                                    color: theme.muted; font.pixelSize: 10
+                                    elide: Text.ElideRight
+                                    Layout.maximumWidth: 70
+                                }
+                                Text {
+                                    text: "↑"; font.pixelSize: 11
+                                    color: upHover.hovered ? theme.text : theme.muted
+                                    HoverHandler { id: upHover; cursorShape: Qt.PointingHandCursor }
+                                    TapHandler {
+                                        onTapped: backend.moveAppPage(parent.parent.parent.index, -1)
+                                    }
+                                }
+                                Text {
+                                    text: "✕"; font.pixelSize: 11; rightPadding: 4
+                                    color: rmHover.hovered ? theme.text : theme.muted
+                                    HoverHandler { id: rmHover; cursorShape: Qt.PointingHandCursor }
+                                    TapHandler {
+                                        onTapped: backend.removeAppPage(parent.parent.parent.modelData.name)
+                                    }
                                 }
                             }
                         }
                     }
 
+                    // -- fallback when nothing matches ------------------------
                     RowLayout {
                         Layout.fillWidth: true; spacing: 6
-                        visible: backend.appBindings.length > 0
                         Text {
                             text: "Fallback"; color: theme.muted; font.pixelSize: 11
                         }
+                        // Every app's profiles, not just this one's: the
+                        // fallback is what runs when no app claims the window,
+                        // so it is not scoped to the app on screen.
                         ComboBox {
+                            objectName: "fallbackBox"
                             Layout.fillWidth: true
-                            model: backend.profiles
-                            currentIndex: backend.profiles.indexOf(backend.defaultProfile)
+                            model: backend.allProfiles
+                            currentIndex: backend.allProfiles.indexOf(backend.defaultProfile)
                             displayText: backend.defaultProfile === ""
                                          ? "none" : backend.defaultProfile
-                            onActivated: backend.setDefaultProfile(backend.profiles[currentIndex])
+                            onActivated: backend.setDefaultProfile(
+                                backend.allProfiles[currentIndex])
                         }
                     }
                 }

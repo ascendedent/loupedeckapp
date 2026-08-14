@@ -153,6 +153,64 @@ c.eq("the profiles empty state exists", prof_empty is not None, True)
 c.eq("hidden while profiles exist",
      prof_empty.property("visible"), len(backend.profiles) == 0)
 
+# -- applications ------------------------------------------------------------
+app_box = find("appBox")
+c.eq("the app selector exists", app_box is not None, True)
+c.eq("it starts on the default app", backend.activeApp, "Default")
+c.eq("whose profiles are what the list shows",
+     backend.profiles, app_paths.list_profiles("Default"))
+
+c.eq("a new app needs a usable name",
+     backend.validateAppName("bad/name") != "", True)
+backend.createApp("Premiere")
+c.eq("creating one switches to it", backend.activeApp, "Premiere")
+c.eq("and it is in the list", "Premiere" in backend.apps, True)
+c.eq("with a profile to start from, not an empty shell",
+     backend.profiles, ["Premiere"])
+c.eq("a name already taken is refused",
+     backend.validateAppName("Premiere") != "", True)
+
+backend.addAppMatch("adobe premiere pro")
+c.eq("a window class can be attached", backend.appMatches, ["adobe premiere pro"])
+backend.addAppMatch("Adobe Premiere Pro")
+c.eq("adding the same one twice does nothing", len(backend.appMatches), 1)
+
+# Pages: one app, several decks, told apart by the window title.
+backend.addAppPage("Cutting", "Editing", "Premiere")
+c.eq("a page is recorded",
+     [p["name"] for p in backend.appPages], ["Cutting"])
+c.eq("pointing at a profile of this app",
+     backend.appPages[0]["profile"], "Premiere")
+backend.addAppPage("Nowhere", "x", "not-a-profile")
+c.eq("a page cannot point outside the app", len(backend.appPages), 1)
+
+c.eq("dynamic mode resolves the app and its page",
+     backend._pm.resolve("adobe premiere pro", "Project - Editing"),
+     "Premiere/Premiere")
+
+backend.removeAppPage("Cutting")
+c.eq("a page can be removed", backend.appPages, [])
+
+# Selecting another app browses it without changing what is on the device.
+loaded = backend.activeRef
+c.eq("the loaded profile is in the default app",
+     app_paths.split_ref(loaded)[0], "Default")
+backend.selectApp("Premiere")
+c.eq("browsing another app shows its profiles",
+     (backend.activeApp, backend.profiles), ("Premiere", ["Premiere"]))
+c.eq("without loading anything from it", backend.activeRef, loaded)
+c.eq("and the list knows none of these is the live one",
+     backend.activeProfileInApp, False)
+backend.selectApp("Default")
+c.eq("going back to the owning app marks it live again",
+     backend.activeProfileInApp, True)
+backend.selectApp("Premiere")
+
+backend.deleteApp("Premiere")
+c.eq("an app can be deleted", "Premiere" in backend.apps, False)
+c.eq("the default app cannot be",
+     (backend.deleteApp("Default"), "Default" in backend.apps)[1], True)
+
 # -- toasts ------------------------------------------------------------------
 toasts = find("toastArea")
 c.eq("the toast area exists", toasts is not None, True)

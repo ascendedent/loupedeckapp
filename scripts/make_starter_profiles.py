@@ -19,7 +19,10 @@ from DeviceProfile import WS_KEYS                                 # noqa: E402
 from LdConfiguration import LdConfiguration, LdAction             # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(REPO, "Profiles", "Starter.json")
+# The default application: profiles belong to one, and a starter that was
+# written with no particular application in mind belongs to that one.
+APP = "Default"
+OUT = os.path.join(REPO, "Profiles", APP, "Starter.json")
 
 # Editing shortcuts are spelled with ctrl. macOS wants command, and the app
 # maps "super" to it, but a shipped file has to pick one; a mac user changes
@@ -62,7 +65,7 @@ def led(ws, button, color):
 
 
 def build():
-    cfg = LdConfiguration(profile="Starter")
+    cfg = LdConfiguration(profile="%s/Starter" % APP)
     media, editing, browser = (cfg.workspaces[0], cfg.workspaces[1],
                                cfg.workspaces[2])
 

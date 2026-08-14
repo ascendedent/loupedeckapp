@@ -241,6 +241,11 @@ class LdConfiguration:
       with open(app_paths.profile_read_path(json_file), "r") as file:
         data = json.load(file)
         self.from_JSON(data)
+        # What was asked for wins over what the file says its name is. A file
+        # can be copied, renamed or imported, and now also moved between
+        # applications; the name inside it is a record of where it came from,
+        # not of where it is.
+        self.profile = json_file
         if self.on_loaded:
           self.on_loaded()
     except FileNotFoundError:
