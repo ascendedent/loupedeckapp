@@ -638,7 +638,7 @@ held profile, because a switch that silently fails to happen is worse than one t
 
 - [x] `pyproject.toml` with a `loupedeckapp` entry point and `[device]` / `[x11]` extras
 - [x] Ship udev rule, ydotool socket drop-in and desktop entry in `packaging/`
-- [x] Automated tests (`tests/`, 837 checks): schema load/migrate, profile resolution,
+- [x] Automated tests (`tests/`, 849 checks): schema load/migrate, profile resolution,
       tuning/dispatch, platform factories, installed-asset layout, per-model control inventory,
       and an offscreen pass over the real QML (`test_ui.py`) for the wiring the core cannot see
 - [x] **Installable from a wheel**: `pip install ".[device]"` gives a `loupedeckapp` command, the

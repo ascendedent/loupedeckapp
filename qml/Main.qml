@@ -463,6 +463,25 @@ ApplicationWindow {
     }
 
     FileDialog {
+        id: backupDialog
+        title: "Back up every application"
+        fileMode: FileDialog.SaveFile
+        nameFilters: ["Loupedeck backup (*.json)", "All files (*)"]
+        // No currentFile: a SaveFile dialog wants one that exists, and Qt warns
+        // on every launch when given a name to suggest. The exporter appends
+        // .json itself, so a bare name typed here still works.
+        onAccepted: root.ioError = backend.exportEverything(selectedFile)
+    }
+
+    FileDialog {
+        id: restoreDialog
+        title: "Restore a backup"
+        fileMode: FileDialog.OpenFile
+        nameFilters: ["Loupedeck backup (*.json)", "All files (*)"]
+        onAccepted: root.ioError = backend.importEverything(selectedFile)
+    }
+
+    FileDialog {
         id: exportAppDialog
         title: "Export the '" + backend.activeApp + "' app"
         fileMode: FileDialog.SaveFile
@@ -1245,6 +1264,33 @@ ApplicationWindow {
                                 color: (root.autostartError !== "" || backend.autostartStale)
                                        ? theme.warn : theme.muted
                                 font.pixelSize: 10; wrapMode: Text.WordWrap
+                            }
+
+                            Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
+
+                            // Everything, in one file: what to keep before
+                            // reinstalling, or to carry to another machine.
+                            Text {
+                                Layout.fillWidth: true
+                                text: "Backup"; color: theme.muted; font.pixelSize: 11
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true; spacing: 6
+                                ActionButton {
+                                    Layout.fillWidth: true
+                                    label: "Back up everything"
+                                    onClicked: { prefsPopup.close(); backupDialog.open() }
+                                }
+                                ActionButton {
+                                    Layout.fillWidth: true
+                                    label: "Restore…"
+                                    onClicked: { prefsPopup.close(); restoreDialog.open() }
+                                }
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                text: "Restoring adds; it never replaces what you have."
+                                color: theme.muted; font.pixelSize: 10; wrapMode: Text.WordWrap
                             }
 
                             Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }

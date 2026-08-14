@@ -1684,25 +1684,156 @@ class Backend(QObject):
         names = app_paths.list_profiles(app)
         if not names:
             return "'%s' has no profiles to export" % app
-        bundle = {
-            "kind": self.APP_BUNDLE_KIND,
-            "schema_version": SCHEMA_VERSION,
-            "app": app,
-            "match": app_paths.app_matches(app),
-            "default_profile": app_paths.app_default_profile(app),
-            "pages": app_paths.app_pages(app),
-            "profiles": {},
-        }
         try:
-            for name in names:
-                with open(self._profile_path(name, app)) as f:
-                    bundle["profiles"][name] = json.load(f)
+            bundle = dict(self._app_bundle(app),
+                          kind=self.APP_BUNDLE_KIND,
+                          schema_version=SCHEMA_VERSION)
             with open(path, "w") as f:
                 json.dump(bundle, f, indent=True)
         except (OSError, ValueError) as e:
             return "Could not export: %s" % e
         print("exported app '%s' (%d profiles) to %s" % (app, len(names), path))
         self.notify.emit("Exported %s" % os.path.basename(path))
+        return ""
+
+    BACKUP_KIND = "loupedeckapp.backup"
+
+    def _app_bundle(self, app):
+        """One application as data. Shared by the app export and the backup."""
+        bundle = {
+            "app": app,
+            "match": app_paths.app_matches(app),
+            "default_profile": app_paths.app_default_profile(app),
+            "pages": app_paths.app_pages(app),
+            "profiles": {},
+        }
+        for name in app_paths.list_profiles(app):
+            with open(self._profile_path(name, app)) as f:
+                bundle["profiles"][name] = json.load(f)
+        return bundle
+
+    @Slot(str, result=str)
+    def exportEverything(self, file_url):
+        """Every application, plus the dynamic bindings and preferences.
+
+        The thing to keep before reinstalling, or to carry to another machine.
+        Profiles that ship with the app are included: a backup you have to
+        reconstruct from two sources is not a backup.
+        """
+        path = QUrl(file_url).toLocalFile() if file_url else ""
+        if not path:
+            return "Nothing to export"
+        if not path.lower().endswith(".json"):
+            path += ".json"
+        backup = {
+            "kind": self.BACKUP_KIND,
+            "schema_version": SCHEMA_VERSION,
+            "apps": [],
+            "settings": dict(self._settings.values),
+            "dynamic": {
+                "dynamic_mode": self._pm.dynamic_mode,
+                "default_profile": self._pm.default_profile,
+                "app_profiles": self._pm.app_profiles,
+            },
+        }
+        try:
+            for app in app_paths.list_apps():
+                bundle = self._app_bundle(app)
+                if bundle["profiles"]:
+                    backup["apps"].append(bundle)
+            with open(path, "w") as f:
+                json.dump(backup, f, indent=True)
+        except (OSError, ValueError) as e:
+            return "Could not export: %s" % e
+        count = sum(len(a["profiles"]) for a in backup["apps"])
+        print("backed up %d applications, %d profiles to %s"
+              % (len(backup["apps"]), count, path))
+        self.notify.emit("Backed up %d profiles" % count)
+        return ""
+
+    @Slot(str, result=str)
+    def importEverything(self, file_url):
+        """Restore a backup, adding rather than replacing.
+
+        Every application arrives as a new one, suffixed if the name is taken,
+        because a restore that overwrites is a restore you cannot undo. Sorting
+        out the duplicates afterwards is tedious; losing today's work is not
+        recoverable.
+
+        Preferences and dynamic bindings are deliberately not restored: they
+        point at profiles by name, and after suffixing those names no longer
+        mean what the file said.
+        """
+        path = QUrl(file_url).toLocalFile() if file_url else ""
+        if not path:
+            return "No file chosen"
+        try:
+            with open(path) as f:
+                backup = json.load(f)
+        except OSError as e:
+            return "Could not read the file: %s" % e
+        except ValueError:
+            return "That file is not valid JSON"
+        if not isinstance(backup, dict) or backup.get("kind") != self.BACKUP_KIND:
+            return ("That is not a backup. A single application imports with "
+                    "Import app, a single profile with Import.")
+        apps = backup.get("apps")
+        if not isinstance(apps, list) or not apps:
+            return "That backup has nothing in it"
+        version = backup.get("schema_version", 1)
+        try:
+            if int(version) > SCHEMA_VERSION:
+                return ("Backup is schema v%s; this build understands v%s"
+                        % (version, SCHEMA_VERSION))
+        except (TypeError, ValueError):
+            return "Backup has an unreadable schema_version"
+
+        restored, profiles = [], 0
+        for bundle in apps:
+            if not isinstance(bundle, dict):
+                continue
+            payload = dict(bundle)
+            payload["kind"] = self.APP_BUNDLE_KIND
+            payload["schema_version"] = version
+            error = self._restore_app(payload)
+            if error:
+                return "Could not restore '%s': %s" % (bundle.get("app"), error)
+            restored.append(payload["app"])
+            profiles += len(payload.get("profiles") or {})
+        self.notify.emit("Restored %d applications, %d profiles"
+                         % (len(restored), profiles))
+        self.stateChanged.emit()
+        return ""
+
+    def _restore_app(self, bundle):
+        """Write one application bundle in as a new app. "" or an error."""
+        profiles = bundle.get("profiles")
+        if not isinstance(profiles, dict) or not profiles:
+            return "it has no profiles"
+        for name, data in profiles.items():
+            if not self._clean_profile_name(name):
+                return "profile name '%s' cannot be used" % name
+            try:
+                LdConfiguration().from_JSON(data)
+            except Exception as e:
+                return "profile '%s' is unreadable: %s" % (name, e)
+        base = self._clean_profile_name(bundle.get("app") or "")
+        if not base:
+            return "it has no usable name"
+        app, n = base, 2
+        while app in app_paths.list_apps():
+            app, n = "%s %d" % (base, n), n + 1
+        bundle["app"] = app
+        app_paths.ensure_user_app_dir(app)
+        for name, data in profiles.items():
+            data["profile"] = app_paths.make_ref(app, name)
+            with open(app_paths.profile_write_path(app, name), "w") as f:
+                json.dump(data, f, indent=True)
+        app_paths.set_app_matches(app, bundle.get("match") or [])
+        app_paths.set_app_pages(app, bundle.get("pages") or [])
+        default = bundle.get("default_profile")
+        if default in profiles:
+            app_paths.set_app_default_profile(app, default)
         return ""
 
     @Slot(str, result=str)

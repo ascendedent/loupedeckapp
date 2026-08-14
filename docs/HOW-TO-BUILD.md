@@ -104,6 +104,16 @@ away. Nothing discards a draft without asking.
 
 ---
 
+**Back up everything** is under the gear: one file with every application, its
+profiles, rules and pages, plus your preferences and dynamic bindings. Restore
+adds rather than replaces, so an application whose name is already taken arrives
+suffixed. Sorting out a duplicate is tedious; losing today's work is not
+recoverable, and only one of those is reversible.
+
+Preferences and dynamic bindings are saved but deliberately **not** restored:
+they name profiles, and after suffixing, those names no longer mean what the
+file said.
+
 ## 4. Workspaces and submenus
 
 Eight workspaces per profile, on the eight round keys. Name them: eight numbered

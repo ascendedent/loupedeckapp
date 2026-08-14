@@ -186,6 +186,51 @@ with open(empty, "w") as f:
 c.eq("an application with nothing in it is refused",
      b.importApp(url(empty)) != "", True)
 
+# -- backing up everything ----------------------------------------------------
+# One file with every application in it: what to keep before reinstalling, or
+# to carry to another machine.
+backup_out = os.path.join(tmp, "backup.json")
+before = ap.list_apps()
+c.eq("backing up reports no error", b.exportEverything(url(backup_out)), "")
+backup = json.load(open(backup_out))
+c.eq("the file says what it is", backup["kind"], "loupedeckapp.backup")
+c.eq("every application with profiles is in it",
+     sorted(a["app"] for a in backup["apps"]),
+     sorted(x for x in before if ap.list_profiles(x)))
+c.eq("preferences come too", "brightness" in backup["settings"], True)
+c.eq("and the dynamic bindings", "app_profiles" in backup["dynamic"], True)
+
+# Restoring adds. A restore that overwrites is a restore you cannot undo, and
+# sorting out duplicates beats losing today's work.
+c.eq("restoring reports no error", b.importEverything(url(backup_out)), "")
+after = ap.list_apps()
+c.eq("nothing that existed was replaced",
+     all(x in after for x in before), True)
+c.eq("and every application came back alongside",
+     len(after) >= len(before) + len(backup["apps"]) - 1, True)
+
+wrong_kind = os.path.join(tmp, "notabackup.json")
+with open(wrong_kind, "w") as f:
+    json.dump({"kind": "loupedeckapp.application", "app": "X",
+               "profiles": {}}, f)
+msg = b.importEverything(url(wrong_kind))
+c.eq("an application file is not a backup", msg != "", True)
+c.eq("and it says which button to use", "Import app" in msg, True)
+
+nothing = os.path.join(tmp, "emptybackup.json")
+with open(nothing, "w") as f:
+    json.dump({"kind": "loupedeckapp.backup", "apps": []}, f)
+c.eq("a backup with nothing in it is refused",
+     b.importEverything(url(nothing)) != "", True)
+
+newer_backup = os.path.join(tmp, "newerbackup.json")
+backup["schema_version"] = SCHEMA_VERSION + 5
+with open(newer_backup, "w") as f:
+    json.dump(backup, f)
+c.eq("a backup from a newer build is refused rather than half-restored",
+     ("schema v%d" % (SCHEMA_VERSION + 5)) in b.importEverything(url(newer_backup)),
+     True)
+
 b._ctl.close()
 shutil.rmtree(tmp, ignore_errors=True)
 
