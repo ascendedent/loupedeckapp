@@ -28,7 +28,8 @@ The app starts without it and says what is missing.
 ## Building the RPM
 
 ```bash
-sudo dnf install rpm-build rpmdevtools python3-devel pyproject-rpm-macros
+sudo dnf install rpm-build rpmdevtools python3-devel pyproject-rpm-macros \
+                 python3-setuptools
 rpmdev-setuptree
 git archive --format=tar.gz --prefix=loupedeckapp-0.5.0/ \
     -o ~/rpmbuild/SOURCES/loupedeckapp-0.5.0.tar.gz HEAD
@@ -37,16 +38,37 @@ rpmbuild -ba packaging/rpm/loupedeckapp.spec
 
 ## What has actually been verified
 
-The spec **parses** (`rpmspec -P`) and its sources, layout and scriptlets have
-been reviewed against the Fedora Python packaging guidelines. It has **not been
-built**: `python3-devel` and `pyproject-rpm-macros` are not installed on the
-machine it was written on, and installing them is not something to do on
-somebody's behalf.
+**The RPM builds.** `rpmbuild -ba` produces
+`loupedeckapp-0.5.0-1.fc44.noarch.rpm` on Fedora 44, and the result was
+unpacked and checked:
 
-The `PKGBUILD` has not been built either. There is no Arch machine here.
+- every module listed in `pyproject.toml` is in the package
+- `/usr/bin/loupedeckapp`, the desktop entry, the icon, the udev rule and the
+  ydotool drop-in all land where they should
+- the assets resolve from `/usr/share/loupedeckapp`, both shipped applications
+  are visible, and the setup advice points at a udev rule that exists
+- dependencies come out as `ydotool` plus the Python three, with `kdotool`,
+  `playerctl` and the device library as weak ones
 
-So treat both as drafts that are close rather than as tested packages. If you
-build one, a pull request correcting it is worth more than the file is.
+What has **not** been done is installing it, which would pull Qt in system-wide
+on a machine that runs the app from a checkout. And it has not been through
+`rpmlint` or a Fedora review, so treat it as a working package rather than a
+compliant one.
+
+Three things the build itself turned up, all fixed:
+
+- `%pyproject_buildrequires` turns the runtime dependencies into build
+  dependencies by default, so building a package of pure Python files wanted
+  ~200MB of Qt on the build host. `-R` and an explicit `Requires:` list instead.
+- `%pyproject_save_files` was given the distribution name. This project has a
+  flat module layout, so there is no package named after it and the macro
+  correctly refused.
+- `pyproject.toml` declared its licence as a TOML table, which setuptools has
+  deprecated and warned about on every build. It is an SPDX string now.
+
+The `PKGBUILD` has **not** been built. There is no Arch machine here, so treat
+it as a draft; if you build one, a pull request correcting it is worth more
+than the file is.
 
 ## After installing
 

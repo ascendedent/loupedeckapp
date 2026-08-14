@@ -294,11 +294,15 @@ the toggles are disabled and closing the window quits, since hiding it would lea
 
 ### Distribution packages
 
-Drafts of a Fedora `.spec` and an Arch `PKGBUILD` live in
-[`packaging/rpm/`](packaging/rpm/) and [`packaging/arch/`](packaging/arch/). A distribution package
-is the only format that can install the udev rule and depend on `ydotool` rather than telling you
-to. Neither has been built yet: see [`packaging/rpm/README.md`](packaging/rpm/README.md) for exactly
-what has and has not been verified.
+A distribution package is the only format that can install the udev rule and depend on `ydotool`
+rather than telling you to. The Fedora spec in [`packaging/rpm/`](packaging/rpm/) builds and has
+been unpacked and checked; the Arch `PKGBUILD` in [`packaging/arch/`](packaging/arch/) is a draft
+that has never been built. [`packaging/rpm/README.md`](packaging/rpm/README.md) says exactly what
+has and has not been verified.
+
+```bash
+rpmbuild -ba packaging/rpm/loupedeckapp.spec
+```
 
 ### A single file (AppImage)
 

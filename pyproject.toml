@@ -8,7 +8,10 @@ version = "0.5.0"
 description = "Linux configuration app for the Loupedeck CT, Live and Live S"
 readme = "README.md"
 requires-python = ">=3.9"
-license = { file = "LICENSE" }
+# SPDX string plus an explicit file list: setuptools deprecated the table form
+# and warns on every build, including inside a distribution package build.
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
 authors = [{ name = "JM" }]
 keywords = ["loupedeck", "streamdeck", "wayland", "kde", "macropad"]
 classifiers = [

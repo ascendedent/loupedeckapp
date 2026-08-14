@@ -662,10 +662,11 @@ held profile, because a switch that silently fails to happen is worse than one t
       exactly what a sandbox exists to prevent, and there is no portal for it. Either
       `--device=all` or a host-side `ydotoold` plus a socket permission, and neither leaves much
       sandbox behind.
-- [~] A distribution package: a Fedora spec and an Arch PKGBUILD are written
-      (`packaging/rpm/`, `packaging/arch/`) and neither has been built. The spec parses and was
-      reviewed against the Fedora Python guidelines; building it needs `python3-devel` and
-      `pyproject-rpm-macros`, which are not installed here. A deb is not written.
+- [x] **Fedora RPM** (`packaging/rpm/`): builds, and the result was unpacked and checked. It
+      installs the udev rule and the ydotool drop-in, which is the one thing the wheel and the
+      AppImage cannot do. Not installed here (it would pull Qt in system-wide) and not through
+      rpmlint, so it is a working package rather than a review-ready one.
+- [ ] An Arch `PKGBUILD` is written (`packaging/arch/`) and unbuilt; no deb.
 - [x] **System tray** (`tray.py`): show/hide, live profile with a switcher, dynamic-mode toggle,
       quit. Closing the window hides it; the unsaved-changes guard does not prompt on close (the
       draft is not being discarded, only hidden) but Quit from the tray does ask, bringing the

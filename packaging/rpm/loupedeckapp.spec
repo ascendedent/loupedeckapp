@@ -58,14 +58,21 @@ installing, log out and back in once so the dialout group applies.
 %autosetup -n %{appname}-%{version}
 
 %generate_buildrequires
-%pyproject_buildrequires
+# -R: do not turn the runtime dependencies into build dependencies. This is a
+# noarch pure-Python package that runs no tests at build time, so building it
+# does not need PySide6 installed, and requiring it would mean pulling ~200MB
+# of Qt onto a build host to copy some .py files. The runtime dependencies are
+# declared explicitly below instead.
+%pyproject_buildrequires -R
 
 %build
 %pyproject_wheel
 
 %install
 %pyproject_install
-%pyproject_save_files -l %{appname} qml_app device_controller LdConfiguration \
+# The modules, not the distribution: this project has a flat layout, so there
+# is no package named after it for the files to travel inside.
+%pyproject_save_files -l qml_app device_controller LdConfiguration \
     DeviceProfile ct_support label_render input_backend window_watcher \
     profile_manager system_shortcuts platform_env action_library app_paths \
     autostart device_lib installed_apps macro settings setup_check tray \
