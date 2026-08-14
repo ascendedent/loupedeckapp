@@ -82,17 +82,37 @@ Item {
     // fill. Done with layered rectangles rather than images so it costs no
     // assets and works at any size.
 
-    // A hairline along one edge, which is what actually sells raised or sunken.
-    component EdgeLight: Rectangle {
-        property bool atTop: true
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: atTop ? parent.top : undefined
-        anchors.bottom: atTop ? undefined : parent.bottom
-        anchors.margins: 1
-        height: 1
-        color: "#ffffff"
-        opacity: atTop ? 0.055 : 0.0
+    // The lit top edge of a round thing, which is a crescent and not a line.
+    // A straight hairline across the top of a circle's bounding box sits
+    // outside the circle everywhere except its centre point, so it floated
+    // above every key as a stray bar. This draws the whole outline and clips
+    // it to the top half, which is where light from above actually lands.
+    component RimLight: Item {
+        id: rim
+        property real strength: 0.09
+        anchors.fill: parent
+
+        // Two arcs, not one. A single crescent clipped at the halfway line
+        // ends abruptly at nine and three o'clock; a shorter, brighter cap over
+        // a longer, dimmer one puts the falloff where a highlight has one.
+        Repeater {
+            model: [{reach: 0.5, weight: 0.6}, {reach: 0.26, weight: 1.0}]
+            Item {
+                required property var modelData
+                width: rim.width
+                height: rim.height * modelData.reach
+                clip: true
+                Rectangle {
+                    width: rim.width
+                    height: rim.height
+                    radius: height / 2
+                    color: "transparent"
+                    border.color: "#ffffff"
+                    border.width: 1
+                    opacity: rim.strength * parent.modelData.weight
+                }
+            }
+        }
     }
 
     // The dark well a key or a screen sits in.
@@ -179,7 +199,7 @@ Item {
                 GradientStop { position: 1.0; color: "#17171d" }
             }
             border.color: "#0c0c11"; border.width: 1
-            EdgeLight {}
+            RimLight { strength: 0.10 }
         }
 
         // A ring of colour when the knob is bound or selected: the state has
@@ -273,7 +293,7 @@ Item {
                     color: rb.ledColor !== "" ? Qt.darker(rb.ledColor, 1.6) : "#121217" }
             }
             border.color: "#08080b"; border.width: 1
-            EdgeLight {}
+            RimLight { strength: rb.ledColor !== "" ? 0.22 : 0.10 }
             // Two different things, drawn differently. Selection and the live
             // workspace glow past the key's edge, the way a lit one does
             // through the rubber. "Something is bound here" is a rim inside
