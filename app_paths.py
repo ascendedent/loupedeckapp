@@ -22,6 +22,11 @@ import os
 import shutil
 import sys
 
+# Set by a relocatable bundle to say where its payload is mounted; see
+# packaging/appimage/build.sh.
+PREFIX_OVERRIDE = "LOUPEDECKAPP_PREFIX"
+
+
 def _find_bundled_dir():
     """Where the shipped assets (`qml/`, `Images/`, `Profiles/`) actually are.
 
@@ -34,9 +39,14 @@ def _find_bundled_dir():
     here = os.path.dirname(os.path.abspath(__file__))
     if os.path.isdir(os.path.join(here, "qml")):
         return here
-    installed = os.path.join(sys.prefix, "share", "loupedeckapp")
-    if os.path.isdir(os.path.join(installed, "qml")):
-        return installed
+    # A bundle (AppImage) mounts somewhere different on every run, so it cannot
+    # rely on sys.prefix: its AppRun says where the payload is.
+    for base in (os.environ.get(PREFIX_OVERRIDE), sys.prefix):
+        if not base:
+            continue
+        installed = os.path.join(base, "share", "loupedeckapp")
+        if os.path.isdir(os.path.join(installed, "qml")):
+            return installed
     return here          # let the caller fail with a path that says where it looked
 
 

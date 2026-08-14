@@ -634,13 +634,23 @@ held profile, because a switch that silently fails to happen is worse than one t
       checkout it names the interpreter and script absolutely, since a login session has neither
       the virtualenv nor the launch directory. A stale entry (app moved, venv rebuilt) is detected
       and reported: the session still runs it, so nothing otherwise says why the app never started.
-- [ ] **A distro-friendly path** (Flatpak and/or AppImage).
+- [x] **AppImage** (`packaging/appimage/`): one self-contained file, built and run here as an
+      AppDir; the final `appimagetool` squash step needs a download and has not been run.
+      A bundle rather than a sandbox, which is the right shape for an app that needs
+      `/dev/uinput`.
+- [x] **Flatpak manifest** (`packaging/flatpak/`), written and **unbuilt**, with a README that
+      says plainly why the format fights this app: synthesising input into other applications is
+      exactly what a sandbox exists to prevent, and there is no portal for it. Either
+      `--device=all` or a host-side `ydotoold` plus a socket permission, and neither leaves much
+      sandbox behind.
+- [ ] A distribution package (rpm / deb / AUR), which is the only format that can install the udev
+      rule and the ydotool service as dependencies.
 - [x] **System tray** (`tray.py`): show/hide, live profile with a switcher, dynamic-mode toggle,
       quit. Closing the window hides it; the unsaved-changes guard does not prompt on close (the
       draft is not being discarded, only hidden) but Quit from the tray does ask, bringing the
       window back to do it. Disabled with no tray available, where hiding would strand the app.
       Settings: tray on/off, close-to-tray, start-hidden.
-- [ ] **Flatpak** and/or **AppImage**
+- [x] **AppImage** built; **Flatpak** manifest written and documented as a poor fit
 - [x] Promote useful `scratch/` probes to `scripts/verify/` (probe, event capture, render)
 
 **Assets in a flat layout.** The modules sit at the repo root rather than in a package directory,
@@ -651,7 +661,10 @@ data-files under `<prefix>/share/loupedeckapp` instead, and `app_paths` locates 
 Verified by installing the wheel into a clean venv.
 
 **Flatpak's obstacle is input, not packaging.** `ydotool` writes to `/dev/uinput`, which a sandboxed
-app cannot reach, so a bundle needs a host-side daemon or a portal that does not exist yet.
+app cannot reach, so a bundle needs a host-side daemon or a portal that does not exist yet. That is
+why the AppImage is the recommended single-file build: it is a bundle, not a sandbox, so the app
+has exactly the access the user has. Both are in `packaging/`, with the trade-off written up in
+`packaging/flatpak/README.md`.
 
 ### H. Project independence
 

@@ -241,6 +241,19 @@ and asks first.
 All of that is under the gear in the top bar, along with brightness. If your desktop has no tray,
 the toggles are disabled and closing the window quits, since hiding it would leave no way back.
 
+### A single file (AppImage)
+
+```bash
+./packaging/appimage/build.sh      # -> dist/LoupedeckConfig-x86_64.AppImage
+```
+
+Self-contained: the app, its dependencies, a Python interpreter and the parts of Qt it uses. It
+still needs the udev rule and `ydotoold` on the host, and the Setup dialog will tell you so.
+
+There is a Flatpak manifest in [`packaging/flatpak/`](packaging/flatpak/), but read its README
+first: typing into other applications is precisely what a sandbox exists to prevent, and working
+around that leaves little sandbox behind.
+
 ### Starting with your session
 
 **Start with the session** writes an XDG autostart entry (`~/.config/autostart/loupedeckapp.desktop`),

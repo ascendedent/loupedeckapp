@@ -98,5 +98,9 @@ py-modules = [
     "packaging/99-loupedeck.rules",
     "packaging/ydotool-user-socket.conf",
 ]
+# The tray looks the icon up by file path first. Installed from a wheel the
+# hicolor copy below is not somewhere the app can find by itself, and the tray
+# came up with no icon at all.
+"share/loupedeckapp/packaging/icons" = ["packaging/icons/loupedeckapp.svg"]
 "share/applications" = ["packaging/loupedeckapp.desktop"]
 "share/icons/hicolor/scalable/apps" = ["packaging/icons/loupedeckapp.svg"]

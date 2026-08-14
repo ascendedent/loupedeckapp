@@ -1,0 +1,50 @@
+# Flatpak manifest. Read packaging/flatpak/README.md first: a sandbox is a poor
+# fit for an app whose whole job is synthesising input, and the AppImage build
+# is the recommended single-file option.
+#
+# UNBUILT. Written from the format's documentation, not from a successful run.
+app-id: io.github.ascendedent.loupedeckapp
+runtime: org.kde.Platform
+runtime-version: '6.7'
+sdk: org.kde.Sdk
+command: loupedeckapp
+
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  - --device=dri
+  # The Loupedeck is a USB serial device. Flatpak has no way to expose one
+  # port, so this is all or nothing.
+  - --device=all
+  # ydotoold runs on the host and owns /dev/uinput; this is the socket it
+  # listens on. Without it nothing this app does can reach the keyboard.
+  - --filesystem=/run/.ydotool_socket
+  # Dynamic mode asks KWin which window has focus, over the session bus.
+  - --socket=session-bus
+  # Media actions prefer playerctl, which speaks MPRIS on the session bus.
+  - --talk-name=org.mpris.MediaPlayer2.*
+
+modules:
+  - name: python3-deps
+    buildsystem: simple
+    build-commands:
+      - pip3 install --prefix=/app --no-deps --no-build-isolation .
+    sources:
+      - type: dir
+        path: ../..
+    # Regenerate with flatpak-pip-generator; see the README here. PySide6 in
+    # particular is not a small wheel and may want the runtime's Qt instead of
+    # its own bundled copy.
+
+  - name: loupedeckapp
+    buildsystem: simple
+    build-commands:
+      - pip3 install --prefix=/app --no-deps --no-build-isolation .
+      - install -Dm644 packaging/loupedeckapp.desktop
+          /app/share/applications/io.github.ascendedent.loupedeckapp.desktop
+      - install -Dm644 packaging/icons/loupedeckapp.svg
+          /app/share/icons/hicolor/scalable/apps/io.github.ascendedent.loupedeckapp.svg
+    sources:
+      - type: dir
+        path: ../..

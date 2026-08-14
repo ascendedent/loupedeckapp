@@ -118,11 +118,19 @@ c.eq("asking whether a tray exists never raises",
 # behind points at a file that is not there, which is worse than no advice.
 import setup_check                                                # noqa: E402
 
-referenced = ["packaging/99-loupedeck.rules", "packaging/ydotool-user-socket.conf"]
+referenced = ["packaging/99-loupedeck.rules", "packaging/ydotool-user-socket.conf",
+              # tray.py resolves this by path; without it the tray icon is blank
+              # everywhere except a checkout.
+              "packaging/icons/loupedeckapp.svg"]
 c.eq("the files setup advice points at all ship",
      sorted(p for p in referenced if p not in shipped), [])
 c.eq("and setup_check resolves them through app_paths",
      all(os.path.exists(setup_check._packaged(os.path.basename(p)))
-         for p in referenced), True)
+         for p in referenced if os.path.dirname(p) == "packaging"), True)
+
+import tray as tray_mod                                           # noqa: E402
+
+c.eq("the tray finds an icon rather than coming up blank",
+     not tray_mod.icon().isNull(), True)
 
 sys.exit(c.done())

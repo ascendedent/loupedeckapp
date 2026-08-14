@@ -127,4 +127,20 @@ finally:
     sys.prefix = saved_prefix
 
 shutil.rmtree(tmp, ignore_errors=True)
+# A relocatable bundle mounts somewhere different on every run, so it cannot
+# use sys.prefix: its AppRun points at the payload with this instead.
+mounted = os.path.join(tmp, "mnt", "usr")
+os.makedirs(os.path.join(mounted, "share", "loupedeckapp", "qml"), exist_ok=True)
+os.environ[app_paths.PREFIX_OVERRIDE] = mounted
+try:
+    c.eq("a bundle prefix is honoured over sys.prefix",
+         app_paths._find_bundled_dir(),
+         os.path.join(mounted, "share", "loupedeckapp"))
+    os.environ[app_paths.PREFIX_OVERRIDE] = os.path.join(tmp, "nowhere")
+    c.eq("a prefix with no assets in it is ignored",
+         app_paths._find_bundled_dir().startswith(os.path.join(tmp, "nowhere")),
+         False)
+finally:
+    os.environ.pop(app_paths.PREFIX_OVERRIDE, None)
+
 sys.exit(c.done())
