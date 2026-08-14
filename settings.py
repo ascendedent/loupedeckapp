@@ -38,6 +38,9 @@ DEFAULTS = {
     # Whether the setup dialog has been shown once. It opens by itself on a
     # first run, then only when something is actually wrong.
     "setup_seen": False,
+    # The profile that was open last. Reloaded at startup, so the device comes
+    # back the way you left it rather than blank.
+    "last_profile": "",
 }
 
 
@@ -129,6 +132,14 @@ class Settings:
     @start_hidden.setter
     def start_hidden(self, value):
         self.set("start_hidden", bool(value))
+
+    @property
+    def last_profile(self):
+        return str(self.get("last_profile") or "")
+
+    @last_profile.setter
+    def last_profile(self, value):
+        self.set("last_profile", str(value or ""))
 
     @property
     def setup_seen(self):

@@ -145,6 +145,8 @@ middling speeds.
   dynamic mode wants to switch profile mid-edit it waits (shown in the top bar) rather than
   interrupting with a dialog or losing the work.
 - **Copy / paste** a control's entire function onto another compatible control.
+- **A starter profile** with Media, Editing and Browser workspaces, labelled and colour-coded,
+  opened on a first run. After that the app reopens whatever profile you had last.
 - **Inspector in collapsible sections** (Action, Appearance, Advanced), remembered as you move
   between controls.
 - **Says what to do when there is nothing to see**: an unbound workspace, a search that matched

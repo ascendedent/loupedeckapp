@@ -101,7 +101,30 @@ class Backend(QObject):
             return True
         return bool(wm_class) and wm_class.strip().lower() == self.SELF_WM_CLASS
 
+    # Shipped with the app, and what a first run should open with rather than
+    # an empty device and no clue what to do with it.
+    STARTER_PROFILE = "Starter"
+
+    def _startup_profile(self):
+        """Which profile to open on launch.
+
+        The one you had open last, so the device comes back the way you left
+        it. Failing that the starter, so a first run is a working deck rather
+        than a blank one. Failing that whatever exists, because a profile list
+        with something in it and nothing loaded is a confusing place to start.
+        """
+        available = app_paths.list_profiles()
+        if not available:
+            return ""
+        for candidate in (self._settings.last_profile, self.STARTER_PROFILE):
+            if candidate and candidate in available:
+                return candidate
+        return available[0]
+
     def start(self):
+        name = self._startup_profile()
+        if name:
+            self._ctl.load_profile(name)
         # Supervised: connects when the device appears and reconnects after an
         # unplug, rather than a single attempt at launch.
         self._ctl.start()
@@ -1124,7 +1147,19 @@ class Backend(QObject):
     @Slot(str)
     def loadProfile(self, name):
         self._ctl.load_profile(name)
+        self._remember_profile(name)
         self.stateChanged.emit()
+
+    def _remember_profile(self, name):
+        """Record what is open, so the next launch opens the same thing.
+
+        Dynamic mode changes the profile constantly and none of that should
+        count: what is remembered is what the user chose, which is why this is
+        called from the slots the UI drives and not from the controller.
+        """
+        if name and name != self._settings.last_profile:
+            self._settings.last_profile = name
+            self._settings.save()
 
     # -- profile lifecycle -------------------------------------------------
     @staticmethod
@@ -1168,6 +1203,7 @@ class Backend(QObject):
         with open(app_paths.profile_write_path(clean), "w") as f:
             json.dump(cfg.to_JSON(), f, indent=True)
         self._ctl.load_profile(clean)
+        self._remember_profile(clean)
         self.notify.emit("Created %s" % clean)
         self.stateChanged.emit()
 
@@ -1188,6 +1224,7 @@ class Backend(QObject):
         with open(app_paths.profile_write_path(clean), "w") as f:
             json.dump(data, f, indent=True)
         self._ctl.load_profile(clean)
+        self._remember_profile(clean)
         self.notify.emit("Duplicated %s to %s" % (source, clean))
         self.stateChanged.emit()
 
@@ -1211,6 +1248,7 @@ class Backend(QObject):
         self._repoint_bindings(old, clean)
         if self._ctl.config.profile == old:
             self._ctl.load_profile(clean)
+            self._remember_profile(clean)
         self.notify.emit("Renamed %s to %s" % (old, clean))
         self.stateChanged.emit()
 

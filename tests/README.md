@@ -44,3 +44,5 @@ went, which on a multi-monitor desktop is not where the arithmetic said.
 | `test_setup.py` | first-run checks: severity, the summary the top bar reads, failure isolation |
 | `test_autostart.py` | the XDG autostart entry, including the stale-entry case |
 | `test_macos.py` | the macOS adapters as far as they can be checked from Linux |
+| `test_starter.py` | the shipped starter profile: every binding real, parseable and reachable |
+| `test_startup.py` | which profile a launch opens, and what is remembered |
