@@ -427,6 +427,23 @@ ApplicationWindow {
     }
 
     FileDialog {
+        id: exportAppDialog
+        title: "Export the '" + backend.activeApp + "' app"
+        fileMode: FileDialog.SaveFile
+        nameFilters: ["Loupedeck application (*.json)", "All files (*)"]
+        currentFile: "file:" + backend.activeApp + ".json"
+        onAccepted: root.ioError = backend.exportApp(selectedFile)
+    }
+
+    FileDialog {
+        id: importAppDialog
+        title: "Import an application"
+        fileMode: FileDialog.OpenFile
+        nameFilters: ["Loupedeck application (*.json)", "All files (*)"]
+        onAccepted: root.ioError = backend.importApp(selectedFile)
+    }
+
+    FileDialog {
         id: importDialog
         title: "Import a profile"
         fileMode: FileDialog.OpenFile
@@ -1564,15 +1581,26 @@ ApplicationWindow {
                 Flow {
                     Layout.fillWidth: true
                     visible: !rightPanel.profilesCollapsed
-                            && backend.activeApp !== "Default"
                     spacing: 6
                     ActionButton {
                         label: "Rename app"
+                        visible: backend.activeApp !== "Default"
                         onClicked: { appDialog.mode = "rename"; appDialog.open() }
                     }
                     ActionButton {
                         label: "Delete app"
+                        visible: backend.activeApp !== "Default"
                         onClicked: deleteAppDialog.open()
+                    }
+                    // An app is a folder of profiles plus its matching rules;
+                    // this is how you hand the whole thing to somebody.
+                    ActionButton {
+                        label: "Export app"
+                        onClicked: exportAppDialog.open()
+                    }
+                    ActionButton {
+                        label: "Import app"
+                        onClicked: importAppDialog.open()
                     }
                 }
 

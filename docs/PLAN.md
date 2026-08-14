@@ -81,7 +81,7 @@ already Qt-free, so nothing outside those four files referenced them.
 | **Left panel** | Searchable action library | Searchable, categorised library + drag-drop | KDE-hardcoded app entries |
 | **Center** | Photorealistic device | Schematic CT mirror; live images/labels/LEDs | Optional photoreal polish; Live/Live S layout fidelity |
 | **Right panel** | Profiles + pages tree | Profile list + CRUD + app bindings + rich inspector | Import/export; pages hierarchy |
-| **Profiles** | System + per-app + dynamic | Files on disk + `dynamic_profiles.json` | Import/export; multi-key match (`wm_class` / `bundle_id`) |
+| **Profiles** | System + per-app + dynamic | Applications own their profiles on disk; pages switch inside one | Multi-key match (`wm_class` / `bundle_id`) |
 | **Theme** | Dark, rounded | Dark themed QML | Photoreal device chrome (optional) |
 
 ---
@@ -637,7 +637,7 @@ held profile, because a switch that silently fails to happen is worse than one t
 
 - [x] `pyproject.toml` with a `loupedeckapp` entry point and `[device]` / `[x11]` extras
 - [x] Ship udev rule, ydotool socket drop-in and desktop entry in `packaging/`
-- [x] Automated tests (`tests/`, 757 checks): schema load/migrate, profile resolution,
+- [x] Automated tests (`tests/`, 778 checks): schema load/migrate, profile resolution,
       tuning/dispatch, platform factories, installed-asset layout, per-model control inventory,
       and an offscreen pass over the real QML (`test_ui.py`) for the wiring the core cannot see
 - [x] **Installable from a wheel**: `pip install ".[device]"` gives a `loupedeckapp` command, the

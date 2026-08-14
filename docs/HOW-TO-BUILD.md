@@ -90,6 +90,11 @@ name, which is the point.
 - **Import** / **Export** move one profile as a `.json` file. Importing checks
   the file before it appears in the list, and never overwrites: a name that is
   taken gets a numbered suffix.
+- **Export app** / **Import app**, above the profile list, move a whole
+  application: every profile in it, its window classes and its pages, in one
+  file. That is what to send somebody when you want to hand over a setup rather
+  than a single deck. An imported application always arrives as a new one, so
+  someone else's Premiere cannot land on top of yours.
 
 Edits are a **draft** until you press **Save**. The on-screen device updates as
 you go; the hardware does not change until you save. **Revert** throws the draft

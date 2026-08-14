@@ -162,8 +162,10 @@ middling speeds.
 - **Keyboard shortcuts**: `Ctrl+S` save, `Ctrl+R` revert, `Ctrl+F` search actions, `Ctrl+C` /
   `Ctrl+V` copy and paste a control, `Esc` leave a submenu or clear the selection. They stay out of
   the way while you are typing in a field.
-- **Import / export** profiles as JSON. Importing checks the file before adding it, and never
-  overwrites an existing profile: a name that is taken gets a numbered suffix.
+- **Import / export** a profile, or a whole **application** with all its profiles, matching rules
+  and pages in one file. Importing checks the file before adding anything and never overwrites: a
+  name that is taken gets a numbered suffix, so someone else's Premiere setup cannot land on top of
+  yours.
 - **Dynamic mode**: switches the deck to follow what you are doing, on two levels. Focus an
   application and its profile loads; change what that application is showing and a **page** inside
   it can load a different profile again. Reads the focused window through KWin on KDE, an extension

@@ -113,6 +113,80 @@ json.dump(data, open(old, "w"))
 c.eq("an older schema imports fine", b.importProfile(url(old)), "")
 c.eq("and lands under its own name", get("activeProfile"), "ancient")
 
+# -- exporting a whole application -------------------------------------------
+# An app is a folder of profiles plus its matching rules. Sharing one means
+# sharing all of it, so it bundles into a single file a person can send.
+import app_paths as ap                                            # noqa: E402
+
+b.createApp("Premiere", "premiere")
+b.createProfile("Cut")
+b.createProfile("Sound")
+b.addAppPage("Audio", "Audio", "Sound")
+b.setAppDefaultProfile("Cut")
+c.eq("the app has three profiles", sorted(b.profiles),
+     ["Cut", "Premiere", "Sound"])
+
+app_out = os.path.join(tmp, "premiere.json")
+c.eq("exporting an app reports no error", b.exportApp(url(app_out)), "")
+bundle = json.load(open(app_out))
+c.eq("the bundle says what it is", bundle["kind"], "loupedeckapp.application")
+c.eq("and carries every profile", sorted(bundle["profiles"]),
+     ["Cut", "Premiere", "Sound"])
+c.eq("with the rules that make it switch", bundle["match"], ["premiere"])
+c.eq("its pages", [p["name"] for p in bundle["pages"]], ["Audio"])
+c.eq("and which profile it uses", bundle["default_profile"], "Cut")
+
+# -- importing it back --------------------------------------------------------
+c.eq("importing it works", b.importApp(url(app_out)), "")
+c.eq("it did not overwrite the original",
+     "Premiere 2" in ap.list_apps(), True)
+c.eq("the copy has the same profiles",
+     sorted(ap.list_profiles("Premiere 2")), ["Cut", "Premiere", "Sound"])
+c.eq("and the same rules", ap.app_matches("Premiere 2"), ["premiere"])
+c.eq("and the same pages",
+     [p["name"] for p in ap.app_pages("Premiere 2")], ["Audio"])
+c.eq("its profiles know which app they are in now",
+     json.load(open(ap.profile_read_path("Premiere 2", "Cut")))["profile"],
+     "Premiere 2/Cut")
+c.eq("and it is what the panel is showing", b.activeApp, "Premiere 2")
+
+c.eq("importing again suffixes again",
+     (b.importApp(url(app_out)), "Premiere 3" in ap.list_apps())[1], True)
+
+# -- refusing the wrong thing -------------------------------------------------
+# A single exported profile is a different file, and saying so beats "not
+# valid": the user has the right file and the wrong button.
+single = os.path.join(tmp, "single.json")
+with open(single, "w") as f:
+    json.dump(json.load(open(app_out))["profiles"]["Cut"], f)
+msg = b.importApp(url(single))
+c.eq("a single profile is not an application", msg != "", True)
+c.eq("and says which button to use instead",
+     "Import in the profile list" in msg, True)
+
+broken = os.path.join(tmp, "broken.json")
+with open(broken, "w") as f:
+    json.dump({"kind": "loupedeckapp.application", "app": "Bad",
+               "profiles": {"x": {"nonsense": True}}}, f)
+c.eq("a bundle whose profile will not load is refused",
+     b.importApp(url(broken)) != "", True)
+c.eq("and nothing of it was written", "Bad" in ap.list_apps(), False)
+
+newer = os.path.join(tmp, "newer.json")
+bundle["schema_version"] = SCHEMA_VERSION + 5
+with open(newer, "w") as f:
+    json.dump(bundle, f)
+c.eq("a bundle from a newer build is refused rather than half-read",
+     ("schema v%d" % (SCHEMA_VERSION + 5)) in b.importApp(url(newer)), True)
+
+empty = os.path.join(tmp, "empty.json")
+with open(empty, "w") as f:
+    json.dump({"kind": "loupedeckapp.application", "app": "Empty",
+               "profiles": {}}, f)
+c.eq("an application with nothing in it is refused",
+     b.importApp(url(empty)) != "", True)
+
 b._ctl.close()
 shutil.rmtree(tmp, ignore_errors=True)
+
 sys.exit(c.done())

@@ -1613,6 +1613,110 @@ class Backend(QObject):
         self.notify.emit("Exported %s" % os.path.basename(path))
         return ""
 
+    # An application is a folder, so sharing one means sharing the folder.
+    # Bundling it into a single file is what makes that something a person can
+    # actually send to somebody.
+    APP_BUNDLE_KIND = "loupedeckapp.application"
+
+    @Slot(str, result=str)
+    def exportApp(self, file_url):
+        """Write the whole application, profiles and all, to one file."""
+        path = QUrl(file_url).toLocalFile() if file_url else ""
+        app = self.activeApp
+        if not path:
+            return "Nothing to export"
+        if not path.lower().endswith(".json"):
+            path += ".json"
+        names = app_paths.list_profiles(app)
+        if not names:
+            return "'%s' has no profiles to export" % app
+        bundle = {
+            "kind": self.APP_BUNDLE_KIND,
+            "schema_version": SCHEMA_VERSION,
+            "app": app,
+            "match": app_paths.app_matches(app),
+            "default_profile": app_paths.app_default_profile(app),
+            "pages": app_paths.app_pages(app),
+            "profiles": {},
+        }
+        try:
+            for name in names:
+                with open(self._profile_path(name, app)) as f:
+                    bundle["profiles"][name] = json.load(f)
+            with open(path, "w") as f:
+                json.dump(bundle, f, indent=True)
+        except (OSError, ValueError) as e:
+            return "Could not export: %s" % e
+        print("exported app '%s' (%d profiles) to %s" % (app, len(names), path))
+        self.notify.emit("Exported %s" % os.path.basename(path))
+        return ""
+
+    @Slot(str, result=str)
+    def importApp(self, file_url):
+        """Read an exported application in as a new one.
+
+        Validated before anything is written, and never merged into an existing
+        app: a name that is taken gets a numbered suffix, so importing someone
+        else's Premiere setup cannot quietly overwrite yours.
+        """
+        path = QUrl(file_url).toLocalFile() if file_url else ""
+        if not path:
+            return "No file chosen"
+        try:
+            with open(path) as f:
+                bundle = json.load(f)
+        except OSError as e:
+            return "Could not read the file: %s" % e
+        except ValueError:
+            return "That file is not valid JSON"
+
+        if not isinstance(bundle, dict) or bundle.get("kind") != self.APP_BUNDLE_KIND:
+            return ("That is not an exported application. A single profile "
+                    "imports with Import in the profile list.")
+        profiles = bundle.get("profiles")
+        if not isinstance(profiles, dict) or not profiles:
+            return "That application has no profiles in it"
+        version = bundle.get("schema_version", 1)
+        try:
+            if int(version) > SCHEMA_VERSION:
+                return ("Application is schema v%s; this build understands v%s"
+                        % (version, SCHEMA_VERSION))
+        except (TypeError, ValueError):
+            return "Application has an unreadable schema_version"
+        # Prove every profile loads before any of them appears in the list.
+        for name, data in profiles.items():
+            if not self._clean_profile_name(name):
+                return "Profile name '%s' cannot be used" % name
+            try:
+                LdConfiguration().from_JSON(data)
+            except Exception as e:
+                return "Profile '%s' could not be read: %s: %s" % (
+                    name, type(e).__name__, e)
+
+        base = self._clean_profile_name(bundle.get("app") or "")
+        if not base:
+            return "Application has no usable name"
+        app, n = base, 2
+        while app in app_paths.list_apps():
+            app, n = "%s %d" % (base, n), n + 1
+
+        app_paths.ensure_user_app_dir(app)
+        for name, data in profiles.items():
+            data["profile"] = app_paths.make_ref(app, name)
+            with open(app_paths.profile_write_path(app, name), "w") as f:
+                json.dump(data, f, indent=True)
+        app_paths.set_app_matches(app, bundle.get("match") or [])
+        app_paths.set_app_pages(app, bundle.get("pages") or [])
+        default = bundle.get("default_profile")
+        if default in profiles:
+            app_paths.set_app_default_profile(app, default)
+        print("imported app '%s' (%d profiles) from %s"
+              % (app, len(profiles), path))
+        self._browsing_app = app
+        self.notify.emit("Imported %s" % app)
+        self.stateChanged.emit()
+        return ""
+
     @Slot(str, result=str)
     def importProfile(self, file_url):
         """Read a profile file into the user's profile directory.
