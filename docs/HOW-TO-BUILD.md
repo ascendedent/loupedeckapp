@@ -111,6 +111,12 @@ keys tell you nothing about what is on them, and the name shows in the header
 and in the app. Click the workspace chip in the top bar, or use the field in the
 inspector when a round key is selected.
 
+Select a round key and you get **Copy page**, **Paste page** and **Clear**.
+Pasting replaces everything on the target, its name included, which is what
+makes a second page that is mostly like the first a two-click job rather than
+twelve single-control copies. Clearing keeps the name, and nothing is written
+until you press Save, so **Revert** undoes either.
+
 **Submenus** go deeper. Bind a key to a *Submenu* action and pressing it opens a
 fresh page of keys, with a back key already placed. Good for the long tail:
 sixteen emoji, a rarely-used export menu, anything that would otherwise crowd

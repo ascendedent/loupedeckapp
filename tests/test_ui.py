@@ -269,6 +269,39 @@ before = len(toast_texts())
 backend.save()
 c.eq("saving says so", any("Saved" in t for t in toast_texts()), True)
 
+# -- copying a whole workspace ------------------------------------------------
+from DeviceProfile import WS_KEYS as _WS                          # noqa: E402
+
+backend.showWorkspace(_WS[0])
+backend.setWorkspaceName(_WS[0], "Media")
+backend.selectControl("tb11")
+backend.setActionSlot("tb11", "hotkey", "ctrl+c")
+c.eq("nothing is on the page clipboard yet", backend.canPasteWorkspace, False)
+
+backend.selectControl(_WS[0])
+backend.copyWorkspace()
+c.eq("copying a page fills the clipboard", backend.canPasteWorkspace, True)
+c.eq("and says which page it was", backend.workspaceClipboardLabel, "Media")
+
+backend.showWorkspace(_WS[3])
+backend.selectControl(_WS[3])
+backend.pasteWorkspace()
+c.eq("pasting brings the bindings with it",
+     backend.boundActions.get("tb11") is not None, True)
+c.eq("and the name", backend.workspaceLabel, "Media")
+
+backend.clearWorkspace()
+c.eq("clearing empties it", backend.menuEmpty, True)
+c.eq("without losing the name", backend.workspaceLabel, "Media")
+
+# The buttons act on the workspace on the device when the selection is a key
+# rather than a round button, which is where a paste would otherwise vanish.
+backend.selectControl("tb11")
+backend.pasteWorkspace()
+c.eq("pasting with a key selected still targets the page on the device",
+     backend.menuEmpty, False)
+backend.clearWorkspace()
+
 # -- tray / close behaviour --------------------------------------------------
 # Offscreen has no tray, which is the case worth pinning: hiding the window
 # with nothing to restore it from would strand the app.

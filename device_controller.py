@@ -24,7 +24,7 @@ import ct_support
 import label_render
 from DeviceProfile import (DeviceProfile, DIAL_ID, WHEEL_DISPLAY, WS_KEYS,
                            forced_model)
-from LdConfiguration import (LdConfiguration, LdAction, LdSubmenu,
+from LdConfiguration import (LdConfiguration, LdAction, LdSubmenu, LdWorkspace,
                              DEFAULT_TUNING, DIAL_KEY, ROTATE_CONTROLS,
                              SIDE_LAYOUTS, accel_steps, apply_default_bindings)
 
@@ -590,6 +590,50 @@ class DeviceController:
         """What to show for a workspace: its name, or 'Workspace <n>'."""
         key = key or self.selected_ws
         return self.workspace_name(key) or ("Workspace %d" % (WS_KEYS.index(key) + 1))
+
+    def copy_workspace(self, key=None):
+        """A whole workspace as data, for pasting onto another one.
+
+        Serialised rather than referenced: a live workspace object would keep
+        changing under the clipboard as the user carried on editing.
+        """
+        ws = self.get_ws(key) if key else self.current_ws()
+        return ws.to_JSON()
+
+    def paste_workspace(self, key, data):
+        """Replace a workspace with copied data. Staged until save().
+
+        Everything comes across, the name included: a copy of "Media" that is
+        not called "Media" is a puzzle rather than a copy. Rename it after if
+        that is not what you wanted, the field is right there.
+        """
+        if key not in WS_KEYS or not isinstance(data, dict):
+            return False
+        index = WS_KEYS.index(key)
+        try:
+            self.config.workspaces[index] = LdWorkspace.from_JSON(data)
+        except Exception as e:
+            print("paste_workspace: %s: %s" % (type(e).__name__, e))
+            return False
+        self.dirty = True
+        if key == self.selected_ws:
+            self.render_workspace(self.current_ws())
+        self._emit("workspace")
+        return True
+
+    def clear_workspace(self, key):
+        """Empty a workspace out. Staged until save()."""
+        if key not in WS_KEYS:
+            return False
+        name = self.get_ws(key).name
+        fresh = LdWorkspace()
+        fresh.name = name        # emptying a page is not renaming it
+        self.config.workspaces[WS_KEYS.index(key)] = fresh
+        self.dirty = True
+        if key == self.selected_ws:
+            self.render_workspace(self.current_ws())
+        self._emit("workspace")
+        return True
 
     def set_workspace_name(self, key, name):
         """Name a workspace (blank clears it). Staged until save()."""

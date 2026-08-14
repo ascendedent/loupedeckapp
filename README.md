@@ -144,7 +144,8 @@ middling speeds.
   **Save**; **Revert** discards the draft. Nothing throws a draft away without asking, and if
   dynamic mode wants to switch profile mid-edit it waits (shown in the top bar) rather than
   interrupting with a dialog or losing the work.
-- **Copy / paste** a control's entire function onto another compatible control.
+- **Copy / paste** a control's entire function onto another compatible control, or a **whole
+  workspace** onto another one.
 - **Side displays your way**: three separate buttons, or one tall image for the whole strip, per
   workspace and per side.
 - **A starter profile** with Media, Editing and Browser workspaces, labelled and colour-coded,

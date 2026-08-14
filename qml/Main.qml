@@ -105,6 +105,31 @@ ApplicationWindow {
         }
     }
 
+    Dialog {
+        id: clearWorkspaceDialog
+        anchors.centerIn: Overlay.overlay
+        modal: true
+        width: 380
+        title: "Clear workspace"
+        standardButtons: Dialog.Yes | Dialog.No
+        onAccepted: backend.clearWorkspace()
+        ColumnLayout {
+            width: parent.width
+            spacing: 6
+            Text {
+                Layout.fillWidth: true
+                text: "Empty every control on '" + backend.workspaceLabel + "'?"
+                color: theme.text; font.pixelSize: 12; wrapMode: Text.WordWrap
+            }
+            Text {
+                Layout.fillWidth: true
+                text: "The name is kept, and nothing is written until you press Save, "
+                      + "so Revert undoes this."
+                color: theme.muted; font.pixelSize: 10; wrapMode: Text.WordWrap
+            }
+        }
+    }
+
     // ---- applications -----------------------------------------------------
     Dialog {
         id: appDialog
@@ -2023,6 +2048,40 @@ ApplicationWindow {
                             visible: backend.selectedIsWorkspace
                             Layout.fillWidth: true; spacing: 6
                             Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
+
+                            // A whole page at a time. Building a second page
+                            // that is mostly like the first was twelve
+                            // single-control copies.
+                            Text {
+                                text: "This workspace"; color: theme.muted
+                                font.pixelSize: 12
+                            }
+                            Flow {
+                                Layout.fillWidth: true; spacing: 6
+                                ActionButton {
+                                    label: "Copy page"
+                                    onClicked: backend.copyWorkspace()
+                                }
+                                ActionButton {
+                                    label: "Paste page"
+                                    enabledFlag: backend.canPasteWorkspace
+                                    onClicked: backend.pasteWorkspace()
+                                }
+                                ActionButton {
+                                    label: "Clear"
+                                    onClicked: clearWorkspaceDialog.open()
+                                }
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                visible: backend.canPasteWorkspace
+                                text: "Clipboard: " + backend.workspaceClipboardLabel
+                                      + ". Pasting replaces everything on this page, "
+                                      + "its name included."
+                                color: theme.muted; font.pixelSize: 10
+                                wrapMode: Text.WordWrap
+                            }
+
                             Text { text: "Workspace name"; color: theme.muted; font.pixelSize: 12 }
                             TextField {
                                 id: wsInspectorName

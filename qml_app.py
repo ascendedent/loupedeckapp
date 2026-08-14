@@ -60,6 +60,10 @@ class Backend(QObject):
         super().__init__(parent)
         self._selected = ""
         self._clipboard = None   # copied control function (see copyControl)
+        # A whole workspace, copied as data so it does not change under the
+        # clipboard while editing carries on.
+        self._ws_clipboard = None
+        self._ws_clipboard_label = ""
         self._sys_shortcuts = None   # lazily-read KDE shortcuts (cached)
         # Last focused window that was not this app. Clicking "bind" focuses our
         # own window first, so polling at click time would always answer
@@ -692,6 +696,50 @@ class Backend(QObject):
             self._ctl.on_workspace_press(key)
             self.selectControl(key)
         self.stateChanged.emit()
+
+    # -- copying a whole workspace -----------------------------------------
+    # Copying one control at a time is fine for a key. Building a second page
+    # that is mostly like the first was twelve of those.
+    def _ws_target(self):
+        """The workspace the buttons act on: the selected round key, or the one
+        on the device when the selection is something else."""
+        return (self._selected if self._selected in WS_KEYS
+                else self._ctl.selected_ws)
+
+    @Slot()
+    def copyWorkspace(self):
+        key = self._ws_target()
+        self._ws_clipboard = self._ctl.copy_workspace(key)
+        self._ws_clipboard_label = self._ctl.workspace_label(key)
+        self.notify.emit("Copied %s" % self._ws_clipboard_label)
+        self.selectionChanged.emit()
+
+    @Slot()
+    def pasteWorkspace(self):
+        if self._ws_clipboard is None:
+            return
+        key = self._ws_target()
+        if self._ctl.paste_workspace(key, self._ws_clipboard):
+            self.notify.emit("Pasted onto %s" % self._ctl.workspace_label(key))
+        self.selectionChanged.emit()
+        self.stateChanged.emit()
+
+    @Slot()
+    def clearWorkspace(self):
+        key = self._ws_target()
+        label = self._ctl.workspace_label(key)
+        if self._ctl.clear_workspace(key):
+            self.notify.emit("Cleared %s" % label)
+        self.selectionChanged.emit()
+        self.stateChanged.emit()
+
+    @Property(bool, notify=selectionChanged)
+    def canPasteWorkspace(self):
+        return self._ws_clipboard is not None
+
+    @Property(str, notify=selectionChanged)
+    def workspaceClipboardLabel(self):
+        return self._ws_clipboard_label
 
     @Slot(str, str)
     def setWorkspaceName(self, key, name):

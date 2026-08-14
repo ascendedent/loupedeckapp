@@ -75,4 +75,57 @@ c.eq("the current label reads without a key argument",
 # device is unplugged, so this must not need a device attached.
 c.eq("switching with no device attached does not raise", dc.device, None)
 
+# -- copying a whole workspace -----------------------------------------------
+# Building a second page that is mostly like the first was twelve single-control
+# copies before this.
+from LdConfiguration import LdAction                               # noqa: E402
+
+source = dc.get_ws(WS_KEYS[0])
+source.name = "Media"
+source.actions["tb11"] = LdAction(action_type="hotkey", action="ctrl+c")
+source.labels["tb11"] = {"text": "Copy", "pos": "bottom", "mode": "bar"}
+source.bg_colors["tb11"] = "#1e3a8a"
+
+copied = dc.copy_workspace(WS_KEYS[0])
+c.eq("a workspace copies as data, not as a reference",
+     isinstance(copied, dict), True)
+
+# The clipboard must not follow later edits, or pasting gives you the current
+# page rather than the one you copied.
+source.actions["tb12"] = LdAction(action_type="text", action="after")
+c.eq("editing the source afterwards does not change the copy",
+     copied["actions"]["tb12"]["a_type"], "none")
+
+dc.dirty = False
+c.eq("pasting reports success", dc.paste_workspace(WS_KEYS[5], copied), True)
+pasted = dc.get_ws(WS_KEYS[5])
+c.eq("the actions came across",
+     (pasted.actions["tb11"].a_type, pasted.actions["tb11"].action),
+     ("hotkey", "ctrl+c"))
+c.eq("so did the labels", pasted.labels["tb11"]["text"], "Copy")
+c.eq("and the colours", pasted.bg_colors["tb11"], "#1e3a8a")
+c.eq("and the name, because a copy of Media that is not called Media is a "
+     "puzzle", pasted.name, "Media")
+c.eq("pasting stages an unsaved change", dc.dirty, True)
+c.eq("the source is untouched", source.actions["tb12"].action, "after")
+
+c.eq("pasting onto something that is not a workspace is refused",
+     dc.paste_workspace("tb11", copied), False)
+c.eq("and pasting nonsense is too",
+     dc.paste_workspace(WS_KEYS[4], "not a workspace"), False)
+
+# -- clearing -----------------------------------------------------------------
+dc.set_workspace_name(WS_KEYS[5], "Keep this name")
+dc.dirty = False
+c.eq("clearing reports success", dc.clear_workspace(WS_KEYS[5]), True)
+cleared = dc.get_ws(WS_KEYS[5])
+c.eq("every control is empty",
+     [k for k, a in cleared.actions.items() if a.a_type != "none"], [])
+c.eq("the labels went too", cleared.labels, {})
+c.eq("but the name stayed: emptying a page is not renaming it",
+     cleared.name, "Keep this name")
+c.eq("clearing stages an unsaved change", dc.dirty, True)
+c.eq("clearing something that is not a workspace is refused",
+     dc.clear_workspace("nope"), False)
+
 sys.exit(c.done())
