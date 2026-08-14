@@ -118,6 +118,41 @@ c.eq("focus can leave the search box",
 QTest.keyClick(window, Qt.Key_C, Qt.ControlModifier)
 c.eq("Ctrl+C outside a text field copies the control", backend.canPaste, True)
 
+# -- empty states ------------------------------------------------------------
+hint = find("emptyMenuHint")
+c.eq("the empty-menu hint exists", hint is not None, True)
+c.eq("and follows whether anything is bound",
+     hint.property("visible"), backend.menuEmpty)
+
+backend.selectControl("tb12")
+backend.setActionSlot("tb12", "text", "hello")
+c.eq("binding a key means the menu is no longer empty", backend.menuEmpty, False)
+c.eq("so the hint goes away", hint.property("visible"), False)
+backend.setActionSlot("tb12", "none", "")
+
+# The CT's labelled buttons are wired by default, so counting them would mean
+# this hint never appeared on the device it was written for.
+c.eq("default button bindings do not count as content", backend.menuEmpty, True)
+c.eq("and the hint is back", hint.property("visible"), True)
+
+lib_empty = find("libraryEmpty")
+c.eq("the library empty state exists", lib_empty is not None, True)
+c.eq("it is hidden while there are matches", lib_empty.property("visible"), False)
+if search is not None:
+    search.setProperty("text", "zzzznotanaction")
+    c.eq("a search that matches nothing says so",
+         lib_empty.property("visible"), True)
+    c.eq("and the search really found nothing",
+         len(backend.filterLibrary("zzzznotanaction")), 0)
+    search.setProperty("text", "")
+    c.eq("clearing the search brings the list back",
+         lib_empty.property("visible"), False)
+
+prof_empty = find("profilesEmpty")
+c.eq("the profiles empty state exists", prof_empty is not None, True)
+c.eq("hidden while profiles exist",
+     prof_empty.property("visible"), len(backend.profiles) == 0)
+
 # -- tray / close behaviour --------------------------------------------------
 # Offscreen has no tray, which is the case worth pinning: hiding the window
 # with nothing to restore it from would strand the app.

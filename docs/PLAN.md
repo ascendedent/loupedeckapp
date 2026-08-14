@@ -79,7 +79,7 @@ already Qt-free, so nothing outside those four files referenced them.
 | **Center** | Photorealistic device | Schematic CT mirror; live images/labels/LEDs | Optional photoreal polish; Live/Live S layout fidelity |
 | **Right panel** | Profiles + pages tree | Profile list + CRUD + app bindings + rich inspector | Import/export; pages hierarchy |
 | **Profiles** | System + per-app + dynamic | Files on disk + `dynamic_profiles.json` | Import/export; multi-key match (`wm_class` / `bundle_id`) |
-| **Theme** | Dark, rounded | Dark themed QML | Toasts, first-run tips, inspector sections |
+| **Theme** | Dark, rounded | Dark themed QML | Toasts, inspector sections |
 
 ---
 
@@ -608,7 +608,8 @@ held profile, because a switch that silently fails to happen is worse than one t
 - [x] Unsaved-draft guards on every path that would discard one
 - [x] Keyboard shortcuts (Ctrl/Cmd+S, copy/paste control, Esc, Ctrl+1..8)
 - [x] First-run setup dialog (`setup_check`)
-- [ ] Toasts / empty states / first-run drag-drop tip
+- [x] Empty states: nothing bound on the device, no library match, no profiles
+- [ ] Toasts (the last of this group; every other message has a place to live now)
 - [ ] Inspector collapsible sections (Action / Appearance / Advanced)
 - [ ] Optional later: split fat `Backend` QObject; photoreal device chrome
 
@@ -616,7 +617,7 @@ held profile, because a switch that silently fails to happen is worse than one t
 
 - [x] `pyproject.toml` with a `loupedeckapp` entry point and `[device]` / `[x11]` extras
 - [x] Ship udev rule, ydotool socket drop-in and desktop entry in `packaging/`
-- [x] Automated tests (`tests/`, 518 checks): schema load/migrate, profile resolution,
+- [x] Automated tests (`tests/`, 531 checks): schema load/migrate, profile resolution,
       tuning/dispatch, platform factories, installed-asset layout, per-model control inventory,
       and an offscreen pass over the real QML (`test_ui.py`) for the wiring the core cannot see
 - [x] **Installable from a wheel**: `pip install ".[device]"` gives a `loupedeckapp` command, the
@@ -731,7 +732,8 @@ Medium-term (Phase C):
 - [ ] Dirty-state safety on switch / quit
 - [x] Keyboard shortcuts (platform-native modifier)
 - [x] First-run setup checks
-- [ ] Empty states, error toasts, first-run drag-drop tip
+- [x] Empty states and the drag-drop tip
+- [ ] Error toasts
 - [ ] Inspector sections (Action / Appearance / Advanced)
 - [ ] Rotary tuning row: Invert checkbox + speed preset dropdown (§5.D.1)
 - [ ] Hide empty library categories

@@ -261,6 +261,21 @@ class Backend(QObject):
         self.stateChanged.emit()
         self.trayConfigChanged.emit()
 
+    @Property(bool, notify=stateChanged)
+    def menuEmpty(self):
+        """Nothing bound on the workspace or submenu on screen.
+
+        The CT's labelled buttons (home, undo, save, ...) are excluded: they
+        are wired by default, so counting them would mean the "drag something
+        onto a key" hint never appeared on the device it was written for.
+        """
+        menu = self._menu()
+        if menu is None:
+            return True
+        skip = set(self._ctl.profile.extra_buttons) | set(WS_KEYS)
+        return not any(a.a_type != "none"
+                       for key, a in menu.actions.items() if key not in skip)
+
     @Property("QStringList", notify=stateChanged)
     def workspaceButtons(self):
         return self._ctl.profile.visible_workspace_keys

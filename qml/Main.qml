@@ -1022,12 +1022,28 @@ ApplicationWindow {
                 }
                 Text {
                     Layout.fillWidth: true
+                    visible: librarySearch.text === "" || libList.count > 0
                     text: librarySearch.text === ""
                           ? "Drag an action onto a control"
                           : libList.count + (libList.count === 1 ? " match" : " matches")
                             + " · Esc to clear"
                     color: theme.muted; font.pixelSize: 11
                 }
+                // Nothing matched. The count line above says "0 matches", which
+                // is easy to read past when the list simply looks broken.
+                Text {
+                    objectName: "libraryEmpty"
+                    visible: libList.count === 0
+                    Layout.fillWidth: true
+                    Layout.topMargin: 12
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
+                    text: "No action matches “" + librarySearch.text + "”.\n"
+                          + "Try a shorter word, or use Type text and Run command "
+                          + "for anything the library does not cover."
+                    color: theme.muted; font.pixelSize: 11
+                }
+
                 ListView {
                     id: libList
                     Layout.fillWidth: true; Layout.fillHeight: true; clip: true; spacing: 4
@@ -1109,15 +1125,41 @@ ApplicationWindow {
             Layout.minimumWidth: 320
             radius: theme.radius; color: theme.panel; border.color: theme.line
             clip: true
+            // Room kept for the hint, so the device shifts up to make space
+            // instead of the hint being clipped off the bottom of the panel.
+            property real hintSpace: emptyHint.visible ? emptyHint.height + 18 : 0
+
             DeviceView {
                 id: deviceView
-                anchors.centerIn: parent
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.verticalCenterOffset: -centerPanel.hintSpace / 2
                 theme: theme
                 // shrink to fit the panel (never upscale) so it never spills
                 // over the side panels when the window is resized
                 scale: Math.min(1,
                     (centerPanel.width - 28) / implicitWidth,
-                    (centerPanel.height - 28) / implicitHeight)
+                    (centerPanel.height - 28 - centerPanel.hintSpace) / implicitHeight)
+            }
+
+            // A schematic with nothing on it and no instructions is what a
+            // first run looks like. Sits under the device rather than over it,
+            // so it never covers a drop target mid-drag.
+            Text {
+                id: emptyHint
+                objectName: "emptyMenuHint"
+                visible: backend.menuEmpty
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 12
+                width: Math.min(parent.width - 40, 420)
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                text: backend.menuDepth > 0
+                      ? "This submenu is empty. Drag an action onto a key, or tap one to set it up."
+                      : "Nothing is bound here yet. Drag an action from the left onto a key, "
+                        + "or tap any control to set it up."
+                color: theme.muted; font.pixelSize: 12
             }
         }
 
@@ -1162,8 +1204,18 @@ ApplicationWindow {
                     }
                 }
 
+                Text {
+                    objectName: "profilesEmpty"
+                    visible: !rightPanel.profilesCollapsed && backend.profiles.length === 0
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    text: "No profiles yet. New makes one, or Import brings in a file "
+                          + "you already have."
+                    color: theme.muted; font.pixelSize: 11
+                }
+
                 ListView {
-                    visible: !rightPanel.profilesCollapsed
+                    visible: !rightPanel.profilesCollapsed && backend.profiles.length > 0
                     Layout.fillWidth: true; Layout.preferredHeight: 150; clip: true; spacing: 4
                     model: backend.profiles
                     delegate: Rectangle {
