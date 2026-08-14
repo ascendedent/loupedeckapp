@@ -223,7 +223,10 @@ Future schema bumps only when needed (e.g. side-display mode).
 - [x] KDE `kdotool` watcher
 - [x] Surface “input backend unavailable” in UI (not only console), now part of the first-run
       setup checks rather than its own chip
-- [ ] Optional later: GNOME / X11 `_NET_ACTIVE_WINDOW` watchers
+- [x] GNOME (shell extension over the session bus) and X11 (`_NET_ACTIVE_WINDOW` via `xprop`)
+      watchers, with per-desktop setup advice. GNOME closed off Eval in 41 and has no portal
+      for this, so an extension is the only route and the app says so rather than failing
+      silently
 
 **macOS (M6). Support floor: 10.14 Mojave**
 
@@ -634,7 +637,7 @@ held profile, because a switch that silently fails to happen is worse than one t
 
 - [x] `pyproject.toml` with a `loupedeckapp` entry point and `[device]` / `[x11]` extras
 - [x] Ship udev rule, ydotool socket drop-in and desktop entry in `packaging/`
-- [x] Automated tests (`tests/`, 728 checks): schema load/migrate, profile resolution,
+- [x] Automated tests (`tests/`, 757 checks): schema load/migrate, profile resolution,
       tuning/dispatch, platform factories, installed-asset layout, per-model control inventory,
       and an offscreen pass over the real QML (`test_ui.py`) for the wiring the core cannot see
 - [x] **Installable from a wheel**: `pip install ".[device]"` gives a `loupedeckapp` command, the

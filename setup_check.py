@@ -152,22 +152,47 @@ def check_window_watcher():
             watcher.name != "none",
             "Reading the frontmost app needs the same Accessibility permission "
             "as sending keystrokes.", optional=True)
-    if platform_env.desktop() != platform_env.KDE:
+    import window_watcher
+    watcher = window_watcher.get_watcher()
+    if watcher.name != "none":
+        return _check(
+            "window_watcher", "Focused-app detection", True,
+            "Using %s; dynamic mode can switch profiles." % watcher.name,
+            optional=True)
+
+    desktop, session = platform_env.desktop(), platform_env.session_type()
+    if desktop == platform_env.KDE:
         return _check(
             "window_watcher", "Focused-app detection", False,
-            "Dynamic mode watches the focused window through KWin, which needs "
-            "KDE. Everything else works; profiles just will not switch by "
-            "themselves.", optional=True)
-    if platform_env.has_tool("kdotool"):
-        return _check("window_watcher", "Focused-app detection", True,
-                      "kdotool is installed; dynamic mode can switch profiles.",
-                      optional=True)
+            "kdotool is not installed, so dynamic mode cannot tell which app "
+            "you are in and will not switch profiles.",
+            "sudo dnf install kdotool        # or your package manager",
+            optional=True)
+    if desktop == platform_env.GNOME:
+        # Not something this app can fix from outside: GNOME closed off Eval in
+        # 41 and offers no portal for it, so an extension is the only route.
+        return _check(
+            "window_watcher", "Focused-app detection", False,
+            "GNOME does not let an application ask which window has focus, so "
+            "dynamic mode needs an extension to expose it. Install either "
+            "\"Focused Window D-Bus\" or \"Window Calls\" from "
+            "extensions.gnome.org, enable it, and use Check again.\n\n"
+            "Everything else works; profiles just will not switch by "
+            "themselves.",
+            "https://extensions.gnome.org/extension/5592/focused-window-d-bus/\n"
+            "https://extensions.gnome.org/extension/4724/window-calls/",
+            optional=True)
+    if session == platform_env.X11:
+        return _check(
+            "window_watcher", "Focused-app detection", False,
+            "Reading the focused window on X11 needs xprop, which usually "
+            "comes with the X11 tools.",
+            "sudo dnf install xorg-x11-utils        # or your package manager",
+            optional=True)
     return _check(
         "window_watcher", "Focused-app detection", False,
-        "kdotool is not installed, so dynamic mode cannot tell which app you "
-        "are in and will not switch profiles.",
-        "sudo dnf install kdotool        # or your package manager",
-        optional=True)
+        "No way to read the focused window on this desktop, so profiles will "
+        "not switch by themselves. Everything else works.", optional=True)
 
 
 def check_media():

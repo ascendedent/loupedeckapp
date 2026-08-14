@@ -263,9 +263,12 @@ and it moves one. Some applications collapse identical keypresses that arrive
 with no gap. Raise `repeat_delay_ms` in `input_backend.py`; the README's
 Troubleshooting section has the measurements.
 
-**Dynamic mode does not switch.** Check the app's window classes match what the
-watcher actually reports: the **Add \<focused app\>** button names it. On KDE
-this needs `kdotool`, which Setup also checks.
+**Dynamic mode does not switch.** First, can the app read the focused window at
+all? Setup says, and what it needs differs by desktop: `kdotool` on KDE, a shell
+extension on GNOME (which gives applications no other way to ask), `xprop` on
+X11, Accessibility permission on macOS. If it can read it, check the app's
+window classes match what the watcher actually reports: the
+**Add \<focused app\>** button names it.
 
 **A page never fires.** Pages match on the title, in order, and the first match
 wins: a broad page above a narrow one swallows it. Reorder with the arrows.

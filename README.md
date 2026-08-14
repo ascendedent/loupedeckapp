@@ -166,7 +166,8 @@ middling speeds.
   overwrites an existing profile: a name that is taken gets a numbered suffix.
 - **Dynamic mode**: switches the deck to follow what you are doing, on two levels. Focus an
   application and its profile loads; change what that application is showing and a **page** inside
-  it can load a different profile again (KDE Wayland, via KWin scripting).
+  it can load a different profile again. Reads the focused window through KWin on KDE, an extension
+  on GNOME, `_NET_ACTIVE_WINDOW` on X11, and AppleScript on macOS.
 - **Brightness** control, remembered between runs and re-applied on reconnect.
 - **Tells you when input is broken** rather than silently doing nothing, with the reason and a
   re-check button.
@@ -242,7 +243,9 @@ Set `LOUPEDECKAPP_CONFIG_DIR` to put user data somewhere else.
 - **`ydotool`** + the `ydotoold` daemon: injects hotkeys/text on **Wayland** via kernel uinput
   (required for actions to fire in native Wayland sessions).
 - `playerctl`: media transport via MPRIS.
-- `kdotool`: active-window detection for dynamic mode on KDE Wayland.
+- `kdotool`: active-window detection for dynamic mode on KDE Wayland. On GNOME Wayland this needs
+  a shell extension instead (GNOME gives applications no other way to ask); on X11, `xprop`. The
+  Setup dialog says which, for the desktop you are on.
 
 ## Setup
 
