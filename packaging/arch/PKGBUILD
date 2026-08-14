@@ -1,0 +1,53 @@
+# Maintainer: JM <jm@gtmbrands.com>
+#
+# UNBUILT. Written from the packaging guidelines, not from a successful
+# makepkg run: there is no Arch machine here. Corrections welcome.
+#
+# The reason a distribution package exists alongside the wheel and the
+# AppImage: it is the only format that can install the udev rule for you and
+# depend on ydotool rather than printing instructions for it.
+
+pkgname=loupedeckapp
+pkgver=0.5.0
+pkgrel=1
+pkgdesc="Configuration app for Loupedeck CT, Live and Live S"
+arch=('any')
+url="https://github.com/ascendedent/loupedeckapp"
+license=('GPL-3.0-or-later')
+depends=('python' 'pyside6' 'python-pyserial' 'python-pillow' 'ydotool')
+# kdotool: focus detection for dynamic profile switching (KDE).
+# playerctl: media keys through MPRIS.
+# python-loupedeck-live: the device library, which is not packaged anywhere.
+optdepends=('kdotool: automatic profile switching by focused application'
+            'playerctl: media key actions'
+            'xdotool: input and focus detection on X11'
+            'python-loupedeck-live: talking to the device')
+makedepends=('python-build' 'python-installer' 'python-wheel'
+             'python-setuptools')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+  cd "$pkgname-$pkgver"
+  python -m build --wheel --no-isolation
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  python -m installer --destdir="$pkgdir" dist/*.whl
+
+  # Lets a desktop user open the device without root. The user still has to be
+  # in the group the rule names, and a group change needs a fresh login.
+  install -Dm644 packaging/99-loupedeck.rules \
+    "$pkgdir/usr/lib/udev/rules.d/99-loupedeck.rules"
+
+  # ydotoold stays root to open /dev/uinput; its socket has to be reachable by
+  # the user running the app.
+  install -Dm644 packaging/ydotool-user-socket.conf \
+    "$pkgdir/usr/lib/systemd/system/ydotool.service.d/override.conf"
+
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+  install -Dm644 docs/HOW-TO-BUILD.md \
+    "$pkgdir/usr/share/doc/$pkgname/HOW-TO-BUILD.md"
+}

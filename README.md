@@ -292,6 +292,14 @@ and asks first.
 All of that is under the gear in the top bar, along with brightness. If your desktop has no tray,
 the toggles are disabled and closing the window quits, since hiding it would leave no way back.
 
+### Distribution packages
+
+Drafts of a Fedora `.spec` and an Arch `PKGBUILD` live in
+[`packaging/rpm/`](packaging/rpm/) and [`packaging/arch/`](packaging/arch/). A distribution package
+is the only format that can install the udev rule and depend on `ydotool` rather than telling you
+to. Neither has been built yet: see [`packaging/rpm/README.md`](packaging/rpm/README.md) for exactly
+what has and has not been verified.
+
 ### A single file (AppImage)
 
 ```bash

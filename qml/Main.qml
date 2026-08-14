@@ -1637,10 +1637,15 @@ ApplicationWindow {
                     Layout.fillWidth: true; Layout.preferredHeight: 150; clip: true; spacing: 4
                     model: backend.profiles
                     delegate: Rectangle {
+                        // Highlighted only when this really is what the device
+                        // is running. Browsing another app's profiles used to
+                        // highlight the one whose name happened to match.
+                        readonly property bool live: backend.activeProfileInApp
+                                                     && modelData === backend.activeProfile
                         width: ListView.view.width; height: 36; radius: theme.radius
-                        color: modelData === backend.activeProfile ? theme.accent
+                        color: live ? theme.accent
                                : (hover.hovered ? theme.cell : theme.panel2)
-                        opacity: modelData === backend.activeProfile ? 0.9 : 1.0
+                        opacity: live ? 0.9 : 1.0
                         Behavior on color { ColorAnimation { duration: 120 } }
                         HoverHandler { id: hover; cursorShape: Qt.PointingHandCursor }
                         TapHandler {
@@ -1649,9 +1654,16 @@ ApplicationWindow {
                             })
                         }
                         RowLayout {
-                            anchors.fill: parent; anchors.leftMargin: 10; spacing: 8
+                            anchors.fill: parent
+                            anchors.leftMargin: 10; anchors.rightMargin: 10
+                            spacing: 8
                             Text { text: "▦"; color: theme.muted; font.pixelSize: 14 }
                             Text { text: modelData; color: theme.text; font.pixelSize: 13; Layout.fillWidth: true; elide: Text.ElideRight }
+                            Text {
+                                visible: parent.parent.live
+                                text: "on the device"
+                                color: "#ffffff"; opacity: 0.75; font.pixelSize: 10
+                            }
                         }
                     }
                 }
@@ -1738,15 +1750,19 @@ ApplicationWindow {
                     // -- window classes that mean this app --------------------
                     Text {
                         Layout.fillWidth: true
-                        text: backend.appMatches.length === 0
-                              ? "Nothing focuses " + backend.activeApp + " yet. Focus the "
-                                + "application, then add it below."
-                              : "Focusing any of these switches to " + backend.activeApp + "."
+                        text: backend.activeApp === "Default"
+                              ? "Default is the catch-all: it runs when no other app claims "
+                                + "the focused window, so it needs no rules of its own."
+                              : (backend.appMatches.length === 0
+                                 ? "Nothing focuses " + backend.activeApp + " yet. Focus the "
+                                   + "application, then add it below."
+                                 : "Focusing any of these switches to " + backend.activeApp + ".")
                         color: theme.muted; font.pixelSize: 11; wrapMode: Text.WordWrap
                     }
 
                     ActionButton {
                         Layout.fillWidth: true
+                        visible: backend.activeApp !== "Default"
                         label: backend.focusedApp === ""
                                ? "No focused app detected"
                                : "Add " + backend.focusedApp + " to " + backend.activeApp

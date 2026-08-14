@@ -662,8 +662,10 @@ held profile, because a switch that silently fails to happen is worse than one t
       exactly what a sandbox exists to prevent, and there is no portal for it. Either
       `--device=all` or a host-side `ydotoold` plus a socket permission, and neither leaves much
       sandbox behind.
-- [ ] A distribution package (rpm / deb / AUR), which is the only format that can install the udev
-      rule and the ydotool service as dependencies.
+- [~] A distribution package: a Fedora spec and an Arch PKGBUILD are written
+      (`packaging/rpm/`, `packaging/arch/`) and neither has been built. The spec parses and was
+      reviewed against the Fedora Python guidelines; building it needs `python3-devel` and
+      `pyproject-rpm-macros`, which are not installed here. A deb is not written.
 - [x] **System tray** (`tray.py`): show/hide, live profile with a switcher, dynamic-mode toggle,
       quit. Closing the window hides it; the unsaved-changes guard does not prompt on close (the
       draft is not being discarded, only hidden) but Quit from the tray does ask, bringing the
