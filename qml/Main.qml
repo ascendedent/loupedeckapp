@@ -1293,6 +1293,49 @@ ApplicationWindow {
                                 color: theme.muted; font.pixelSize: 10; wrapMode: Text.WordWrap
                             }
 
+                            // Deleted profiles and applications, newest first.
+                            // Keeping a copy is only half of it: there has to
+                            // be a way back that is not a file manager.
+                            Text {
+                                Layout.fillWidth: true
+                                visible: backend.deletedItems.length > 0
+                                text: "Recently deleted"; color: theme.muted
+                                font.pixelSize: 11
+                            }
+                            Repeater {
+                                model: backend.deletedItems.slice(0, 6)
+                                Rectangle {
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 26
+                                    radius: 6; color: theme.panel2
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 8; anchors.rightMargin: 6
+                                        spacing: 6
+                                        Text {
+                                            text: parent.parent.modelData.name
+                                            color: theme.text; font.pixelSize: 10
+                                            Layout.fillWidth: true
+                                            elide: Text.ElideRight
+                                        }
+                                        Text {
+                                            text: "restore"
+                                            color: undoHover.hovered ? theme.ok : theme.muted
+                                            font.pixelSize: 10
+                                            HoverHandler {
+                                                id: undoHover
+                                                cursorShape: Qt.PointingHandCursor
+                                            }
+                                            TapHandler {
+                                                onTapped: root.ioError = backend.restoreDeleted(
+                                                    parent.parent.parent.modelData.path)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
                             Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
 
                             // Always reachable, not only when something breaks.
@@ -1956,12 +1999,26 @@ ApplicationWindow {
                                     elide: Text.ElideRight
                                     Layout.maximumWidth: 70
                                 }
+                                // Order is precedence: the first page whose
+                                // rule matches wins, so both directions have
+                                // to be reachable.
                                 Text {
                                     text: "↑"; font.pixelSize: 11
                                     color: upHover.hovered ? theme.text : theme.muted
+                                    opacity: parent.parent.index === 0 ? 0.3 : 1.0
                                     HoverHandler { id: upHover; cursorShape: Qt.PointingHandCursor }
                                     TapHandler {
                                         onTapped: backend.moveAppPage(parent.parent.parent.index, -1)
+                                    }
+                                }
+                                Text {
+                                    text: "↓"; font.pixelSize: 11
+                                    color: downHover.hovered ? theme.text : theme.muted
+                                    opacity: parent.parent.index === backend.appPages.length - 1
+                                             ? 0.3 : 1.0
+                                    HoverHandler { id: downHover; cursorShape: Qt.PointingHandCursor }
+                                    TapHandler {
+                                        onTapped: backend.moveAppPage(parent.parent.parent.index, 1)
                                     }
                                 }
                                 Text {

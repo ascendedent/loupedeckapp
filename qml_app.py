@@ -1503,7 +1503,8 @@ class Backend(QObject):
         if not os.path.isdir(path):
             return
         # Into the trash rather than gone: an application is a folder of work.
-        kept = app_paths.trash(path, "app %s" % name)
+        kept = app_paths.trash(path, "app %s" % name,
+                               {"kind": "app", "app": name})
         for ref in [b["profile"] for b in self._pm.app_profiles]:
             if app_paths.split_ref(ref)[0] == name:
                 self._repoint_bindings(ref, None)
@@ -1593,8 +1594,10 @@ class Backend(QObject):
             # app must not remove from its own installation.
             print("profiles: '%s' ships with the app and cannot be deleted" % name)
             return
-        kept = app_paths.trash(app_paths.profile_write_path(ref),
-                               "%s %s.json" % (self.activeApp, name))
+        kept = app_paths.trash(
+            app_paths.profile_write_path(ref),
+            "%s %s.json" % (self.activeApp, name),
+            {"kind": "profile", "app": self.activeApp, "name": name})
         if not kept and os.path.exists(app_paths.profile_write_path(ref)):
             os.remove(app_paths.profile_write_path(ref))
         self._repoint_bindings(ref, None)
@@ -1991,6 +1994,16 @@ class Backend(QObject):
     @Property(str, notify=stateChanged)
     def trashPath(self):
         return app_paths.trash_dir()
+
+    @Slot(str, result=str)
+    def restoreDeleted(self, path):
+        """Put a deleted profile or application back. "" or an error."""
+        where, error = app_paths.restore(path)
+        if error:
+            return error
+        self.notify.emit("Restored %s" % os.path.basename(where))
+        self.stateChanged.emit()
+        return ""
 
     @Property("QStringList", notify=stateChanged)
     def allProfiles(self):

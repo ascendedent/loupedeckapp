@@ -412,8 +412,17 @@ def _stamped_name(base):
     return "%s (%d)" % (target, n)
 
 
-def trash(path, label=None):
+# Where a deleted thing came from, kept beside it. Without this, putting a
+# profile back means parsing its display name, which is a guess dressed up as a
+# restore.
+ORIGIN_SUFFIX = ".origin.json"
+
+
+def trash(path, label=None, origin=None):
     """Move a file or folder into the trash. Returns where it went, or "".
+
+    ``origin`` is {"kind": "profile"|"app", "app": ..., "name": ...} and is what
+    makes putting it back possible.
 
     Failure is reported rather than raised: the caller is deleting something,
     and being unable to keep a copy is not a reason to refuse.
@@ -424,11 +433,60 @@ def trash(path, label=None):
         os.makedirs(trash_dir(), exist_ok=True)
         target = _stamped_name(label or os.path.basename(path))
         shutil.move(path, target)
+        if origin:
+            with open(target + ORIGIN_SUFFIX, "w") as f:
+                json.dump(origin, f)
     except OSError as e:
         print("app_paths: could not keep a copy of %s: %s" % (path, e))
         return ""
     prune_trash()
     return target
+
+
+def read_origin(path):
+    """Where a trashed item came from, or {}."""
+    try:
+        with open(path + ORIGIN_SUFFIX) as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def restore(path):
+    """Put a trashed item back where it came from. Returns (where, error).
+
+    Never overwrites: a restore that lands on something you have made since is
+    a second deletion. A name already in use gets a numbered suffix.
+    """
+    if not os.path.exists(path):
+        return ("", "That item is no longer in the trash")
+    origin = read_origin(path)
+    kind = origin.get("kind")
+    if kind == "app":
+        app = origin.get("app") or os.path.basename(path)
+        target, n = user_app_dir(app), 2
+        while os.path.exists(target):
+            target, n = user_app_dir("%s %d" % (app, n)), n + 1
+    elif kind == "profile":
+        app = origin.get("app") or DEFAULT_APP
+        name = origin.get("name") or os.path.splitext(os.path.basename(path))[0]
+        ensure_user_app_dir(app)
+        target, n = profile_write_path(app, name), 2
+        while os.path.exists(target):
+            target, n = profile_write_path(app, "%s %d" % (name, n)), n + 1
+    else:
+        return ("", "This was deleted by an older version and cannot be put "
+                    "back automatically; the file is in %s" % trash_dir())
+    try:
+        shutil.move(path, target)
+    except OSError as e:
+        return ("", "Could not restore: %s" % e)
+    try:
+        os.remove(path + ORIGIN_SUFFIX)
+    except OSError:
+        pass
+    return (target, "")
 
 
 def list_trash():
@@ -438,26 +496,30 @@ def list_trash():
         return []
     entries = []
     for name in os.listdir(base):
+        if name.endswith(ORIGIN_SUFFIX):
+            continue          # the sidecar, not an item
         path = os.path.join(base, name)
         try:
             entries.append((os.path.getmtime(path), name, path))
         except OSError:
             continue
     entries.sort(reverse=True)
-    return [{"name": n, "path": p} for _, n, p in entries]
+    return [{"name": n, "path": p, "kind": read_origin(p).get("kind", "")}
+            for _, n, p in entries]
 
 
 def prune_trash(keep=TRASH_KEEP):
     """Keep the most recent few. A trash that grows forever is a disk leak
     dressed up as a safety net."""
     for entry in list_trash()[keep:]:
-        try:
-            if os.path.isdir(entry["path"]):
-                shutil.rmtree(entry["path"])
-            else:
-                os.remove(entry["path"])
-        except OSError:
-            pass
+        for path in (entry["path"], entry["path"] + ORIGIN_SUFFIX):
+            try:
+                if os.path.isdir(path):
+                    shutil.rmtree(path)
+                elif os.path.exists(path):
+                    os.remove(path)
+            except OSError:
+                pass
 
 
 def migrate_to_apps():

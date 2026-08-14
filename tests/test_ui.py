@@ -203,6 +203,25 @@ c.eq("dynamic mode resolves the app and its page",
      backend._pm.resolve("adobe premiere pro", "Project - Editing"),
      "Premiere/Premiere")
 
+# Pages are tried in order and the first match wins, so their order is their
+# precedence and both directions have to work.
+backend.addAppPage("Colour", "Colour", "Premiere")
+c.eq("pages keep the order they were added",
+     [p["name"] for p in backend.appPages], ["Cutting", "Colour"])
+backend.moveAppPage(1, -1)
+c.eq("one can be moved up", [p["name"] for p in backend.appPages],
+     ["Colour", "Cutting"])
+backend.moveAppPage(0, 1)
+c.eq("and back down", [p["name"] for p in backend.appPages],
+     ["Cutting", "Colour"])
+backend.moveAppPage(0, -1)
+c.eq("moving off the top does nothing", [p["name"] for p in backend.appPages],
+     ["Cutting", "Colour"])
+backend.moveAppPage(1, 1)
+c.eq("and neither does moving off the bottom",
+     [p["name"] for p in backend.appPages], ["Cutting", "Colour"])
+backend.removeAppPage("Colour")
+
 backend.removeAppPage("Cutting")
 c.eq("a page can be removed", backend.appPages, [])
 
@@ -227,6 +246,14 @@ backend.deleteApp("Premiere")
 c.eq("an app can be deleted", "Premiere" in backend.apps, False)
 c.eq("and a copy was kept",
      any("Premiere" in e["name"] for e in backend.deletedItems), True)
+# Keeping a copy is only half of it: there has to be a way back that is not a
+# file manager.
+deleted = [e for e in backend.deletedItems if "Premiere" in e["name"]][0]
+c.eq("restoring it reports no error", backend.restoreDeleted(deleted["path"]), "")
+c.eq("and the app is back", "Premiere" in backend.apps, True)
+c.eq("restoring something already restored says so",
+     backend.restoreDeleted(deleted["path"]) != "", True)
+backend.deleteApp("Premiere")
 c.eq("the default app cannot be",
      (backend.deleteApp("Default"), "Default" in backend.apps)[1], True)
 

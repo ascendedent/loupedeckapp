@@ -225,7 +225,7 @@ The match key is whatever that platform considers authoritative, which is `Start
 | | |
 |---|---|
 | Profiles you edit, app bindings, preferences | `~/.config/loupedeckapp/` (`$XDG_CONFIG_HOME` is respected) |
-| Profiles and applications you deleted | `~/.config/loupedeckapp/Deleted/`, twenty most recent |
+| Profiles and applications you deleted | `~/.config/loupedeckapp/Deleted/`, twenty most recent, restorable from the gear |
 | Profiles and images shipped with the app | beside the code, never written to |
 
 Profiles resolve **your copy first, then the bundled one**, so anything shipped with the app
