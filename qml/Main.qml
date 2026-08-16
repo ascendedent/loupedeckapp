@@ -1,8 +1,18 @@
 import QtQml
 import QtQuick
 import QtQuick.Controls.Basic
+// Only for Overlay, which the Basic style module does not re-export on Qt 6.2:
+// bare `Overlay.overlay` compiles there and then throws at binding time, so
+// every dialog lands in the top-left corner instead of centred. Namespaced so
+// none of the controls themselves come from here.
+import QtQuick.Controls as QC
 import QtQuick.Layouts
 import QtQuick.Dialogs
+// QtQuick.Dialogs gained ColorDialog in Qt 6.4, and macOS 10.14 tops out at
+// PySide6 6.2, where it is a FileDialog-only module. The colour picker comes
+// from Qt.labs.platform instead, which has one in both. Namespaced because the
+// two modules declare several of the same type names.
+import Qt.labs.platform as Platform
 
 ApplicationWindow {
     id: root
@@ -59,28 +69,28 @@ ApplicationWindow {
         onAccepted: backend.setImage(backend.selectedControl, selectedFile)
     }
 
-    ColorDialog {
+    Platform.ColorDialog {
         id: ledDialog
         title: "LED colour for " + backend.selectedLabel
-        onAccepted: backend.setLed(backend.selectedControl, selectedColor.toString())
+        onAccepted: backend.setLed(backend.selectedControl, color.toString())
     }
 
-    ColorDialog {
+    Platform.ColorDialog {
         id: bgDialog
         title: "Background colour for " + backend.selectedLabel
-        onAccepted: backend.setBg(backend.selectedControl, selectedColor.toString())
+        onAccepted: backend.setBg(backend.selectedControl, color.toString())
     }
 
-    ColorDialog {
+    Platform.ColorDialog {
         id: barDialog
         title: "Label bar colour for " + backend.selectedLabel
         onAccepted: backend.setLabel(backend.selectedControl, labelField.text,
-            labelPos.currentText, labelMode.currentText, selectedColor.toString())
+            labelPos.currentText, labelMode.currentText, color.toString())
     }
 
     Dialog {
         id: wsNameDialog
-        anchors.centerIn: Overlay.overlay
+        anchors.centerIn: QC.Overlay.overlay
         modal: true
         width: 360
         title: "Name this workspace"
@@ -107,7 +117,7 @@ ApplicationWindow {
 
     Dialog {
         id: clearWorkspaceDialog
-        anchors.centerIn: Overlay.overlay
+        anchors.centerIn: QC.Overlay.overlay
         modal: true
         width: 380
         title: "Clear workspace"
@@ -135,7 +145,7 @@ ApplicationWindow {
         id: appDialog
         objectName: "appDialog"
         property string mode: "create"
-        anchors.centerIn: Overlay.overlay
+        anchors.centerIn: QC.Overlay.overlay
         modal: true
         width: 380
         title: mode === "create" ? "New app" : "Rename app"
@@ -258,7 +268,7 @@ ApplicationWindow {
 
     Dialog {
         id: deleteAppDialog
-        anchors.centerIn: Overlay.overlay
+        anchors.centerIn: QC.Overlay.overlay
         modal: true
         width: 380
         title: "Delete app"
@@ -284,7 +294,7 @@ ApplicationWindow {
     Dialog {
         id: pageDialog
         objectName: "pageDialog"
-        anchors.centerIn: Overlay.overlay
+        anchors.centerIn: QC.Overlay.overlay
         modal: true
         width: 420
         title: "Page in " + backend.activeApp
@@ -352,7 +362,7 @@ ApplicationWindow {
     Dialog {
         id: setupDialog
         objectName: "setupDialog"
-        anchors.centerIn: Overlay.overlay
+        anchors.centerIn: QC.Overlay.overlay
         modal: true
         width: Math.min(620, root.width - 80)
         title: "Setup"
@@ -1110,17 +1120,17 @@ ApplicationWindow {
                 }
             }
 
-            ColorDialog {
+            Platform.ColorDialog {
                 id: fnOnDialog
                 title: "fn key colour while the layer is on"
-                onAccepted: backend.setFnColors(selectedColor.toString(),
+                onAccepted: backend.setFnColors(color.toString(),
                                                 backend.fnInactiveColor)
             }
-            ColorDialog {
+            Platform.ColorDialog {
                 id: fnOffDialog
                 title: "fn key colour while the layer is off"
                 onAccepted: backend.setFnColors(backend.fnActiveColor,
-                                                selectedColor.toString())
+                                                color.toString())
             }
 
             Text { text: "Dynamic"; color: theme.muted; font.pixelSize: 13 }

@@ -1,6 +1,9 @@
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Effects
+// OpacityMask rather than QtQuick.Effects' MultiEffect: that module arrived in
+// Qt 6.5, and the oldest macOS this supports (10.14) tops out at PySide6 6.2.
+// Qt5Compat ships in both, so this is one path rather than two.
+import Qt5Compat.GraphicalEffects
 
 // CT-accurate device mock that MIRRORS the loaded profile and lets you SELECT a
 // control (tap it) to edit in the right-hand inspector. Images come from
@@ -719,13 +722,12 @@ Item {
                             // stair-stepped.
                             layer.smooth: true
                             layer.samples: 8
-                            layer.effect: MultiEffect {
-                                maskEnabled: true
+                            // The softening MultiEffect did with maskThreshold
+                            // has no OpacityMask equivalent; the mask below is
+                            // antialiased and multisampled instead, which is
+                            // what keeps the rim off a single hard pixel step.
+                            layer.effect: OpacityMask {
                                 maskSource: wheelMask
-                                // Soften the last fraction of the mask edge so
-                                // the rim is not a single hard pixel step.
-                                maskThresholdMin: 0.45
-                                maskSpreadAtMin: 0.9
                             }
                             Image {
                                 anchors.fill: parent
