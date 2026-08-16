@@ -24,6 +24,13 @@ c = Checks()
 
 mac = input_backend.MacBackend()
 
+# The fallback paths below are what a Mac without the [macos] extra does, so
+# they have to be reached deliberately. Left to itself quartz() imports pyobjc
+# if it is there, and on a Mac with the extra installed it is: the fallbacks
+# then never run and the checks for them fail on the machine they were written
+# for. The Quartz paths get their own fakes further down.
+mac._quartz = False
+
 # -- combo translation -------------------------------------------------------
 cases = [
     ("ctrl+c", 'tell application "System Events" to keystroke "c" using {control down}'),
@@ -91,7 +98,10 @@ c.eq("any other failure is passed through", "something else" in mac.health()[1],
 # -- platform gates ----------------------------------------------------------
 real_os = platform_env.os_name
 try:
-    c.eq("the mac backend refuses to run on Linux", mac.available(), False)
+    # Faked rather than assumed: on a Mac these adapters are available, and the
+    # point of the check is that they decline everywhere else.
+    platform_env.os_name = lambda: platform_env.LINUX
+    c.eq("the mac backend refuses to run off macOS", mac.available(), False)
     c.eq("and so does the mac watcher", window_watcher.MacWatcher().available(), False)
 
     platform_env.os_name = lambda: platform_env.MACOS
@@ -124,10 +134,19 @@ try:
     perms = setup_check.check_device_permissions()
     c.eq("macOS needs no udev rule", perms["ok"], True)
     c.eq("and nothing to run for it", perms["fix"], "")
+    # Both branches, forced. Which one this takes depends on whether pyobjc is
+    # installed on the machine running the suite, so leaving it to chance meant
+    # the advice for the missing case went unchecked on the Macs that have it.
+    backend = input_backend.get_backend()
+    backend._quartz = False
     media = setup_check.check_media()
-    c.eq("macOS is told pyobjc is what media keys and scrolling need",
+    c.eq("macOS without pyobjc is told what media keys and scrolling need",
          "pyobjc" in media["fix"], True)
     c.eq("but the app works without it", media["optional"], True)
+    backend._quartz = (object(), object())
+    media = setup_check.check_media()
+    c.eq("and with pyobjc it reports the real thing", media["ok"], True)
+    c.eq("with nothing left to install", media["fix"], "")
 finally:
     platform_env.os_name = real_os
     input_backend.reset_backend()

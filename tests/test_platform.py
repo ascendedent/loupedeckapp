@@ -34,19 +34,30 @@ real_platform = sys.platform
 
 
 class FakePlatform:
-    """sys.platform is read at call time, so it can be swapped per case."""
+    """sys.platform is read at call time, so it can be swapped per case.
+
+    Restores whatever was there on entry rather than the host value, so these
+    nest: the file fakes Linux for its length and fakes another platform inside
+    that for the cases that need one.
+    """
 
     def __init__(self, value):
         self.value = value
 
     def __enter__(self):
+        self.prev = sys.platform
         sys.platform = self.value
 
     def __exit__(self, *a):
-        sys.platform = real_platform
+        sys.platform = self.prev
 
 
 try:
+    # These checks describe what the app does on Linux, not what it does on the
+    # machine running them, and the two stopped being the same once there was a
+    # Mac to run them on. Faking the host keeps the answers identical wherever
+    # the suite runs; the cases that are about another platform fake their own.
+    sys.platform = "linux"
     # -- session detection -----------------------------------------------------
     env(XDG_SESSION_TYPE="wayland")
     c.eq("XDG_SESSION_TYPE=wayland", platform_env.session_type(), "wayland")
@@ -70,7 +81,7 @@ try:
         c.eq("macOS is detected", platform_env.os_name(), "macos")
     with FakePlatform("win32"):
         c.eq("an unknown platform is 'other'", platform_env.os_name(), "other")
-    c.eq("this machine is linux", platform_env.os_name(), "linux")
+    c.eq("linux is detected", platform_env.os_name(), "linux")
 
     # -- desktop detection -----------------------------------------------------
     env(XDG_CURRENT_DESKTOP="KDE")
@@ -158,6 +169,7 @@ try:
     c.eq("entries are grouped by category",
          cats == sorted(cats, key=lambda x: order[x]), True)
 finally:
+    sys.platform = real_platform
     restore()
     import input_backend as _ib
     _ib.reset_backend()

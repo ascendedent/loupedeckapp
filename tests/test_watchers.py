@@ -102,10 +102,16 @@ c.eq("with no extension there is nothing to read",
 
 # -- choosing one -------------------------------------------------------------
 real_desktop, real_session = platform_env.desktop, platform_env.session_type
+real_os = platform_env.os_name
 WATCHERS = (window_watcher.KdotoolWatcher, window_watcher.GnomeWatcher,
             window_watcher.XpropWatcher, window_watcher.MacWatcher)
 real_available = {cls: cls.available for cls in WATCHERS}
 try:
+    # The advice below is the Linux advice, and setup_check branches on the
+    # platform before it ever looks at the desktop: run on a Mac these all got
+    # the Accessibility answer instead of the one they were asserting.
+    platform_env.os_name = lambda: platform_env.LINUX
+
     # Nothing available: dynamic mode must degrade to "never switches" rather
     # than failing, and the setup check has to say so.
     for cls in WATCHERS:
@@ -137,6 +143,7 @@ try:
     c.eq("with nothing to run, because there is nothing", check["fix"], "")
 finally:
     platform_env.desktop, platform_env.session_type = real_desktop, real_session
+    platform_env.os_name = real_os
     for cls, fn in real_available.items():
         cls.available = fn
 
