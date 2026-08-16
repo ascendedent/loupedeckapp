@@ -9,7 +9,19 @@ imports.
 import ast
 import os
 import sys
-import tomllib
+
+try:
+    import tomllib
+except ModuleNotFoundError:            # tomllib is 3.11+
+    try:
+        import tomli as tomllib
+    except ModuleNotFoundError:
+        # The oldest supported macOS pins PySide6 6.2, which pins Python 3.10.
+        # Nothing here is platform-specific, so the manifest still gets checked
+        # wherever a newer Python runs the suite; saying so beats a bare crash.
+        print("%-58s %s" % ("manifest checks need tomllib (3.11+) or tomli",
+                            "skipped"))
+        sys.exit(0)
 
 from _harness import Checks
 

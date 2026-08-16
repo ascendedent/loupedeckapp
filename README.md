@@ -239,8 +239,12 @@ Set `LOUPEDECKAPP_CONFIG_DIR` to put user data somewhere else.
 
 ## Requirements
 
-- **Linux**; Python 3 (developed on Fedora 44 / Python 3.14, KDE Plasma on **Wayland**).
-- The device on `/dev/ttyACM0`, readable by your user (see [Device permissions](#device-permissions)).
+- **Linux** or **macOS**; Python 3 (developed on Fedora 44 / Python 3.14, KDE Plasma on
+  **Wayland**; macOS exercised on 26.4, Apple Silicon).
+- The device on `/dev/ttyACM0` (Linux) or `/dev/cu.usbmodem*` (macOS). Linux needs it readable by
+  your user (see [Device permissions](#device-permissions)); macOS needs nothing.
+- Python 3.9 is enough for the app, but the device library asks for 3.10, so that is the real
+  floor for anything that talks to hardware.
 
 **Python packages**
 - `PySide6` (QML UI), `pyserial`, `pillow`, and the devleaks
@@ -266,7 +270,15 @@ python3 -m venv .venv
 
 # optional: X11 input fallback (unnecessary on Wayland)
 .venv/bin/pip install -e ".[x11]"
+
+# macOS: real media keys and real scrolling, which AppleScript cannot do
+.venv/bin/pip install -e ".[macos]"
 ```
+
+**On macOS 10.14 or 10.15** add `.venv/bin/pip install -e ".[legacy-macos]"`, which holds PySide6
+at 6.2. Without it pip installs a newer Qt that those releases cannot load: 6.3 through 6.5.2 are
+tagged for 10.9 but need 10.15 or 11 at runtime, so they install without complaint and then fail
+to start. That extra caps Python at 3.10, the newest PySide6 6.2 built wheels for.
 
 The `device` extra pulls the device library from git, since it is not on PyPI.
 Installing normally (`pip install ".[device]"`) puts a `loupedeckapp` command on your PATH, the
@@ -385,9 +397,14 @@ loupedeckapp                  # if installed
 Run the checks with `.venv/bin/python tests/run_all.py` (no device needed). Checks that do need
 hardware live in [`scripts/verify/`](scripts/verify/).
 
-**On macOS?** The adapters are written and have never run on a Mac. If you have one and a
-Loupedeck, [docs/MACOS-TESTING.md](docs/MACOS-TESTING.md) is what to run and what to send back;
-[docs/MACOS.md](docs/MACOS.md) is the same ground for anyone changing the code.
+**On macOS?** It runs. A Loupedeck CT on macOS 26.4 (Apple Silicon) enumerates as
+`/dev/cu.usbmodem*`, handshakes and identifies itself with no changes, all five setup checks pass,
+and the suite is green on both PySide6 6.2.4 / Python 3.10 and 6.11 / Python 3.14. What is still
+unproven is 10.14 and 10.15 themselves, which no one has run this on, and the Accessibility-gated
+paths: sending keystrokes and reading the frontmost app both need that permission granted, so they
+have been exercised no further than their own unit checks. [docs/MACOS-TESTING.md](docs/MACOS-TESTING.md)
+is what to run and what to send back; [docs/MACOS.md](docs/MACOS.md) is the same ground for anyone
+changing the code.
 
 **Have a Live or Live S?** Those models are supported from the library's source and published
 specs, and have never been run on real hardware. [docs/LIVE-TESTING.md](docs/LIVE-TESTING.md) says
@@ -465,9 +482,11 @@ Agreed direction (detail in [`docs/PLAN.md`](docs/PLAN.md)):
 
 1. **Ship Linux**: pinned deps; Flatpak and/or AppImage; udev + ydotool docs; starter profiles.
 2. **Product depth**: Live/Live S mirror fidelity, macros, and UI polish.
-3. **macOS**: native build targeting **macOS 10.14+**: device I/O first, then Quartz input,
-   frontmost-app dynamic mode, then `.app` packaging. The core is already Qt-free; this is mostly
-   adapters, permissions UX, and paths.
+3. **macOS**: native build targeting **macOS 10.14+**. Device I/O is done and verified on real
+   hardware, and the dependency floor now reaches 10.14 via the `legacy-macos` extra. What is left
+   is the part behind the Accessibility permission — Quartz input and frontmost-app dynamic mode,
+   neither confirmed on a Mac yet — then autostart as a LaunchAgent rather than an XDG entry,
+   `.app` packaging, and a run on an actual Mojave machine.
 
 **Done recently:** per-control encoder feel (invert, speed presets, acceleration on inter-detent
 interval), a scroll action, and a coalescing dispatch queue that keeps a fast spin from running on

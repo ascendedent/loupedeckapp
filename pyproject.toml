@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "loupedeckapp"
 version = "0.5.0"
-description = "Linux configuration app for the Loupedeck CT, Live and Live S"
+description = "Linux and macOS configuration app for the Loupedeck CT, Live and Live S"
 readme = "README.md"
 requires-python = ">=3.9"
 # SPDX string plus an explicit file list: setuptools deprecated the table form
@@ -13,12 +13,13 @@ requires-python = ">=3.9"
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 authors = [{ name = "JM" }]
-keywords = ["loupedeck", "streamdeck", "wayland", "kde", "macropad"]
+keywords = ["loupedeck", "streamdeck", "wayland", "kde", "macos", "macropad"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: X11 Applications :: Qt",
     "Intended Audience :: End Users/Desktop",
     "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
     "Programming Language :: Python :: 3",
     "Topic :: Utilities",
 ]
@@ -27,7 +28,11 @@ classifiers = [
 # and the oldest known to work. A distro package or a Flatpak runtime will
 # supply its own, and pinning exactly would fight both.
 dependencies = [
-    "PySide6>=6.5",
+    # 6.2 rather than 6.5 because that is the last release macOS 10.14 can run,
+    # and the suite passes against it. Nothing here needs a newer Qt: the two
+    # places that did (MultiEffect, QtQuick.Dialogs' ColorDialog) now use the
+    # spellings that exist in both. Anything modern still resolves to latest.
+    "PySide6>=6.2",
     "pyserial>=3.5",
     "Pillow>=9.0",
     # Device I/O. Not on PyPI, so it is not resolvable from here; see the
@@ -35,7 +40,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# The device library, installed straight from git.
+# The device library, installed straight from git. It declares requires-python
+# >=3.10, so this extra is the one thing here that will not install on 3.9: the
+# app itself runs there, minus the hardware, which is what device_lib is for.
 device = [
     "loupedeck @ git+https://github.com/devleaks/python-loupedeck-live.git",
 ]
@@ -44,6 +51,13 @@ x11 = ["pyautogui>=0.9.53", "python-xlib>=0.33"]
 # macOS: real media keys and real scrolling. AppleScript can reach neither, so
 # without this a media action does nothing and a scroll sends arrow keys.
 macos = ["pyobjc-framework-Quartz>=9.0", "pyobjc-framework-Cocoa>=9.0"]
+# macOS 10.14 and 10.15. Qt 6.2 is the last one Apple's older frameworks can
+# load, and it is also the last PySide6 whose wheel says so: 6.3 through 6.5.2
+# are tagged macosx_10_9 but need 10.15 or 11 at runtime, so pip installs them
+# on Mojave quite happily and the app then fails to start. Asking for this
+# extra is the only way to get a Qt that actually runs there. Caps Python at
+# 3.10, which is the newest that release built wheels for.
+legacy-macos = ["PySide6>=6.2,<6.3"]
 
 [project.urls]
 Homepage = "https://github.com/ascendedent/loupedeckapp"
