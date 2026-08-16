@@ -1,4 +1,6 @@
 import json, os
+from typing import Literal
+
 import app_paths
 import input_backend
 import macro
@@ -428,7 +430,9 @@ class LdAction:
   # "command"/"launch" run a shell command (detached); "hotkey" sends a key
   # combo; "text" types a string; "media" controls playback. "submenu"/"back"
   # are navigation (handled by the controller, not here); "none" is unbound.
-  type ActionType = Literal["command", "launch", "hotkey", "text", "media", "submenu", "back", "none"]
+  # A plain alias rather than a `type` statement: that syntax is 3.12+, and the
+  # oldest macOS this runs on is stuck on PySide6 6.2, which is stuck on 3.10.
+  ActionType = Literal["command", "launch", "hotkey", "text", "media", "submenu", "back", "none"]
 
   EXECUTABLE = ("command", "launch", "hotkey", "text", "media", "back")
 
