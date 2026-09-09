@@ -92,6 +92,14 @@ def scroll_and_palette(ws):
     rotate(ws, "enc2R", ("hotkey", "%s+pageup" % MOD),
            ("hotkey", "%s+pagedown" % MOD),
            press=("hotkey", "%s+w" % MOD))
+    # A Live S has two knobs and both are on the left: enc1L above, enc2L
+    # below (issue #3). Without this every workspace but Edit left its lower
+    # dial dead, since the rest of this deck's knob bindings are right-hand
+    # ones that model does not have. A workspace with its own enc2L binding
+    # sets it after this call and keeps it.
+    rotate(ws, "enc2L", ("hotkey", "%s+pageup" % MOD),
+           ("hotkey", "%s+pagedown" % MOD),
+           press=("hotkey", "%s+w" % MOD))
     rotate(ws, "dial", ("scroll", "up"), ("scroll", "down"),
            press=("hotkey", "%s+p" % MOD))
     ws.labels["wheel"] = {"text": "VS Code", "pos": "middle", "mode": "over"}

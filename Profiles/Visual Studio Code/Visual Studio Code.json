@@ -85,16 +85,16 @@
      "action": "f8"
     },
     "enc2L": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "hotkey",
+     "action": "ctrl+w"
     },
     "enc2L-l": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "hotkey",
+     "action": "ctrl+pageup"
     },
     "enc2L-r": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "hotkey",
+     "action": "ctrl+pagedown"
     },
     "enc2R": {
      "a_type": "hotkey",
@@ -465,16 +465,16 @@
      "action": "f11"
     },
     "enc2L": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "hotkey",
+     "action": "ctrl+w"
     },
     "enc2L-l": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "hotkey",
+     "action": "ctrl+pageup"
     },
     "enc2L-r": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "hotkey",
+     "action": "ctrl+pagedown"
     },
     "enc2R": {
      "a_type": "hotkey",
@@ -845,16 +845,16 @@
      "action": "f5"
     },
     "enc2L": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "hotkey",
+     "action": "ctrl+w"
     },
     "enc2L-l": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "hotkey",
+     "action": "ctrl+pageup"
     },
     "enc2L-r": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "hotkey",
+     "action": "ctrl+pagedown"
     },
     "enc2R": {
      "a_type": "hotkey",
@@ -1225,16 +1225,16 @@
      "action": "ctrl+="
     },
     "enc2L": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "hotkey",
+     "action": "ctrl+w"
     },
     "enc2L-l": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "hotkey",
+     "action": "ctrl+pageup"
     },
     "enc2L-r": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "hotkey",
+     "action": "ctrl+pagedown"
     },
     "enc2R": {
      "a_type": "hotkey",

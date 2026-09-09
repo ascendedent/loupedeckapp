@@ -89,12 +89,12 @@
      "action": ""
     },
     "enc2L-l": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "hotkey",
+     "action": "ctrl+z"
     },
     "enc2L-r": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "hotkey",
+     "action": "ctrl+shift+z"
     },
     "enc2R": {
      "a_type": "none",
@@ -402,12 +402,12 @@
      "action": ""
     },
     "enc2L-l": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "hotkey",
+     "action": "ctrl+shift+tab"
     },
     "enc2L-r": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "hotkey",
+     "action": "ctrl+tab"
     },
     "enc2R": {
      "a_type": "none",
@@ -2006,16 +2006,16 @@
      "action": "volumeup"
     },
     "enc2L": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "hotkey",
+     "action": "mute"
     },
     "enc2L-l": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "hotkey",
+     "action": "volumedown"
     },
     "enc2L-r": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "hotkey",
+     "action": "volumeup"
     },
     "enc2R": {
      "a_type": "none",

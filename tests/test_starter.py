@@ -115,7 +115,7 @@ unknown = sorted({slot for ws in cfg.workspaces
                   if a.a_type != "none" and slot not in valid_slots})
 c.eq("every bound slot is a real control", unknown, [])
 
-# A Live S has no side screens and its two knobs are both on the right; a
+# A Live S has no side screens, fifteen keys and two knobs, both on the left; a
 # starter profile that only works on the author's device is not much of a
 # starter.
 smallest_keys = set(live_s.touch_keys)
@@ -132,11 +132,14 @@ knobs_used = {slot.split("-")[0] for ws in cfg.workspaces[:3]
               if a.a_type != "none" and slot.split("-")[0] in smallest_knobs}
 c.eq("and at least one knob does too", len(knobs_used) >= 1, True)
 
+# Both of them, not one: the first Live S report had a device whose lower dial
+# did nothing on any page, because every binding that was not scroll went to a
+# right-hand knob that model does not have.
 for i, ws in enumerate(cfg.workspaces[:3]):
     used = {slot.split("-")[0] for slot, a in ws.actions.items()
             if a.a_type != "none" and slot.split("-")[0] in smallest_knobs}
-    c.eq("workspace %d gives a Live S a working knob" % (i + 1),
-         len(used) >= 1, True)
+    c.eq("workspace %d works both of a Live S's knobs" % (i + 1),
+         sorted(used), sorted(smallest_knobs))
 
 # -- appearance --------------------------------------------------------------
 for i, ws in enumerate(cfg.workspaces[:3]):

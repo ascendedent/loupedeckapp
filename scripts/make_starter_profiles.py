@@ -41,20 +41,27 @@ def key(ws, name, a_type, value, label, color=GREY):
 
 
 def rotate(ws, control, left, right, press=None):
-    """Bind a knob: (type, value) for each direction, and optionally a press."""
-    ws.actions[control + "-l"] = LdAction(action_type=left[0], action=left[1])
-    ws.actions[control + "-r"] = LdAction(action_type=right[0], action=right[1])
-    if press:
-        ws.actions[control] = LdAction(action_type=press[0], action=press[1])
+    """Bind a knob: (type, value) for each direction, and optionally a press.
+
+    ``control`` may be a tuple of names, bound identically, which is how a
+    binding reaches whichever knob the device in front of you actually has.
+    """
+    for name in ((control,) if isinstance(control, str) else control):
+        ws.actions[name + "-l"] = LdAction(action_type=left[0], action=left[1])
+        ws.actions[name + "-r"] = LdAction(action_type=right[0], action=right[1])
+        if press:
+            ws.actions[name] = LdAction(action_type=press[0], action=press[1])
 
 
 def scroll_knob(ws, *controls):
     """Scrolling, on every knob named.
 
-    Two of them, on purpose. A CT and a Live have knobs down both sides and
-    scroll belongs under the off hand; a Live S has neither of those and only
-    two knobs in total, both on the right. Binding both means the profile has
-    a working scroll wheel whichever device opens it.
+    More than one, on purpose. A CT and a Live have knobs down both sides and
+    scroll belongs under the off hand. A Live S has two in total and they are
+    both on the *left*: enc1L and enc2L, reported as knobTL and knobCL, which
+    a Live S owner's report confirmed (issue #3). So the pair that has to work
+    everywhere is enc1L for scroll and enc2L for the workspace's own knob
+    binding, and the right-hand knobs are a bonus on the models that have them.
     """
     for control in controls:
         rotate(ws, control, ("scroll", "up"), ("scroll", "down"))
@@ -79,7 +86,8 @@ def build():
     key(media, "tb22", "hotkey", "volumeup", "Vol +", GREY)
     key(media, "tb23", "media", "stop", "Stop", GREY)
     # Volume on a knob is the reason most people buy one of these.
-    rotate(media, "enc1R", ("hotkey", "volumedown"), ("hotkey", "volumeup"),
+    rotate(media, ("enc1R", "enc2L"),
+           ("hotkey", "volumedown"), ("hotkey", "volumeup"),
            press=("hotkey", "mute"))
     scroll_knob(media, "enc1L", "enc2R")
     # CT only: the dial and its screen. Unbound controls on a Live are simply
@@ -99,7 +107,7 @@ def build():
     key(editing, "tb23", "hotkey", "%s+s" % MOD, "Save", GREEN)
     key(editing, "tb24", "hotkey", "%s+f" % MOD, "Find", GREY)
     scroll_knob(editing, "enc1L", "enc2R")
-    rotate(editing, "enc1R", ("hotkey", "%s+z" % MOD),
+    rotate(editing, ("enc1R", "enc2L"), ("hotkey", "%s+z" % MOD),
            ("hotkey", "%s+shift+z" % MOD))
 
     # -- 3: Browser --------------------------------------------------------
@@ -113,7 +121,7 @@ def build():
     key(browser, "tb23", "hotkey", "%s+l" % MOD, "Address", GREY)
     key(browser, "tb24", "hotkey", "%s+f" % MOD, "Find", GREY)
     scroll_knob(browser, "enc1L", "enc2R")
-    rotate(browser, "enc1R", ("hotkey", "%s+shift+tab" % MOD),
+    rotate(browser, ("enc1R", "enc2L"), ("hotkey", "%s+shift+tab" % MOD),
            ("hotkey", "%s+tab" % MOD))
 
     # The round buttons switch workspace on the hardware already; colouring the
