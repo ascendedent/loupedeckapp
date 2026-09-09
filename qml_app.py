@@ -358,6 +358,21 @@ class Backend(QObject):
     def workspaceButtons(self):
         return self._ctl.profile.visible_workspace_keys
 
+    # Where those buttons sit. The CT and Live put all eight in a row under
+    # the screen; a Live S has one beside its dials and three up the right
+    # hand side, and the device view draws the hardware rather than a row.
+    @Property("QStringList", notify=stateChanged)
+    def buttonsLeft(self):
+        return self._ctl.profile.buttons_left
+
+    @Property("QStringList", notify=stateChanged)
+    def buttonsRight(self):
+        return self._ctl.profile.buttons_right
+
+    @Property("QStringList", notify=stateChanged)
+    def buttonsBelow(self):
+        return self._ctl.profile.buttons_below
+
     @Property("QVariantMap", notify=stateChanged)
     def inputHealth(self):
         """{ok, name, detail} for the input backend. A backend that cannot

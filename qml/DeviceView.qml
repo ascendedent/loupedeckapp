@@ -39,6 +39,10 @@ Item {
     function label(key) { return backend.controlLabels[key] }
     function led(key) { return backend.controlLeds[key] || "" }
     function bg(key) { return backend.controlBgs[key] || "" }
+    // The first workspace key is the firmware's 'circle'; the hardware numbers
+    // them from one, so the label is the key's place in the model's list and
+    // stays right however the buttons are split between clusters.
+    function wsLabel(key) { return (backend.workspaceButtons.indexOf(key) + 1).toString() }
     // approximate the device's shrink-mode label band height for the mirror
     function shrinkBand(h) { return Math.round(h * 0.3) }
 
@@ -342,6 +346,20 @@ Item {
         Behavior on border.color { ColorAnimation { duration: 130 } }
     }
 
+    // One of the round buttons a workspace is bound to. Three clusters draw
+    // these and they must look and behave identically, so the wiring lives
+    // here rather than three times over.
+    component WsBtn: RoundBtn {
+        required property string modelData
+        label: dv.wsLabel(modelData)
+        ctlKey: modelData
+        ledColor: dv.led(modelData)
+        activeColor: theme.ok
+        active: backend.selectedWs === modelData
+        switchesWorkspace: true
+        strongActive: true
+    }
+
     component SideCell: Rectangle {
         property string ctlKey: ""
         // "single" layout: one image for the whole strip, so the cell is as
@@ -472,10 +490,13 @@ Item {
                 ColumnLayout {
                     spacing: 20
                     visible: backend.encodersLeft.length > 0
+                             || backend.buttonsLeft.length > 0
                     Repeater {
                         model: backend.encodersLeft
                         Encoder { ctlKey: modelData; active: dv.encBound(modelData) }
                     }
+                    // A Live S has one round button below its two dials.
+                    Repeater { model: backend.buttonsLeft; WsBtn {} }
                 }
 
                 // left side strip: three cells, or one tall image
@@ -594,10 +615,13 @@ Item {
                 ColumnLayout {
                     spacing: 20
                     visible: backend.encodersRight.length > 0
+                             || backend.buttonsRight.length > 0
                     Repeater {
                         model: backend.encodersRight
                         Encoder { ctlKey: modelData; active: dv.encBound(modelData) }
                     }
+                    // ...and three in a column to the right of the screen.
+                    Repeater { model: backend.buttonsRight; WsBtn {} }
                 }
             }
 
@@ -606,21 +630,10 @@ Item {
                 id: wsRow
                 Layout.alignment: Qt.AlignHCenter
                 spacing: 16
-                // The first key is the firmware 'circle'; only the label is
-                // shifted so the UI reads 1..n like the physical device. A Live
-                // S has four of these, a CT and Live eight.
-                Repeater {
-                    model: backend.workspaceButtons
-                    RoundBtn {
-                        label: (index + 1).toString()
-                        activeColor: theme.ok
-                        ctlKey: modelData
-                        ledColor: dv.led(modelData)
-                        active: backend.selectedWs === modelData
-                        switchesWorkspace: true
-                        strongActive: true
-                    }
-                }
+                // Eight in a row on a CT and a Live. A Live S carries its four
+                // beside the screen instead, and this row is then empty.
+                visible: backend.buttonsBelow.length > 0
+                Repeater { model: backend.buttonsBelow; WsBtn {} }
             }
 
             // ---- CT function buttons + big wheel ----
