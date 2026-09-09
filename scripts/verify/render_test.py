@@ -23,6 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(
 from PIL import Image, ImageDraw                                  # noqa: E402
 
 import ct_support                                                 # noqa: E402
+import live_s_support                                             # noqa: E402
 import device_lib                                                 # noqa: E402
 from DeviceProfile import DeviceProfile                           # noqa: E402
 
@@ -72,6 +73,9 @@ def main():
     print("Device: %s, USB %s -> %s" % (
         device.DECK_TYPE, ("0x%04x" % pid) if pid else "?", profile.describe()))
     ct_support.install_ct_handlers(device)
+    # And the Live S patch corrects a screen the library lays out as if
+    # this model had the Live's two side strips. A no-op on anything else.
+    live_s_support.install(device, profile)
     device.reset()
     device.set_brightness(80)
 
@@ -115,12 +119,21 @@ def main():
     for i in range(0, cw, 40):
         d.line([(i, 0), (i, ch)], fill=(90, 90, 120))
         d.text((i + 3, 4), str(i), fill=(200, 200, 220))
+    # Where this app thinks the key columns are. On a model whose keys do not
+    # start at the edge (a Live S insets them 15px) a photograph of these lines
+    # against the physical keys settles the question on its own.
+    key_w = profile.key_size[0]
+    for col in range(profile.columns + 1):
+        x = profile.key_inset_x + col * key_w
+        if x < cw:
+            d.line([(x, 0), (x, ch)], fill=(255, 60, 60), width=2)
     d.rectangle([0, 0, cw - 1, ch - 1], outline=(255, 255, 255))
     d.text((6, ch // 2), "CENTRE %dx%d" % (cw, ch), fill=(255, 255, 255))
     device.draw_image(band, display="center", width=cw, height=ch, x=0, y=0)
     answers.append(("centre screen", ask(
         "Does the ruler fill the whole main screen edge to edge? Which number "
-        "is at the far left edge, and which is at the far right?")))
+        "is at the far left edge, and which is at the far right? Do the red "
+        "lines line up with the gaps between the keys?")))
 
     # -- wheel --------------------------------------------------------------
     if profile.has_wheel:

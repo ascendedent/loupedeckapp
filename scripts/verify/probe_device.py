@@ -79,6 +79,10 @@ def main():
         print("  grid             %d x %d  (%s ... %s)" % (
             profile.columns, profile.rows,
             profile.touch_keys[0], profile.touch_keys[-1]))
+        print("  centre screen    %dx%d at framebuffer x=%d, keys from x=%d" % (
+            profile.center_size[0], profile.center_size[1],
+            profile.center_origin_x,
+            profile.center_origin_x + profile.key_inset_x))
         print("  encoders left    %s" % (profile.encoders_left or "(none)"))
         print("  encoders right   %s" % (profile.encoders_right or "(none)"))
         print("  side displays    %s" % (

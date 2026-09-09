@@ -22,6 +22,7 @@ from PIL import Image
 
 import ct_support
 import label_render
+import live_s_support
 from DeviceProfile import (DeviceProfile, DIAL_ID, WHEEL_DISPLAY, WS_KEYS,
                            forced_model)
 from LdConfiguration import (LdConfiguration, LdAction, LdSubmenu, LdWorkspace,
@@ -123,6 +124,9 @@ class DeviceController:
                 self.profile.describe()))
             if self.profile.has_wheel or self.profile.has_dial:
                 ct_support.install_ct_handlers(self.device)
+            # Self-guarding: a no-op on anything but a Live S, whose screen the
+            # library lays out as if it had the Live's two side strips.
+            live_s_support.install(self.device, self.profile)
             self.device.set_callback(self.device_callback)
             self.init_device()
             self.connected = True
@@ -195,10 +199,12 @@ class DeviceController:
             self._watch_stop.wait(self.WATCH_INTERVAL_S)
 
     def init_device(self):
+        # Only the buttons this model has: a Live S has four, and the firmware
+        # is sent nothing for the four it does not.
         self.device.reset()
-        self.device.set_button_color("circle", "green")
-        for i in range(1, 8):
-            self.device.set_button_color(str(i), (63, 63, 63))
+        for key in self.profile.visible_workspace_keys:
+            self.device.set_button_color(
+                key, "green" if key == WS_KEYS[0] else (63, 63, 63))
         self.device.set_brightness(self.brightness)
 
     def set_brightness(self, value):
@@ -259,6 +265,20 @@ class DeviceController:
         if "tb" in name and len(name) == 4:
             row = int(name[2]); col = int(name[3])
             return (row - 1) * self.profile.columns + col - 1
+
+    def tb_on_device(self, name):
+        """Is this key one the connected model actually has?
+
+        A profile stores the widest grid so a file written on one model opens
+        on another, which means a five-column profile opened on a four-column
+        CT names keys that do not exist. Their index is not out of range - it
+        is another key's - so drawing them without asking put the fifth column
+        on top of the first column of the row below.
+        """
+        if not (name.startswith("tb") and len(name) == 4):
+            return False
+        return (int(name[2]) <= self.profile.rows
+                and int(name[3]) <= self.profile.columns)
 
     def side_layout(self, side, ws=None):
         """"cells" or "single" for one side display on the menu in view."""
@@ -401,8 +421,17 @@ class DeviceController:
             if not path and not label and not bg:
                 continue
             if key.startswith("tb"):
+                if not self.tb_on_device(key):
+                    continue
                 self.set_img_to_touchbutton(path, self.tb_name_to_keycode(key), label, bg)
             elif key.startswith("dis"):
+                # A profile written on a CT carries side-strip images, and a
+                # Live S has no side strips: the library still maps those
+                # displays onto the first and last 60 pixels of the one screen
+                # it does have, so drawing them painted the CT's strips over
+                # that model's outer key columns (issue #3).
+                if not self.profile.has_side_displays:
+                    continue
                 side, row = key[4], int(key[3])
                 if self.side_layout(side, ws) == "single":
                     # One image for the strip, taken from the first cell; the
@@ -437,7 +466,7 @@ class DeviceController:
             c = colors.get(key)
             if c:
                 self.device.set_button_color(key, self._hex_rgb(c))
-        for key in WS_KEYS:
+        for key in self.profile.visible_workspace_keys:
             if key == self.selected_ws:
                 self.device.set_button_color(key, "green")
             else:

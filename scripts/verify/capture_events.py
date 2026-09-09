@@ -21,6 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__)))))
 
 import ct_support                                                 # noqa: E402
+import live_s_support                                             # noqa: E402
 import device_lib                                                 # noqa: E402
 from DeviceProfile import DeviceProfile                           # noqa: E402
 
@@ -117,6 +118,9 @@ def main():
     # another model they are harmless, and installing them anyway means an
     # unknown control shows up as an event rather than as silence.
     ct_support.install_ct_handlers(device)
+    # And the Live S patch corrects a screen the library lays out as if
+    # this model had the Live's two side strips. A no-op on anything else.
+    live_s_support.install(device, profile)
     unknown = {}
     device.handlers = LoggingHandlers(device.handlers, unknown)
 

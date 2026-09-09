@@ -16,6 +16,16 @@ framebuffer and *already* adds each display's own offset in ``draw_buffer``
 0 for both the left and the right side display; passing an absolute 480 for the
 right display (as the Live-era code did) lands it off-screen at x=900. Use
 ``side_display_draw_x`` instead of hardcoding.
+
+Coordinate note for the centre screen
+-------------------------------------
+That same framebuffer is laid out differently on a Live S, which has no side
+screens: its centre screen is the whole 480 pixels, and its five 90px keys
+start 15 pixels in rather than at the edge. Two numbers describe that -
+``center_origin_x`` (where the centre screen starts in the framebuffer) and
+``key_inset_x`` (how far into it the first key column starts) - and
+``live_s_support`` reads them to correct a library that knows only the Live's
+60/360 layout. Confirmed against hardware in issue #3.
 """
 
 from __future__ import annotations
@@ -110,6 +120,8 @@ class DeviceProfile:
         rows=3,
         key_size=(90, 90),
         center_size=(360, 270),
+        center_origin_x=60,
+        key_inset_x=0,
         side_width=60,
         side_cell_size=(60, 90),
         has_wheel=False,
@@ -120,6 +132,8 @@ class DeviceProfile:
         encoders_right=("enc1R", "enc2R", "enc3R"),
         side_cells=3,
         workspace_buttons=8,
+        buttons_left=(),
+        buttons_right=(),
     ):
         self.model = model
         self.display_name = display_name
@@ -127,6 +141,10 @@ class DeviceProfile:
         self.rows = rows
         self.key_size = key_size
         self.center_size = center_size
+        # Framebuffer x of the centre screen, and of the first key column
+        # inside it. See the module docstring; only a Live S differs.
+        self.center_origin_x = center_origin_x
+        self.key_inset_x = key_inset_x
         self.side_width = side_width
         self.side_cell_size = side_cell_size
         self.has_wheel = has_wheel
@@ -140,6 +158,11 @@ class DeviceProfile:
         self.encoders_right = list(encoders_right)
         self.side_cells = side_cells
         self.workspace_buttons = workspace_buttons
+        # Round buttons that sit beside the screen rather than under it. The
+        # CT and Live put all eight in a row below; a Live S has one under its
+        # dials on the left and three in a column on the right (issue #3).
+        self.buttons_left = list(buttons_left)
+        self.buttons_right = list(buttons_right)
 
     # -- workspace / button keys -------------------------------------------
     @property
@@ -156,6 +179,16 @@ class DeviceProfile:
         the device view should draw.
         """
         return list(WS_KEYS[: self.workspace_buttons])
+
+    @property
+    def buttons_below(self):
+        """Round buttons the device view draws in a row under the screen.
+
+        Everything this model has that is not placed at one side, so a model
+        that says nothing about placement keeps the row it always had.
+        """
+        beside = set(self.buttons_left) | set(self.buttons_right)
+        return [k for k in self.visible_workspace_keys if k not in beside]
 
     # -- control inventory --------------------------------------------------
     @property
@@ -197,16 +230,23 @@ class DeviceProfile:
                 extra_buttons=CT_EXTRA_BUTTONS,
             )
         if model == MODEL_LIVE_S:
-            # Live S: single 480-wide center, 5 columns, no side screens, two
-            # dials instead of six encoders and four round buttons instead of
-            # eight. Taken from the published spec; the layout has not been
-            # checked against the hardware (we only have a CT here), so the
-            # device view draws it schematically in the usual arrangement.
+            # Live S: one screen that is the whole framebuffer, five columns
+            # starting 15px in, no side screens, two dials instead of six
+            # encoders and four round buttons instead of eight.
+            #
+            # The dials report knobTL and knobCL, which is to say they are on
+            # the left; an earlier reading of the spec put them on the right,
+            # so a dial the device view offered could never fire. The round
+            # buttons are one below the dials and three in a column on the
+            # right: 'circle' lit the left one and '1'..'3' the right column
+            # top to bottom when a Live S owner ran render_test.py (issue #3).
             return cls(
                 MODEL_LIVE_S, "Loupedeck Live S",
-                columns=5, center_size=(480, 270), side_width=0,
-                encoders_left=(), encoders_right=("enc1R", "enc2R"),
+                columns=5, center_size=(480, 270),
+                center_origin_x=0, key_inset_x=15, side_width=0,
+                encoders_left=("enc1L", "enc2L"), encoders_right=(),
                 side_cells=0, workspace_buttons=4,
+                buttons_left=("circle",), buttons_right=("1", "2", "3"),
             )
         # Default to Live geometry (same 360 center as CT, no wheel/dial).
         return cls(MODEL_LIVE, "Loupedeck Live")

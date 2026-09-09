@@ -46,6 +46,30 @@ c.eq("Live S shows four round buttons", live_s.visible_workspace_keys,
      ["circle", "1", "2", "3"])
 c.eq("Live S keys are a 5x3 grid", len(live_s.touch_keys), 15)
 c.eq("Live S last key is tb35", live_s.touch_keys[-1], "tb35")
+# The dials report knobTL and knobCL, so they are on the left. Getting this
+# backwards put two dials in the device view that no event could ever reach.
+c.eq("Live S dials are the two left-hand ones",
+     (live_s.encoders_left, live_s.encoders_right), (["enc1L", "enc2L"], []))
+# One screen that is the whole framebuffer, keys inset 15px. Both numbers come
+# from foxxyz's device.js and were confirmed by the report in issue #3.
+c.eq("Live S centre screen starts at the framebuffer edge",
+     live_s.center_origin_x, 0)
+c.eq("and its keys start 15px into it", live_s.key_inset_x, 15)
+c.eq("so five 90px columns end 15px short of the far edge",
+     live_s.key_inset_x + live_s.columns * live_s.key_size[0],
+     live_s.center_size[0] - 15)
+c.eq("Live S puts one round button left and three right",
+     (live_s.buttons_left, live_s.buttons_right, live_s.buttons_below),
+     (["circle"], ["1", "2", "3"], []))
+
+# The CT and the Live keep the library's own layout, and all eight buttons in
+# a row under the screen.
+for name, model in (("CT", ct), ("Live", live)):
+    c.eq("%s centre screen sits 60px in" % name, model.center_origin_x, 60)
+    c.eq("%s keys start at its edge" % name, model.key_inset_x, 0)
+    c.eq("%s draws its buttons in one row" % name,
+         (model.buttons_left, model.buttons_right, len(model.buttons_below)),
+         ([], [], 8))
 
 # -- PID routing -------------------------------------------------------------
 c.eq("PID 0x0003 is the CT", DP.DeviceProfile.for_pid(0x0003).model, DP.MODEL_CT)
