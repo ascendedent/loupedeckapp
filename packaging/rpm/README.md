@@ -27,14 +27,27 @@ The app starts without it and says what is missing.
 
 ## Building the RPM
 
+Every command after the first runs **inside a checkout**: `git archive` reads
+the repository you are standing in, and the spec file path is relative to it.
+Run them from your home directory and you get `fatal: not a git repository`
+followed by `failed to stat .../packaging/rpm/loupedeckapp.spec`.
+
 ```bash
 sudo dnf install rpm-build rpmdevtools python3-devel pyproject-rpm-macros \
                  python3-setuptools
+
+git clone https://github.com/ascendedent/loupedeckapp    # if you have not
+cd loupedeckapp                                          # <- from here on
+
 rpmdev-setuptree
 git archive --format=tar.gz --prefix=loupedeckapp-0.5.0/ \
     -o ~/rpmbuild/SOURCES/loupedeckapp-0.5.0.tar.gz HEAD
 rpmbuild -ba packaging/rpm/loupedeckapp.spec
 ```
+
+The RPM is only worth building if you want the udev rule and the ydotool
+drop-in installed for you. To *use* the app, a checkout and a virtualenv is
+less work and is what the README's Setup section describes.
 
 ## What has actually been verified
 

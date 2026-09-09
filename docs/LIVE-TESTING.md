@@ -2,9 +2,10 @@
 
 This app is developed against a **Loupedeck CT**, which is the only device the
 author owns. Live and Live S support is written from the vendored library's
-source and from published specifications, and **none of it has ever run on the
-hardware**. If you have one of those devices, an hour of your time would turn a
-set of educated guesses into something known.
+source, from published specifications, and now from one Live S report; the code
+that came out of that report has still **never run on the hardware**. If you
+have one of those devices, an hour of your time would turn a set of educated
+guesses into something known.
 
 You do not need to read the code. Three scripts do the work and print a block
 of text to paste into a report.
@@ -35,27 +36,43 @@ probably right. What has never been checked is the app on top of it.
 
 ### Loupedeck Live S (`2ec2:0006`)
 
-This one is guesswork. The library has no Live S support at all: it reports
-every model as `LoupedeckLive` and carries one screen layout.
+**One report in, and it found the bug this section predicted.** Issue #3 is a
+Live S on Fedora 44 / KDE. What it settled:
 
-| Assumption | How confident |
+| Was | Is |
 |---|---|
-| 5x3 keys, fifteen in total | High: published spec |
-| Two dials and four round buttons | High: published spec |
-| No side screens | High: published spec |
-| 480x270 single centre screen | Medium |
-| Touch keys are reported as indices 0..14 across five columns | Low |
-| The dials are reported as two of the six `knob*` names | Low: we do not know which |
-| The round buttons are reported as `circle` and `1`..`3` | Low: they could be `1`..`4` |
-| Anything drawn to the screen lands in the right place | **Low, and this is the one we most expect to be wrong** |
+| 5x3 keys, fifteen in total | Confirmed |
+| No side screens | Confirmed |
+| 480x270 single centre screen | Confirmed, and it is the **whole** framebuffer: no 60px offset |
+| Keys start at the left edge | **Wrong.** They start 15px in, five 90px columns ending 15px short of the right |
+| The dials are two of the six `knob*` names, we do not know which | `knobTL` and `knobCL`: both on the **left**, which the app had on the right |
+| The round buttons are `circle` and `1`..`3` | Confirmed, and `circle` is the one under the dials, `1`..`3` the column on the right |
+| Anything drawn lands in the right place | **Wrong, as expected.** Every key image was two thirds of a key too far right |
 
-That last row deserves an explanation, because it is the likeliest bug. The
-library treats the left, centre and right screens as **one 480-pixel-wide
-framebuffer** and adds each screen's offset itself: left at 0, centre at 60,
-right at 420. If the Live S centre screen really is the full 480 wide, then
-everything this app draws is shifted 60 pixels right and clipped. The CT needed
-its own patches for exactly this kind of difference (`ct_support.py`), and the
-Live S may need the same.
+The screen was the big one. The library treats left, centre and right as one
+480-pixel framebuffer and adds each screen's offset itself: left at 0, centre
+at 60, right at 420. A Live S has only the one screen, so everything the app
+drew was 60 pixels right and clipped, keys were laid out four to a row instead
+of five, a touch was assigned to a key by the same four-column arithmetic, and
+a CT profile's side strips were painted straight over the outer key columns.
+
+That is fixed in `live_s_support.py`, which patches the library for this model
+the way `ct_support.py` does for the CT. **It has never run on the hardware**:
+it is arithmetic that matches what the report described, checked by
+`tests/test_lives.py` and against the foxxyz `loupedeck` JS lib, which is the
+only source that carries this model's numbers.
+
+Still unknown, and worth a second report:
+
+| Question | Why it is open |
+|---|---|
+| Which physical dial is `knobTL` and which is `knobCL` | Both are on the left; the app assumes upper is `knobTL` (`enc1L`) and lower is `knobCL` (`enc2L`) |
+| Whether the dials' rotate direction is the right way round | Never seen |
+| Whether pressing a dial reports anything | Never seen |
+| Whether a touch on the 15px strip either side does anything | The app now ignores it |
+
+`capture_events.py` answers all four, and it is the script the first report did
+not include.
 
 ---
 
@@ -115,6 +132,10 @@ Draws numbered, coloured patterns to the keys, the side strips, the whole
 centre screen and (on a CT) the wheel, asking after each one what you actually
 see. Be literal: "the ruler starts at 60 on the left and the right edge is cut
 off" is worth more than "looks wrong".
+
+The ruler carries red lines where the app thinks each key column begins. If
+those line up with the gaps between your keys, the geometry is right; if they
+sit inside the keys, say by how much.
 
 Photographs of the device are extremely welcome, especially for the ruler step.
 
@@ -178,8 +199,9 @@ firmware's own name for the model, and that is already more than we know now.
 ## What happens next
 
 Reports go into `DeviceProfile.py`, which is where every per-model difference
-lives, and into `ct_support.py` if the library needs patching for a model the
-way it did for the CT. Where a report contradicts what is written here, the
+lives, and into a `*_support.py` module if the library needs patching for a
+model the way it did for the CT (`ct_support.py`) and the Live S
+(`live_s_support.py`). Where a report contradicts what is written here, the
 report wins: it is the only source with hardware behind it.
 
 The parts of the app that do not touch the device (profiles, actions, the

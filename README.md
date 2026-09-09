@@ -21,12 +21,14 @@ application. All from a modern, dark PySide6/QML interface.
 |-------------------|-------------|------------------------------------------------------------------------------------------|
 | Loupedeck **CT**  | `2ec2:0003` | Primary target; full support incl. the 240×240 wheel screen, rotary dial, and CT buttons |
 | Loupedeck **Live**| `2ec2:0004` | Supported, never tested on hardware ([help wanted](docs/LIVE-TESTING.md))                |
-| Loupedeck **Live S** | `2ec2:0006` | Geometry from published specs, never tested ([help wanted](docs/LIVE-TESTING.md))      |
+| Loupedeck **Live S** | `2ec2:0006` | Geometry corrected from one owner's report; the fix has not been run on hardware ([help wanted](docs/LIVE-TESTING.md)) |
 
 The model is detected from the USB product id. The vendored device library reports every model as
-`LoupedeckLive`, so CT-specific behaviour is enabled only when a wheel/dial is present. The device
-view draws only the controls the detected model has, so a Live shows no wheel and a Live S shows a
-5-column grid with two dials and no side strips.
+`LoupedeckLive` and knows only that model's screen layout, so each of the others patches it at
+runtime: `ct_support.py` adds the CT's wheel, dial and extra buttons, and `live_s_support.py`
+corrects a Live S's single 480-wide screen and its five-column key grid. The device view draws only
+the controls the detected model has, so a Live shows no wheel and a Live S shows a 5-column grid
+with two dials on the left, one round button under them and three down the right.
 
 Set `LOUPEDECKAPP_MODEL` to `ct`, `live`, or `live-s` to override the detected model. That is there
 for two cases: a device whose product id is not in the table above, and checking the device view for
@@ -462,6 +464,7 @@ The core is Qt-free and layered, so the UI sits on top of reusable services:
 |--------|------|
 | `DeviceProfile` | Per-model geometry (screens, key maps) + USB-PID model detection. |
 | `ct_support` | Runtime support for the CT wheel / dial / buttons over the vendored library. |
+| `live_s_support` | The same for the Live S: one full-width screen, five key columns, and a touch decode to match. |
 | `input_backend` | OS input: ydotool → xdotool → pyautogui, auto-selected. |
 | `profile_store` | Creating, copying, deleting, importing and exporting profiles and applications on disk. Qt-free. |
 | `window_watcher` / `profile_manager` | Focused-app detection, and resolving it to an application, a page and a profile. |
