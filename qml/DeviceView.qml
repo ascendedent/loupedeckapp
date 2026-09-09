@@ -349,13 +349,17 @@ Item {
     // One of the round buttons a workspace is bound to. Three clusters draw
     // these and they must look and behave identically, so the wiring lives
     // here rather than three times over.
+    // Named rather than taking modelData as a required property: this file
+    // has to build on PySide6 6.2 as well as 6.11, and the plain context
+    // modelData every other Repeater here uses is the spelling that works on
+    // both.
     component WsBtn: RoundBtn {
-        required property string modelData
-        label: dv.wsLabel(modelData)
-        ctlKey: modelData
-        ledColor: dv.led(modelData)
+        property string wsKey: ""
+        label: dv.wsLabel(wsKey)
+        ctlKey: wsKey
+        ledColor: dv.led(wsKey)
         activeColor: theme.ok
-        active: backend.selectedWs === modelData
+        active: backend.selectedWs === wsKey
         switchesWorkspace: true
         strongActive: true
     }
@@ -496,7 +500,7 @@ Item {
                         Encoder { ctlKey: modelData; active: dv.encBound(modelData) }
                     }
                     // A Live S has one round button below its two dials.
-                    Repeater { model: backend.buttonsLeft; WsBtn {} }
+                    Repeater { model: backend.buttonsLeft; WsBtn { wsKey: modelData } }
                 }
 
                 // left side strip: three cells, or one tall image
@@ -621,7 +625,7 @@ Item {
                         Encoder { ctlKey: modelData; active: dv.encBound(modelData) }
                     }
                     // ...and three in a column to the right of the screen.
-                    Repeater { model: backend.buttonsRight; WsBtn {} }
+                    Repeater { model: backend.buttonsRight; WsBtn { wsKey: modelData } }
                 }
             }
 
@@ -633,7 +637,7 @@ Item {
                 // Eight in a row on a CT and a Live. A Live S carries its four
                 // beside the screen instead, and this row is then empty.
                 visible: backend.buttonsBelow.length > 0
-                Repeater { model: backend.buttonsBelow; WsBtn {} }
+                Repeater { model: backend.buttonsBelow; WsBtn { wsKey: modelData } }
             }
 
             // ---- CT function buttons + big wheel ----
