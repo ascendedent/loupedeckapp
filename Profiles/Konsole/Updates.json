@@ -1,5 +1,5 @@
 {
- "profile": "Konsole/Dev",
+ "profile": "Konsole/Updates",
  "schema_version": 8,
  "workspaces": {
   "1": {
@@ -21,40 +21,40 @@
      "action": "Konsole/Dev"
     },
     "dial": {
-     "a_type": "hotkey",
-     "action": "ctrl+c"
+     "a_type": "none",
+     "action": ""
     },
     "dial-l": {
-     "a_type": "scroll",
-     "action": "up"
+     "a_type": "none",
+     "action": ""
     },
     "dial-r": {
-     "a_type": "scroll",
-     "action": "down"
+     "a_type": "none",
+     "action": ""
     },
     "dis1L": {
-     "a_type": "hotkey",
-     "action": "ctrl+shift+c"
+     "a_type": "none",
+     "action": ""
     },
     "dis1R": {
-     "a_type": "hotkey",
-     "action": "ctrl+shift+w"
+     "a_type": "none",
+     "action": ""
     },
     "dis2L": {
-     "a_type": "hotkey",
-     "action": "ctrl+shift+v"
+     "a_type": "none",
+     "action": ""
     },
     "dis2R": {
-     "a_type": "hotkey",
-     "action": "ctrl+shift+f"
+     "a_type": "none",
+     "action": ""
     },
     "dis3L": {
-     "a_type": "hotkey",
-     "action": "ctrl+shift+t"
+     "a_type": "none",
+     "action": ""
     },
     "dis3R": {
-     "a_type": "hotkey",
-     "action": "ctrl+c"
+     "a_type": "none",
+     "action": ""
     },
     "e": {
      "a_type": "profile",
@@ -65,72 +65,72 @@
      "action": ""
     },
     "enc1L-l": {
-     "a_type": "scroll",
-     "action": "up"
+     "a_type": "none",
+     "action": ""
     },
     "enc1L-r": {
-     "a_type": "scroll",
-     "action": "down"
+     "a_type": "none",
+     "action": ""
     },
     "enc1R": {
-     "a_type": "hotkey",
-     "action": "ctrl+c"
+     "a_type": "none",
+     "action": ""
     },
     "enc1R-l": {
-     "a_type": "hotkey",
-     "action": "up"
+     "a_type": "none",
+     "action": ""
     },
     "enc1R-r": {
-     "a_type": "hotkey",
-     "action": "down"
+     "a_type": "none",
+     "action": ""
     },
     "enc2L": {
-     "a_type": "hotkey",
-     "action": "ctrl+r"
+     "a_type": "none",
+     "action": ""
     },
     "enc2L-l": {
-     "a_type": "hotkey",
-     "action": "up"
+     "a_type": "none",
+     "action": ""
     },
     "enc2L-r": {
-     "a_type": "hotkey",
-     "action": "down"
+     "a_type": "none",
+     "action": ""
     },
     "enc2R": {
      "a_type": "none",
      "action": ""
     },
     "enc2R-l": {
-     "a_type": "scroll",
-     "action": "up"
+     "a_type": "none",
+     "action": ""
     },
     "enc2R-r": {
-     "a_type": "scroll",
-     "action": "down"
+     "a_type": "none",
+     "action": ""
     },
     "enc3L": {
-     "a_type": "hotkey",
-     "action": "ctrl+0"
+     "a_type": "none",
+     "action": ""
     },
     "enc3L-l": {
-     "a_type": "hotkey",
-     "action": "ctrl+minus"
+     "a_type": "none",
+     "action": ""
     },
     "enc3L-r": {
-     "a_type": "hotkey",
-     "action": "ctrl+shift+="
+     "a_type": "none",
+     "action": ""
     },
     "enc3R": {
-     "a_type": "hotkey",
-     "action": "ctrl+0"
+     "a_type": "none",
+     "action": ""
     },
     "enc3R-l": {
-     "a_type": "hotkey",
-     "action": "ctrl+minus"
+     "a_type": "none",
+     "action": ""
     },
     "enc3R-r": {
-     "a_type": "hotkey",
-     "action": "ctrl+shift+="
+     "a_type": "none",
+     "action": ""
     },
     "enter": {
      "a_type": "none",
@@ -157,60 +157,60 @@
      "action": ""
     },
     "tb11": {
-     "a_type": "macro",
-     "action": "text cd /home/jm/projects/LOTGEN\nwait 40\nhotkey return"
+     "a_type": "none",
+     "action": ""
     },
     "tb12": {
-     "a_type": "macro",
-     "action": "text cd /home/jm/projects/LOTGEN && pnpm dev\nwait 40\nhotkey return"
+     "a_type": "none",
+     "action": ""
     },
     "tb13": {
-     "a_type": "macro",
-     "action": "text cd /home/jm/projects/LOTGEN && pnpm dev:up\nwait 40\nhotkey return"
+     "a_type": "none",
+     "action": ""
     },
     "tb14": {
-     "a_type": "macro",
-     "action": "text cd /home/jm/projects/LOTGEN && pnpm dev:infra\nwait 40\nhotkey return"
+     "a_type": "none",
+     "action": ""
     },
     "tb15": {
      "a_type": "none",
      "action": ""
     },
     "tb21": {
-     "a_type": "macro",
-     "action": "text cd /home/jm/projects/LOTGEN && pnpm --filter @lotgen/web dev\nwait 40\nhotkey return"
+     "a_type": "none",
+     "action": ""
     },
     "tb22": {
-     "a_type": "macro",
-     "action": "text cd /home/jm/projects/LOTGEN && pnpm lint\nwait 40\nhotkey return"
+     "a_type": "none",
+     "action": ""
     },
     "tb23": {
-     "a_type": "macro",
-     "action": "text cd /home/jm/projects/LOTGEN && pnpm typecheck\nwait 40\nhotkey return"
+     "a_type": "none",
+     "action": ""
     },
     "tb24": {
-     "a_type": "macro",
-     "action": "text cd /home/jm/projects/LOTGEN && pnpm smoke:drive\nwait 40\nhotkey return"
+     "a_type": "none",
+     "action": ""
     },
     "tb25": {
      "a_type": "none",
      "action": ""
     },
     "tb31": {
-     "a_type": "macro",
-     "action": "text cd /home/jm/projects/LOTGEN && pnpm db:migrate\nwait 40\nhotkey return"
+     "a_type": "none",
+     "action": ""
     },
     "tb32": {
-     "a_type": "macro",
-     "action": "text cd /home/jm/projects/LOTGEN && pnpm health\nwait 40\nhotkey return"
+     "a_type": "none",
+     "action": ""
     },
     "tb33": {
-     "a_type": "macro",
-     "action": "text git status\nwait 40\nhotkey return"
+     "a_type": "none",
+     "action": ""
     },
     "tb34": {
-     "a_type": "macro",
-     "action": "text git diff\nwait 40\nhotkey return"
+     "a_type": "none",
+     "action": ""
     },
     "tb35": {
      "a_type": "none",
@@ -225,26 +225,7 @@
      "action": ""
     }
    },
-   "bg_colors": {
-    "dis1L": "#1e3a8a",
-    "dis1R": "#78350f",
-    "dis2L": "#1e3a8a",
-    "dis2R": "#27272a",
-    "dis3L": "#14532d",
-    "dis3R": "#7f1d1d",
-    "tb11": "#1e3a8a",
-    "tb12": "#14532d",
-    "tb13": "#14532d",
-    "tb14": "#1e3a8a",
-    "tb21": "#14532d",
-    "tb22": "#27272a",
-    "tb23": "#27272a",
-    "tb24": "#1e3a8a",
-    "tb31": "#78350f",
-    "tb32": "#1e3a8a",
-    "tb33": "#1e3a8a",
-    "tb34": "#27272a"
-   },
+   "bg_colors": {},
    "fn_actions": {},
    "images": {
     "dis1L": "",
@@ -270,113 +251,15 @@
     "tb35": "",
     "wheel": ""
    },
-   "labels": {
-    "dis1L": {
-     "mode": "bar",
-     "pos": "bottom",
-     "text": "Copy"
-    },
-    "dis1R": {
-     "mode": "bar",
-     "pos": "bottom",
-     "text": "Close"
-    },
-    "dis2L": {
-     "mode": "bar",
-     "pos": "bottom",
-     "text": "Paste"
-    },
-    "dis2R": {
-     "mode": "bar",
-     "pos": "bottom",
-     "text": "Find"
-    },
-    "dis3L": {
-     "mode": "bar",
-     "pos": "bottom",
-     "text": "New tab"
-    },
-    "dis3R": {
-     "mode": "bar",
-     "pos": "bottom",
-     "text": "Stop"
-    },
-    "tb11": {
-     "mode": "bar",
-     "pos": "bottom",
-     "text": "LOTGEN"
-    },
-    "tb12": {
-     "mode": "bar",
-     "pos": "bottom",
-     "text": "Dev"
-    },
-    "tb13": {
-     "mode": "bar",
-     "pos": "bottom",
-     "text": "Stack up"
-    },
-    "tb14": {
-     "mode": "bar",
-     "pos": "bottom",
-     "text": "Infra"
-    },
-    "tb21": {
-     "mode": "bar",
-     "pos": "bottom",
-     "text": "Web"
-    },
-    "tb22": {
-     "mode": "bar",
-     "pos": "bottom",
-     "text": "Lint"
-    },
-    "tb23": {
-     "mode": "bar",
-     "pos": "bottom",
-     "text": "Types"
-    },
-    "tb24": {
-     "mode": "bar",
-     "pos": "bottom",
-     "text": "Smoke drive"
-    },
-    "tb31": {
-     "mode": "bar",
-     "pos": "bottom",
-     "text": "Migrate"
-    },
-    "tb32": {
-     "mode": "bar",
-     "pos": "bottom",
-     "text": "Health"
-    },
-    "tb33": {
-     "mode": "bar",
-     "pos": "bottom",
-     "text": "Status"
-    },
-    "tb34": {
-     "mode": "bar",
-     "pos": "bottom",
-     "text": "Diff"
-    },
-    "wheel": {
-     "mode": "over",
-     "pos": "middle",
-     "text": "LOTGEN"
-    }
-   },
+   "labels": {},
    "led_colors": {
-    "1": "#d97706",
     "a": "#2563eb",
     "b": "#7c3aed",
     "c": "#16a34a",
-    "circle": "#2563eb",
     "d": "#d97706",
     "e": "#78350f"
    },
-   "name": "LOTGEN",
+   "name": "",
    "profile": "default",
    "side_layout": {
     "L": "cells",
@@ -2130,19 +2013,19 @@
     },
     "tb11": {
      "a_type": "macro",
-     "action": "text cd /home/jm/projects/Github/operations-hub--Main-JM\nwait 40\nhotkey return"
+     "action": "text sudo dnf upgrade -y claude-desktop-unofficial\nwait 40\nhotkey return"
     },
     "tb12": {
      "a_type": "macro",
-     "action": "text cd /home/jm/projects/Github/operations-hub--Main-JM && npm run dev\nwait 40\nhotkey return"
+     "action": "text claude update\nwait 40\nhotkey return"
     },
     "tb13": {
      "a_type": "macro",
-     "action": "text cd /home/jm/projects/Github/operations-hub--Main-JM && npm run build\nwait 40\nhotkey return"
+     "action": "text codex update\nwait 40\nhotkey return"
     },
     "tb14": {
      "a_type": "macro",
-     "action": "text cd /home/jm/projects/Github/operations-hub--Main-JM && npm run lint\nwait 40\nhotkey return"
+     "action": "text grok update\nwait 40\nhotkey return"
     },
     "tb15": {
      "a_type": "none",
@@ -2150,19 +2033,19 @@
     },
     "tb21": {
      "a_type": "macro",
-     "action": "text cd /home/jm/projects/Github/operations-hub--Main-JM && npm run test\nwait 40\nhotkey return"
+     "action": "text sudo dnf upgrade -y grok-bot\nwait 40\nhotkey return"
     },
     "tb22": {
      "a_type": "macro",
-     "action": "text cd /home/jm/projects/Github/operations-hub--Main-JM && npm run gates\nwait 40\nhotkey return"
+     "action": "text paperclipai update\nwait 40\nhotkey return"
     },
     "tb23": {
      "a_type": "macro",
-     "action": "text cd /home/jm/projects/Github/operations-hub--Main-JM && npm run git:clean\nwait 40\nhotkey return"
+     "action": "text /home/jm/.local/share/token-meter/runtime/scripts/update /home/jm/.local/share/token-meter/source\nwait 40\nhotkey return"
     },
     "tb24": {
      "a_type": "macro",
-     "action": "text cd /home/jm/projects/Github/operations-hub--Main-JM && npm run tunnel\nwait 40\nhotkey return"
+     "action": "text sudo dnf upgrade -y gh\nwait 40\nhotkey return"
     },
     "tb25": {
      "a_type": "none",
@@ -2170,19 +2053,19 @@
     },
     "tb31": {
      "a_type": "macro",
-     "action": "text cd /home/jm/projects/Github/operations-hub--Main-JM && npm run start\nwait 40\nhotkey return"
+     "action": "text npm install -g npm@latest\nwait 40\nhotkey return"
     },
     "tb32": {
      "a_type": "macro",
-     "action": "text cd /home/jm/projects/Github/operations-hub--Main-JM && npm run push-main\nwait 40\nhotkey return"
+     "action": "text npm install -g vercel@latest\nwait 40\nhotkey return"
     },
     "tb33": {
      "a_type": "macro",
-     "action": "text git status\nwait 40\nhotkey return"
+     "action": "text npm install -g bailian-cli@latest\nwait 40\nhotkey return"
     },
     "tb34": {
      "a_type": "macro",
-     "action": "text git diff\nwait 40\nhotkey return"
+     "action": "text flatpak update -y\nwait 40\nhotkey return"
     },
     "tb35": {
      "a_type": "none",
@@ -2204,18 +2087,18 @@
     "dis2R": "#27272a",
     "dis3L": "#14532d",
     "dis3R": "#7f1d1d",
-    "tb11": "#1e3a8a",
+    "tb11": "#78350f",
     "tb12": "#14532d",
-    "tb13": "#27272a",
-    "tb14": "#27272a",
-    "tb21": "#1e3a8a",
-    "tb22": "#78350f",
-    "tb23": "#78350f",
-    "tb24": "#27272a",
-    "tb31": "#14532d",
-    "tb32": "#14532d",
-    "tb33": "#1e3a8a",
-    "tb34": "#27272a"
+    "tb13": "#14532d",
+    "tb14": "#14532d",
+    "tb21": "#78350f",
+    "tb22": "#14532d",
+    "tb23": "#1e3a8a",
+    "tb24": "#78350f",
+    "tb31": "#27272a",
+    "tb32": "#27272a",
+    "tb33": "#27272a",
+    "tb34": "#78350f"
    },
    "fn_actions": {},
    "images": {
@@ -2276,79 +2159,78 @@
     "tb11": {
      "mode": "bar",
      "pos": "bottom",
-     "text": "Hub dir"
+     "text": "Claude app"
     },
     "tb12": {
      "mode": "bar",
      "pos": "bottom",
-     "text": "Dev"
+     "text": "Claude Code"
     },
     "tb13": {
      "mode": "bar",
      "pos": "bottom",
-     "text": "Build"
+     "text": "Codex"
     },
     "tb14": {
      "mode": "bar",
      "pos": "bottom",
-     "text": "Lint"
+     "text": "Grok"
     },
     "tb21": {
      "mode": "bar",
      "pos": "bottom",
-     "text": "Test"
+     "text": "Grok Bot"
     },
     "tb22": {
      "mode": "bar",
      "pos": "bottom",
-     "text": "Gates"
+     "text": "Paperclip"
     },
     "tb23": {
      "mode": "bar",
      "pos": "bottom",
-     "text": "git clean"
+     "text": "Token meter"
     },
     "tb24": {
      "mode": "bar",
      "pos": "bottom",
-     "text": "Tunnel"
+     "text": "gh"
     },
     "tb31": {
      "mode": "bar",
      "pos": "bottom",
-     "text": "Start"
+     "text": "npm"
     },
     "tb32": {
      "mode": "bar",
      "pos": "bottom",
-     "text": "push-main"
+     "text": "Vercel"
     },
     "tb33": {
      "mode": "bar",
      "pos": "bottom",
-     "text": "Status"
+     "text": "Bailian"
     },
     "tb34": {
      "mode": "bar",
      "pos": "bottom",
-     "text": "Diff"
+     "text": "Flatpak"
     },
     "wheel": {
      "mode": "over",
      "pos": "middle",
-     "text": "Ops Hub"
+     "text": "Updates"
     }
    },
    "led_colors": {
-    "1": "#d97706",
     "a": "#2563eb",
     "b": "#7c3aed",
     "c": "#16a34a",
-    "circle": "#2563eb",
+    "circle": "#78350f",
     "d": "#d97706",
     "e": "#78350f"
    },
-   "name": "Ops Hub",
+   "name": "Updates",
    "profile": "default",
    "side_layout": {
     "L": "cells",

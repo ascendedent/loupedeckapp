@@ -20,6 +20,7 @@ from math import floor
 
 from PIL import Image
 
+import app_paths
 import ct_support
 import label_render
 import live_s_support
@@ -54,6 +55,9 @@ class DeviceController:
         # Wire the CT's labelled buttons (home/undo/save/enter/kbd) on any
         # profile that leaves them empty. Set False to leave them dead.
         self.auto_bind_buttons = True
+        # Set by a hardware profile switch so the UI can remember it. Dynamic
+        # mode also loads profiles, and those must not overwrite the choice.
+        self.user_switched = False
         # fn layer: while active, a control fires its secondary binding.
         # "hold" is the default because that is how a modifier behaves; "latch"
         # makes a press stick, which needs the LED to show it is on.
@@ -259,6 +263,21 @@ class DeviceController:
         if self.device:
             self.on_workspace_press(WS_KEYS[0])
         self._emit("profile")
+
+    def switch_profile(self, ref):
+        """Load another profile by reference, if it is on disk and not current.
+
+        Used by the CT's A–E keys. Pressing the key for the profile already
+        open does nothing, so it does not jump back to the first workspace.
+        """
+        ref = str(ref or "").strip()
+        if not ref or ref == self.config.profile:
+            return
+        if not os.path.exists(app_paths.profile_read_path(ref)):
+            print("no such profile: %s" % ref)
+            return
+        self.user_switched = True
+        self.load_profile(ref)
 
     # -- geometry helpers (profile-driven) ---------------------------------
     def tb_name_to_keycode(self, name):
@@ -863,6 +882,9 @@ class DeviceController:
             if target in WS_KEYS and target != self.selected_ws:
                 self.on_workspace_press(target)
             return
+        if action.a_type == "profile":
+            self.switch_profile(action.action)
+            return
         if action.a_type == "submenu":
             self.submenu_stack.append(action)
             self.render_workspace(action.action)
@@ -1048,7 +1070,7 @@ class DeviceController:
     def run_bound_action(self, str_key, repeat=1):
         action = self.action_for(str_key)
         if action is not None:
-            if action.a_type in ("submenu", "back", "workspace"):
+            if action.a_type in ("submenu", "back", "workspace", "profile"):
                 # Navigation never repeats: N steps into the same submenu, or
                 # the same workspace, is still one.
                 self.on_touch_press(str_key)

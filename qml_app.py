@@ -158,6 +158,9 @@ class Backend(QObject):
                 self._was_connected = now
                 self.notify.emit("%s connected" % self._ctl.profile.display_name
                                  if now else "Device disconnected")
+        if kind == "profile" and self._ctl.user_switched:
+            self._ctl.user_switched = False
+            self._remember_profile(self._ctl.config.profile)
         self.stateChanged.emit()
 
     def _on_focus_main(self, wm_class, title):
@@ -582,7 +585,7 @@ class Backend(QObject):
 
     # -- control selection + action editing (inspector) --------------------
     ACTION_TYPES = ["none", "command", "hotkey", "text", "scroll", "media",
-                    "keyboard", "workspace", "macro"]
+                    "keyboard", "workspace", "profile", "macro"]
 
     # Per-platform, from action_library: the applications differ by desktop.
     ACTION_LIBRARY = action_library.default_library()
@@ -772,7 +775,7 @@ class Backend(QObject):
 
     # -- control selection + action editing (inspector) --------------------
     ACTION_TYPES = ["none", "command", "hotkey", "text", "scroll", "media",
-                    "keyboard", "workspace", "macro"]
+                    "keyboard", "workspace", "profile", "macro"]
 
     # Ready-to-use actions for the left-panel library (category, label, type,
     # value). Dragged onto a control to bind it; templates (empty value) are

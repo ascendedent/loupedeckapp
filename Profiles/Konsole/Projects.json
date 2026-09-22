@@ -5,20 +5,20 @@
   "1": {
    "actions": {
     "a": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Projects"
     },
     "b": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Agents"
     },
     "c": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/GitHub"
     },
     "d": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Dev"
     },
     "dial": {
      "a_type": "hotkey",
@@ -57,8 +57,8 @@
      "action": "ctrl+c"
     },
     "e": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Updates"
     },
     "enc1L": {
      "a_type": "none",
@@ -369,7 +369,12 @@
    },
    "led_colors": {
     "1": "#a1a1aa",
-    "circle": "#2563eb"
+    "a": "#2563eb",
+    "b": "#7c3aed",
+    "c": "#16a34a",
+    "circle": "#2563eb",
+    "d": "#d97706",
+    "e": "#78350f"
    },
    "name": "Terminal",
    "profile": "default",
@@ -382,20 +387,20 @@
   "2": {
    "actions": {
     "a": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Projects"
     },
     "b": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Agents"
     },
     "c": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/GitHub"
     },
     "d": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Dev"
     },
     "dial": {
      "a_type": "none",
@@ -434,8 +439,8 @@
      "action": ""
     },
     "e": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Updates"
     },
     "enc1L": {
      "a_type": "none",
@@ -629,7 +634,13 @@
     "wheel": ""
    },
    "labels": {},
-   "led_colors": {},
+   "led_colors": {
+    "a": "#2563eb",
+    "b": "#7c3aed",
+    "c": "#16a34a",
+    "d": "#d97706",
+    "e": "#78350f"
+   },
    "name": "",
    "profile": "default",
    "side_layout": {
@@ -641,20 +652,20 @@
   "3": {
    "actions": {
     "a": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Projects"
     },
     "b": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Agents"
     },
     "c": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/GitHub"
     },
     "d": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Dev"
     },
     "dial": {
      "a_type": "none",
@@ -693,8 +704,8 @@
      "action": ""
     },
     "e": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Updates"
     },
     "enc1L": {
      "a_type": "none",
@@ -888,7 +899,13 @@
     "wheel": ""
    },
    "labels": {},
-   "led_colors": {},
+   "led_colors": {
+    "a": "#2563eb",
+    "b": "#7c3aed",
+    "c": "#16a34a",
+    "d": "#d97706",
+    "e": "#78350f"
+   },
    "name": "",
    "profile": "default",
    "side_layout": {
@@ -900,20 +917,20 @@
   "4": {
    "actions": {
     "a": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Projects"
     },
     "b": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Agents"
     },
     "c": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/GitHub"
     },
     "d": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Dev"
     },
     "dial": {
      "a_type": "none",
@@ -952,8 +969,8 @@
      "action": ""
     },
     "e": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Updates"
     },
     "enc1L": {
      "a_type": "none",
@@ -1147,7 +1164,13 @@
     "wheel": ""
    },
    "labels": {},
-   "led_colors": {},
+   "led_colors": {
+    "a": "#2563eb",
+    "b": "#7c3aed",
+    "c": "#16a34a",
+    "d": "#d97706",
+    "e": "#78350f"
+   },
    "name": "",
    "profile": "default",
    "side_layout": {
@@ -1159,20 +1182,20 @@
   "5": {
    "actions": {
     "a": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Projects"
     },
     "b": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Agents"
     },
     "c": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/GitHub"
     },
     "d": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Dev"
     },
     "dial": {
      "a_type": "none",
@@ -1211,8 +1234,8 @@
      "action": ""
     },
     "e": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Updates"
     },
     "enc1L": {
      "a_type": "none",
@@ -1406,7 +1429,13 @@
     "wheel": ""
    },
    "labels": {},
-   "led_colors": {},
+   "led_colors": {
+    "a": "#2563eb",
+    "b": "#7c3aed",
+    "c": "#16a34a",
+    "d": "#d97706",
+    "e": "#78350f"
+   },
    "name": "",
    "profile": "default",
    "side_layout": {
@@ -1418,20 +1447,20 @@
   "6": {
    "actions": {
     "a": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Projects"
     },
     "b": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Agents"
     },
     "c": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/GitHub"
     },
     "d": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Dev"
     },
     "dial": {
      "a_type": "none",
@@ -1470,8 +1499,8 @@
      "action": ""
     },
     "e": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Updates"
     },
     "enc1L": {
      "a_type": "none",
@@ -1665,7 +1694,13 @@
     "wheel": ""
    },
    "labels": {},
-   "led_colors": {},
+   "led_colors": {
+    "a": "#2563eb",
+    "b": "#7c3aed",
+    "c": "#16a34a",
+    "d": "#d97706",
+    "e": "#78350f"
+   },
    "name": "",
    "profile": "default",
    "side_layout": {
@@ -1677,20 +1712,20 @@
   "7": {
    "actions": {
     "a": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Projects"
     },
     "b": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Agents"
     },
     "c": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/GitHub"
     },
     "d": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Dev"
     },
     "dial": {
      "a_type": "none",
@@ -1729,8 +1764,8 @@
      "action": ""
     },
     "e": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Updates"
     },
     "enc1L": {
      "a_type": "none",
@@ -1924,7 +1959,13 @@
     "wheel": ""
    },
    "labels": {},
-   "led_colors": {},
+   "led_colors": {
+    "a": "#2563eb",
+    "b": "#7c3aed",
+    "c": "#16a34a",
+    "d": "#d97706",
+    "e": "#78350f"
+   },
    "name": "",
    "profile": "default",
    "side_layout": {
@@ -1936,20 +1977,20 @@
   "circle": {
    "actions": {
     "a": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Projects"
     },
     "b": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Agents"
     },
     "c": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/GitHub"
     },
     "d": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Dev"
     },
     "dial": {
      "a_type": "hotkey",
@@ -1988,8 +2029,8 @@
      "action": "ctrl+c"
     },
     "e": {
-     "a_type": "none",
-     "action": ""
+     "a_type": "profile",
+     "action": "Konsole/Updates"
     },
     "enc1L": {
      "a_type": "none",
@@ -2300,7 +2341,12 @@
    },
    "led_colors": {
     "1": "#a1a1aa",
-    "circle": "#2563eb"
+    "a": "#2563eb",
+    "b": "#7c3aed",
+    "c": "#16a34a",
+    "circle": "#2563eb",
+    "d": "#d97706",
+    "e": "#78350f"
    },
    "name": "Jump",
    "profile": "default",

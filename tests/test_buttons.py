@@ -149,5 +149,39 @@ try:
 finally:
     vk.reset()
 
+# -- profile action: the CT's A–E keys ---------------------------------------
+import app_paths                                              # noqa: E402
+
+here = app_paths.make_ref("Konsole", "GitHub")
+there = app_paths.make_ref("Konsole", "Projects")
+for ref, title in ((here, "GitHub"), (there, "Projects")):
+    deck = LdConfiguration(profile=ref)
+    deck.workspaces[0].name = title
+    deck.save(ref)
+
+dc, _ws = controller()
+dc.render_workspace = lambda *a, **k: None
+dc.auto_bind_buttons = False
+dc.load_profile(here)
+dc.current_ws().actions["a"] = LdAction(action_type="profile", action=there)
+dc.on_touch_press("a")
+c.eq("a profile action loads that profile", dc.config.profile, there)
+c.eq("and opens its first workspace", dc.selected_ws, WS_KEYS[0])
+c.eq("a hardware switch asks the UI to remember it", dc.user_switched, True)
+
+dc.user_switched = False
+dc.on_workspace_press(WS_KEYS[2])
+dc.current_ws().actions["a"] = LdAction(action_type="profile", action=there)
+dc.on_touch_press("a")
+c.eq("the key for the open profile leaves the page alone",
+     dc.selected_ws, WS_KEYS[2])
+c.eq("and does not ask to be remembered", dc.user_switched, False)
+
+dc.current_ws().actions["e"] = LdAction(
+    action_type="profile", action="Konsole/Missing")
+dc.on_touch_press("e")
+c.eq("a profile that is not on disk is ignored", dc.config.profile, there)
+dc.close()
+
 shutil.rmtree(tmp, ignore_errors=True)
 sys.exit(c.done())

@@ -134,6 +134,7 @@ py-modules = [
     "Profiles/Konsole/Dev.json",
     "Profiles/Konsole/Agents.json",
     "Profiles/Konsole/Projects.json",
+    "Profiles/Konsole/Updates.json",
 ]
 # setup_check points at these by path, so an install that leaves them out
 # tells the user to copy a file that is not there.

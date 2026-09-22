@@ -24,6 +24,11 @@ Assumptions, Linux Konsole on this machine:
   because the plain `gh pr merge` is refused by the repo ruleset.
 - "Full stack" is status, then pull, then `npm run push-main`.
 - Ops Hub means Github/operations-hub--Main-JM, the checkout the history uses.
+- Updates types each tool's own updater. Claude Desktop, Grok Bot and gh are
+  Fedora packages, so those keys use dnf and wait for a sudo password.
+  Token Meter's updater only fast-forwards a clean checkout of main.
+- The CT's A–E keys switch profile on every page: A Projects, B Agents,
+  C GitHub, D Dev, E Updates.
 """
 import json
 import os
@@ -104,6 +109,51 @@ def chrome(ws, title):
     hotkey(ws, "dis2R", "ctrl+shift+f", "Find", GREY)
     hotkey(ws, "dis3R", "ctrl+c", "Stop", RED)
     ws.labels["wheel"] = {"text": title, "pos": "middle", "mode": "over"}
+
+
+def updates(ws):
+    """One page of the updaters for the tools used from this machine.
+
+    Each key types that tool's own command into the focused terminal.
+    """
+    ws.name = "Updates"
+    run(ws, "tb11", "sudo dnf upgrade -y claude-desktop-unofficial",
+        "Claude app", AMBER)
+    run(ws, "tb12", "claude update", "Claude Code", GREEN)
+    run(ws, "tb13", "codex update", "Codex", GREEN)
+    run(ws, "tb14", "grok update", "Grok", GREEN)
+    run(ws, "tb21", "sudo dnf upgrade -y grok-bot", "Grok Bot", AMBER)
+    run(ws, "tb22", "paperclipai update", "Paperclip", GREEN)
+    run(ws, "tb23",
+        "/home/jm/.local/share/token-meter/runtime/scripts/update "
+        "/home/jm/.local/share/token-meter/source",
+        "Token meter", BLUE)
+    run(ws, "tb24", "sudo dnf upgrade -y gh", "gh", AMBER)
+    run(ws, "tb31", "npm install -g npm@latest", "npm", GREY)
+    run(ws, "tb32", "npm install -g vercel@latest", "Vercel", GREY)
+    run(ws, "tb33", "npm install -g bailian-cli@latest", "Bailian", GREY)
+    run(ws, "tb34", "flatpak update -y", "Flatpak", AMBER)
+    chrome(ws, "Updates")
+
+
+# The CT's A–E keys. The same five bindings on every page, so leaving a
+# profile does not take the way back with it.
+PROFILE_KEYS = (
+    ("a", "Projects", "#2563eb"),
+    ("b", "Agents", "#7c3aed"),
+    ("c", "GitHub", "#16a34a"),
+    ("d", "Dev", "#d97706"),
+    ("e", "Updates", "#78350f"),
+)
+
+
+def stamp_profile_keys(cfg):
+    for ws in cfg.workspaces:
+        for key, name, color in PROFILE_KEYS:
+            ws.actions[key] = LdAction(
+                action_type="profile", action=app_paths.make_ref(APP, name),
+                summary=name)
+            ws.led_colors[key] = color
 
 
 def leds(ws, colours):
@@ -217,6 +267,13 @@ def build_agents():
     return cfg
 
 
+def build_updates():
+    cfg = LdConfiguration(profile=app_paths.make_ref(APP, "Updates"))
+    updates(cfg.workspaces[0])
+    leds(cfg.workspaces[0], ("#78350f",))
+    return cfg
+
+
 def build_projects():
     cfg = LdConfiguration(profile=app_paths.make_ref(APP, "Projects"))
     jump, term = cfg.workspaces[:2]
@@ -261,6 +318,7 @@ PROFILES = (
     ("Dev", build_dev),
     ("Agents", build_agents),
     ("Projects", build_projects),
+    ("Updates", build_updates),
 )
 
 
@@ -314,6 +372,7 @@ def write_meta(directory):
 def main():
     built = [(name, fn()) for name, fn in PROFILES]
     for name, cfg in built:
+        stamp_profile_keys(cfg)
         validate(cfg)
     targets = [OUT_DIR]
     if "--install" in sys.argv:
