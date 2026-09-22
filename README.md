@@ -156,6 +156,8 @@ middling speeds.
   opened on a first run. After that the app reopens whatever profile you had last.
 - **A ready-made Visual Studio Code deck**: five workspaces (Edit, Navigate, Run, Git, View), 165
   bound controls, chords done as macros and the Git commands driven through the command palette.
+- **A ready-made Konsole deck**: GitHub (pull, push, push-and-merge, `npm run push-main`),
+  Dev, Agents and Projects. Commands are typed into the focused terminal.
 - **Inspector in collapsible sections** (Action, Appearance, Advanced), remembered as you move
   between controls.
 - **Says what to do when there is nothing to see**: an unbound workspace, a search that matched

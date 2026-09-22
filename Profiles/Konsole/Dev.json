@@ -1,0 +1,2314 @@
+{
+ "profile": "Konsole/Dev",
+ "schema_version": 8,
+ "workspaces": {
+  "1": {
+   "actions": {
+    "a": {
+     "a_type": "none",
+     "action": ""
+    },
+    "b": {
+     "a_type": "none",
+     "action": ""
+    },
+    "c": {
+     "a_type": "none",
+     "action": ""
+    },
+    "d": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial": {
+     "a_type": "hotkey",
+     "action": "ctrl+c"
+    },
+    "dial-l": {
+     "a_type": "scroll",
+     "action": "up"
+    },
+    "dial-r": {
+     "a_type": "scroll",
+     "action": "down"
+    },
+    "dis1L": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+c"
+    },
+    "dis1R": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+w"
+    },
+    "dis2L": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+v"
+    },
+    "dis2R": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+f"
+    },
+    "dis3L": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+t"
+    },
+    "dis3R": {
+     "a_type": "hotkey",
+     "action": "ctrl+c"
+    },
+    "e": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L-l": {
+     "a_type": "scroll",
+     "action": "up"
+    },
+    "enc1L-r": {
+     "a_type": "scroll",
+     "action": "down"
+    },
+    "enc1R": {
+     "a_type": "hotkey",
+     "action": "ctrl+c"
+    },
+    "enc1R-l": {
+     "a_type": "hotkey",
+     "action": "up"
+    },
+    "enc1R-r": {
+     "a_type": "hotkey",
+     "action": "down"
+    },
+    "enc2L": {
+     "a_type": "hotkey",
+     "action": "ctrl+r"
+    },
+    "enc2L-l": {
+     "a_type": "hotkey",
+     "action": "up"
+    },
+    "enc2L-r": {
+     "a_type": "hotkey",
+     "action": "down"
+    },
+    "enc2R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R-l": {
+     "a_type": "scroll",
+     "action": "up"
+    },
+    "enc2R-r": {
+     "a_type": "scroll",
+     "action": "down"
+    },
+    "enc3L": {
+     "a_type": "hotkey",
+     "action": "ctrl+0"
+    },
+    "enc3L-l": {
+     "a_type": "hotkey",
+     "action": "ctrl+minus"
+    },
+    "enc3L-r": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+="
+    },
+    "enc3R": {
+     "a_type": "hotkey",
+     "action": "ctrl+0"
+    },
+    "enc3R-l": {
+     "a_type": "hotkey",
+     "action": "ctrl+minus"
+    },
+    "enc3R-r": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+="
+    },
+    "enter": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnL": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnR": {
+     "a_type": "none",
+     "action": ""
+    },
+    "home": {
+     "a_type": "none",
+     "action": ""
+    },
+    "keyboard": {
+     "a_type": "none",
+     "action": ""
+    },
+    "save": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb11": {
+     "a_type": "macro",
+     "action": "text cd /home/jm/projects/LOTGEN\nwait 40\nhotkey return"
+    },
+    "tb12": {
+     "a_type": "macro",
+     "action": "text cd /home/jm/projects/LOTGEN && pnpm dev\nwait 40\nhotkey return"
+    },
+    "tb13": {
+     "a_type": "macro",
+     "action": "text cd /home/jm/projects/LOTGEN && pnpm dev:up\nwait 40\nhotkey return"
+    },
+    "tb14": {
+     "a_type": "macro",
+     "action": "text cd /home/jm/projects/LOTGEN && pnpm dev:infra\nwait 40\nhotkey return"
+    },
+    "tb15": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb21": {
+     "a_type": "macro",
+     "action": "text cd /home/jm/projects/LOTGEN && pnpm --filter @lotgen/web dev\nwait 40\nhotkey return"
+    },
+    "tb22": {
+     "a_type": "macro",
+     "action": "text cd /home/jm/projects/LOTGEN && pnpm lint\nwait 40\nhotkey return"
+    },
+    "tb23": {
+     "a_type": "macro",
+     "action": "text cd /home/jm/projects/LOTGEN && pnpm typecheck\nwait 40\nhotkey return"
+    },
+    "tb24": {
+     "a_type": "macro",
+     "action": "text cd /home/jm/projects/LOTGEN && pnpm smoke:drive\nwait 40\nhotkey return"
+    },
+    "tb25": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb31": {
+     "a_type": "macro",
+     "action": "text cd /home/jm/projects/LOTGEN && pnpm db:migrate\nwait 40\nhotkey return"
+    },
+    "tb32": {
+     "a_type": "macro",
+     "action": "text cd /home/jm/projects/LOTGEN && pnpm health\nwait 40\nhotkey return"
+    },
+    "tb33": {
+     "a_type": "macro",
+     "action": "text git status\nwait 40\nhotkey return"
+    },
+    "tb34": {
+     "a_type": "macro",
+     "action": "text git diff\nwait 40\nhotkey return"
+    },
+    "tb35": {
+     "a_type": "none",
+     "action": ""
+    },
+    "undo": {
+     "a_type": "none",
+     "action": ""
+    },
+    "wheel": {
+     "a_type": "none",
+     "action": ""
+    }
+   },
+   "bg_colors": {
+    "dis1L": "#1e3a8a",
+    "dis1R": "#78350f",
+    "dis2L": "#1e3a8a",
+    "dis2R": "#27272a",
+    "dis3L": "#14532d",
+    "dis3R": "#7f1d1d",
+    "tb11": "#1e3a8a",
+    "tb12": "#14532d",
+    "tb13": "#14532d",
+    "tb14": "#1e3a8a",
+    "tb21": "#14532d",
+    "tb22": "#27272a",
+    "tb23": "#27272a",
+    "tb24": "#1e3a8a",
+    "tb31": "#78350f",
+    "tb32": "#1e3a8a",
+    "tb33": "#1e3a8a",
+    "tb34": "#27272a"
+   },
+   "fn_actions": {},
+   "images": {
+    "dis1L": "",
+    "dis1R": "",
+    "dis2L": "",
+    "dis2R": "",
+    "dis3L": "",
+    "dis3R": "",
+    "tb11": "",
+    "tb12": "",
+    "tb13": "",
+    "tb14": "",
+    "tb15": "",
+    "tb21": "",
+    "tb22": "",
+    "tb23": "",
+    "tb24": "",
+    "tb25": "",
+    "tb31": "",
+    "tb32": "",
+    "tb33": "",
+    "tb34": "",
+    "tb35": "",
+    "wheel": ""
+   },
+   "labels": {
+    "dis1L": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Copy"
+    },
+    "dis1R": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Close"
+    },
+    "dis2L": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Paste"
+    },
+    "dis2R": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Find"
+    },
+    "dis3L": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "New tab"
+    },
+    "dis3R": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Stop"
+    },
+    "tb11": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "LOTGEN"
+    },
+    "tb12": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Dev"
+    },
+    "tb13": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Stack up"
+    },
+    "tb14": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Infra"
+    },
+    "tb21": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Web"
+    },
+    "tb22": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Lint"
+    },
+    "tb23": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Types"
+    },
+    "tb24": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Smoke drive"
+    },
+    "tb31": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Migrate"
+    },
+    "tb32": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Health"
+    },
+    "tb33": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Status"
+    },
+    "tb34": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Diff"
+    },
+    "wheel": {
+     "mode": "over",
+     "pos": "middle",
+     "text": "LOTGEN"
+    }
+   },
+   "led_colors": {
+    "1": "#d97706",
+    "circle": "#2563eb"
+   },
+   "name": "LOTGEN",
+   "profile": "default",
+   "side_layout": {
+    "L": "cells",
+    "R": "cells"
+   },
+   "tuning": {}
+  },
+  "2": {
+   "actions": {
+    "a": {
+     "a_type": "none",
+     "action": ""
+    },
+    "b": {
+     "a_type": "none",
+     "action": ""
+    },
+    "c": {
+     "a_type": "none",
+     "action": ""
+    },
+    "d": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis1L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis1R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis2L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis2R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis3L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis3R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "e": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enter": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnL": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnR": {
+     "a_type": "none",
+     "action": ""
+    },
+    "home": {
+     "a_type": "none",
+     "action": ""
+    },
+    "keyboard": {
+     "a_type": "none",
+     "action": ""
+    },
+    "save": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb11": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb12": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb13": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb14": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb15": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb21": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb22": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb23": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb24": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb25": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb31": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb32": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb33": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb34": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb35": {
+     "a_type": "none",
+     "action": ""
+    },
+    "undo": {
+     "a_type": "none",
+     "action": ""
+    },
+    "wheel": {
+     "a_type": "none",
+     "action": ""
+    }
+   },
+   "bg_colors": {},
+   "fn_actions": {},
+   "images": {
+    "dis1L": "",
+    "dis1R": "",
+    "dis2L": "",
+    "dis2R": "",
+    "dis3L": "",
+    "dis3R": "",
+    "tb11": "",
+    "tb12": "",
+    "tb13": "",
+    "tb14": "",
+    "tb15": "",
+    "tb21": "",
+    "tb22": "",
+    "tb23": "",
+    "tb24": "",
+    "tb25": "",
+    "tb31": "",
+    "tb32": "",
+    "tb33": "",
+    "tb34": "",
+    "tb35": "",
+    "wheel": ""
+   },
+   "labels": {},
+   "led_colors": {},
+   "name": "",
+   "profile": "default",
+   "side_layout": {
+    "L": "cells",
+    "R": "cells"
+   },
+   "tuning": {}
+  },
+  "3": {
+   "actions": {
+    "a": {
+     "a_type": "none",
+     "action": ""
+    },
+    "b": {
+     "a_type": "none",
+     "action": ""
+    },
+    "c": {
+     "a_type": "none",
+     "action": ""
+    },
+    "d": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis1L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis1R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis2L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis2R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis3L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis3R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "e": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enter": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnL": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnR": {
+     "a_type": "none",
+     "action": ""
+    },
+    "home": {
+     "a_type": "none",
+     "action": ""
+    },
+    "keyboard": {
+     "a_type": "none",
+     "action": ""
+    },
+    "save": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb11": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb12": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb13": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb14": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb15": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb21": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb22": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb23": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb24": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb25": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb31": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb32": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb33": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb34": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb35": {
+     "a_type": "none",
+     "action": ""
+    },
+    "undo": {
+     "a_type": "none",
+     "action": ""
+    },
+    "wheel": {
+     "a_type": "none",
+     "action": ""
+    }
+   },
+   "bg_colors": {},
+   "fn_actions": {},
+   "images": {
+    "dis1L": "",
+    "dis1R": "",
+    "dis2L": "",
+    "dis2R": "",
+    "dis3L": "",
+    "dis3R": "",
+    "tb11": "",
+    "tb12": "",
+    "tb13": "",
+    "tb14": "",
+    "tb15": "",
+    "tb21": "",
+    "tb22": "",
+    "tb23": "",
+    "tb24": "",
+    "tb25": "",
+    "tb31": "",
+    "tb32": "",
+    "tb33": "",
+    "tb34": "",
+    "tb35": "",
+    "wheel": ""
+   },
+   "labels": {},
+   "led_colors": {},
+   "name": "",
+   "profile": "default",
+   "side_layout": {
+    "L": "cells",
+    "R": "cells"
+   },
+   "tuning": {}
+  },
+  "4": {
+   "actions": {
+    "a": {
+     "a_type": "none",
+     "action": ""
+    },
+    "b": {
+     "a_type": "none",
+     "action": ""
+    },
+    "c": {
+     "a_type": "none",
+     "action": ""
+    },
+    "d": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis1L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis1R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis2L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis2R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis3L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis3R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "e": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enter": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnL": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnR": {
+     "a_type": "none",
+     "action": ""
+    },
+    "home": {
+     "a_type": "none",
+     "action": ""
+    },
+    "keyboard": {
+     "a_type": "none",
+     "action": ""
+    },
+    "save": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb11": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb12": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb13": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb14": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb15": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb21": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb22": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb23": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb24": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb25": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb31": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb32": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb33": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb34": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb35": {
+     "a_type": "none",
+     "action": ""
+    },
+    "undo": {
+     "a_type": "none",
+     "action": ""
+    },
+    "wheel": {
+     "a_type": "none",
+     "action": ""
+    }
+   },
+   "bg_colors": {},
+   "fn_actions": {},
+   "images": {
+    "dis1L": "",
+    "dis1R": "",
+    "dis2L": "",
+    "dis2R": "",
+    "dis3L": "",
+    "dis3R": "",
+    "tb11": "",
+    "tb12": "",
+    "tb13": "",
+    "tb14": "",
+    "tb15": "",
+    "tb21": "",
+    "tb22": "",
+    "tb23": "",
+    "tb24": "",
+    "tb25": "",
+    "tb31": "",
+    "tb32": "",
+    "tb33": "",
+    "tb34": "",
+    "tb35": "",
+    "wheel": ""
+   },
+   "labels": {},
+   "led_colors": {},
+   "name": "",
+   "profile": "default",
+   "side_layout": {
+    "L": "cells",
+    "R": "cells"
+   },
+   "tuning": {}
+  },
+  "5": {
+   "actions": {
+    "a": {
+     "a_type": "none",
+     "action": ""
+    },
+    "b": {
+     "a_type": "none",
+     "action": ""
+    },
+    "c": {
+     "a_type": "none",
+     "action": ""
+    },
+    "d": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis1L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis1R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis2L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis2R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis3L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis3R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "e": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enter": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnL": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnR": {
+     "a_type": "none",
+     "action": ""
+    },
+    "home": {
+     "a_type": "none",
+     "action": ""
+    },
+    "keyboard": {
+     "a_type": "none",
+     "action": ""
+    },
+    "save": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb11": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb12": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb13": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb14": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb15": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb21": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb22": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb23": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb24": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb25": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb31": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb32": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb33": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb34": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb35": {
+     "a_type": "none",
+     "action": ""
+    },
+    "undo": {
+     "a_type": "none",
+     "action": ""
+    },
+    "wheel": {
+     "a_type": "none",
+     "action": ""
+    }
+   },
+   "bg_colors": {},
+   "fn_actions": {},
+   "images": {
+    "dis1L": "",
+    "dis1R": "",
+    "dis2L": "",
+    "dis2R": "",
+    "dis3L": "",
+    "dis3R": "",
+    "tb11": "",
+    "tb12": "",
+    "tb13": "",
+    "tb14": "",
+    "tb15": "",
+    "tb21": "",
+    "tb22": "",
+    "tb23": "",
+    "tb24": "",
+    "tb25": "",
+    "tb31": "",
+    "tb32": "",
+    "tb33": "",
+    "tb34": "",
+    "tb35": "",
+    "wheel": ""
+   },
+   "labels": {},
+   "led_colors": {},
+   "name": "",
+   "profile": "default",
+   "side_layout": {
+    "L": "cells",
+    "R": "cells"
+   },
+   "tuning": {}
+  },
+  "6": {
+   "actions": {
+    "a": {
+     "a_type": "none",
+     "action": ""
+    },
+    "b": {
+     "a_type": "none",
+     "action": ""
+    },
+    "c": {
+     "a_type": "none",
+     "action": ""
+    },
+    "d": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis1L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis1R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis2L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis2R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis3L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis3R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "e": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enter": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnL": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnR": {
+     "a_type": "none",
+     "action": ""
+    },
+    "home": {
+     "a_type": "none",
+     "action": ""
+    },
+    "keyboard": {
+     "a_type": "none",
+     "action": ""
+    },
+    "save": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb11": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb12": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb13": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb14": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb15": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb21": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb22": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb23": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb24": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb25": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb31": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb32": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb33": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb34": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb35": {
+     "a_type": "none",
+     "action": ""
+    },
+    "undo": {
+     "a_type": "none",
+     "action": ""
+    },
+    "wheel": {
+     "a_type": "none",
+     "action": ""
+    }
+   },
+   "bg_colors": {},
+   "fn_actions": {},
+   "images": {
+    "dis1L": "",
+    "dis1R": "",
+    "dis2L": "",
+    "dis2R": "",
+    "dis3L": "",
+    "dis3R": "",
+    "tb11": "",
+    "tb12": "",
+    "tb13": "",
+    "tb14": "",
+    "tb15": "",
+    "tb21": "",
+    "tb22": "",
+    "tb23": "",
+    "tb24": "",
+    "tb25": "",
+    "tb31": "",
+    "tb32": "",
+    "tb33": "",
+    "tb34": "",
+    "tb35": "",
+    "wheel": ""
+   },
+   "labels": {},
+   "led_colors": {},
+   "name": "",
+   "profile": "default",
+   "side_layout": {
+    "L": "cells",
+    "R": "cells"
+   },
+   "tuning": {}
+  },
+  "7": {
+   "actions": {
+    "a": {
+     "a_type": "none",
+     "action": ""
+    },
+    "b": {
+     "a_type": "none",
+     "action": ""
+    },
+    "c": {
+     "a_type": "none",
+     "action": ""
+    },
+    "d": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis1L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis1R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis2L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis2R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis3L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dis3R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "e": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3L-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R-l": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc3R-r": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enter": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnL": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnR": {
+     "a_type": "none",
+     "action": ""
+    },
+    "home": {
+     "a_type": "none",
+     "action": ""
+    },
+    "keyboard": {
+     "a_type": "none",
+     "action": ""
+    },
+    "save": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb11": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb12": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb13": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb14": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb15": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb21": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb22": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb23": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb24": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb25": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb31": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb32": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb33": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb34": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb35": {
+     "a_type": "none",
+     "action": ""
+    },
+    "undo": {
+     "a_type": "none",
+     "action": ""
+    },
+    "wheel": {
+     "a_type": "none",
+     "action": ""
+    }
+   },
+   "bg_colors": {},
+   "fn_actions": {},
+   "images": {
+    "dis1L": "",
+    "dis1R": "",
+    "dis2L": "",
+    "dis2R": "",
+    "dis3L": "",
+    "dis3R": "",
+    "tb11": "",
+    "tb12": "",
+    "tb13": "",
+    "tb14": "",
+    "tb15": "",
+    "tb21": "",
+    "tb22": "",
+    "tb23": "",
+    "tb24": "",
+    "tb25": "",
+    "tb31": "",
+    "tb32": "",
+    "tb33": "",
+    "tb34": "",
+    "tb35": "",
+    "wheel": ""
+   },
+   "labels": {},
+   "led_colors": {},
+   "name": "",
+   "profile": "default",
+   "side_layout": {
+    "L": "cells",
+    "R": "cells"
+   },
+   "tuning": {}
+  },
+  "circle": {
+   "actions": {
+    "a": {
+     "a_type": "none",
+     "action": ""
+    },
+    "b": {
+     "a_type": "none",
+     "action": ""
+    },
+    "c": {
+     "a_type": "none",
+     "action": ""
+    },
+    "d": {
+     "a_type": "none",
+     "action": ""
+    },
+    "dial": {
+     "a_type": "hotkey",
+     "action": "ctrl+c"
+    },
+    "dial-l": {
+     "a_type": "scroll",
+     "action": "up"
+    },
+    "dial-r": {
+     "a_type": "scroll",
+     "action": "down"
+    },
+    "dis1L": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+c"
+    },
+    "dis1R": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+w"
+    },
+    "dis2L": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+v"
+    },
+    "dis2R": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+f"
+    },
+    "dis3L": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+t"
+    },
+    "dis3R": {
+     "a_type": "hotkey",
+     "action": "ctrl+c"
+    },
+    "e": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc1L-l": {
+     "a_type": "scroll",
+     "action": "up"
+    },
+    "enc1L-r": {
+     "a_type": "scroll",
+     "action": "down"
+    },
+    "enc1R": {
+     "a_type": "hotkey",
+     "action": "ctrl+c"
+    },
+    "enc1R-l": {
+     "a_type": "hotkey",
+     "action": "up"
+    },
+    "enc1R-r": {
+     "a_type": "hotkey",
+     "action": "down"
+    },
+    "enc2L": {
+     "a_type": "hotkey",
+     "action": "ctrl+r"
+    },
+    "enc2L-l": {
+     "a_type": "hotkey",
+     "action": "up"
+    },
+    "enc2L-r": {
+     "a_type": "hotkey",
+     "action": "down"
+    },
+    "enc2R": {
+     "a_type": "none",
+     "action": ""
+    },
+    "enc2R-l": {
+     "a_type": "scroll",
+     "action": "up"
+    },
+    "enc2R-r": {
+     "a_type": "scroll",
+     "action": "down"
+    },
+    "enc3L": {
+     "a_type": "hotkey",
+     "action": "ctrl+0"
+    },
+    "enc3L-l": {
+     "a_type": "hotkey",
+     "action": "ctrl+minus"
+    },
+    "enc3L-r": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+="
+    },
+    "enc3R": {
+     "a_type": "hotkey",
+     "action": "ctrl+0"
+    },
+    "enc3R-l": {
+     "a_type": "hotkey",
+     "action": "ctrl+minus"
+    },
+    "enc3R-r": {
+     "a_type": "hotkey",
+     "action": "ctrl+shift+="
+    },
+    "enter": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnL": {
+     "a_type": "none",
+     "action": ""
+    },
+    "fnR": {
+     "a_type": "none",
+     "action": ""
+    },
+    "home": {
+     "a_type": "none",
+     "action": ""
+    },
+    "keyboard": {
+     "a_type": "none",
+     "action": ""
+    },
+    "save": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb11": {
+     "a_type": "macro",
+     "action": "text cd /home/jm/projects/Github/operations-hub--Main-JM\nwait 40\nhotkey return"
+    },
+    "tb12": {
+     "a_type": "macro",
+     "action": "text cd /home/jm/projects/Github/operations-hub--Main-JM && npm run dev\nwait 40\nhotkey return"
+    },
+    "tb13": {
+     "a_type": "macro",
+     "action": "text cd /home/jm/projects/Github/operations-hub--Main-JM && npm run build\nwait 40\nhotkey return"
+    },
+    "tb14": {
+     "a_type": "macro",
+     "action": "text cd /home/jm/projects/Github/operations-hub--Main-JM && npm run lint\nwait 40\nhotkey return"
+    },
+    "tb15": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb21": {
+     "a_type": "macro",
+     "action": "text cd /home/jm/projects/Github/operations-hub--Main-JM && npm run test\nwait 40\nhotkey return"
+    },
+    "tb22": {
+     "a_type": "macro",
+     "action": "text cd /home/jm/projects/Github/operations-hub--Main-JM && npm run gates\nwait 40\nhotkey return"
+    },
+    "tb23": {
+     "a_type": "macro",
+     "action": "text cd /home/jm/projects/Github/operations-hub--Main-JM && npm run git:clean\nwait 40\nhotkey return"
+    },
+    "tb24": {
+     "a_type": "macro",
+     "action": "text cd /home/jm/projects/Github/operations-hub--Main-JM && npm run tunnel\nwait 40\nhotkey return"
+    },
+    "tb25": {
+     "a_type": "none",
+     "action": ""
+    },
+    "tb31": {
+     "a_type": "macro",
+     "action": "text cd /home/jm/projects/Github/operations-hub--Main-JM && npm run start\nwait 40\nhotkey return"
+    },
+    "tb32": {
+     "a_type": "macro",
+     "action": "text cd /home/jm/projects/Github/operations-hub--Main-JM && npm run push-main\nwait 40\nhotkey return"
+    },
+    "tb33": {
+     "a_type": "macro",
+     "action": "text git status\nwait 40\nhotkey return"
+    },
+    "tb34": {
+     "a_type": "macro",
+     "action": "text git diff\nwait 40\nhotkey return"
+    },
+    "tb35": {
+     "a_type": "none",
+     "action": ""
+    },
+    "undo": {
+     "a_type": "none",
+     "action": ""
+    },
+    "wheel": {
+     "a_type": "none",
+     "action": ""
+    }
+   },
+   "bg_colors": {
+    "dis1L": "#1e3a8a",
+    "dis1R": "#78350f",
+    "dis2L": "#1e3a8a",
+    "dis2R": "#27272a",
+    "dis3L": "#14532d",
+    "dis3R": "#7f1d1d",
+    "tb11": "#1e3a8a",
+    "tb12": "#14532d",
+    "tb13": "#27272a",
+    "tb14": "#27272a",
+    "tb21": "#1e3a8a",
+    "tb22": "#78350f",
+    "tb23": "#78350f",
+    "tb24": "#27272a",
+    "tb31": "#14532d",
+    "tb32": "#14532d",
+    "tb33": "#1e3a8a",
+    "tb34": "#27272a"
+   },
+   "fn_actions": {},
+   "images": {
+    "dis1L": "",
+    "dis1R": "",
+    "dis2L": "",
+    "dis2R": "",
+    "dis3L": "",
+    "dis3R": "",
+    "tb11": "",
+    "tb12": "",
+    "tb13": "",
+    "tb14": "",
+    "tb15": "",
+    "tb21": "",
+    "tb22": "",
+    "tb23": "",
+    "tb24": "",
+    "tb25": "",
+    "tb31": "",
+    "tb32": "",
+    "tb33": "",
+    "tb34": "",
+    "tb35": "",
+    "wheel": ""
+   },
+   "labels": {
+    "dis1L": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Copy"
+    },
+    "dis1R": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Close"
+    },
+    "dis2L": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Paste"
+    },
+    "dis2R": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Find"
+    },
+    "dis3L": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "New tab"
+    },
+    "dis3R": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Stop"
+    },
+    "tb11": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Hub dir"
+    },
+    "tb12": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Dev"
+    },
+    "tb13": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Build"
+    },
+    "tb14": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Lint"
+    },
+    "tb21": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Test"
+    },
+    "tb22": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Gates"
+    },
+    "tb23": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "git clean"
+    },
+    "tb24": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Tunnel"
+    },
+    "tb31": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Start"
+    },
+    "tb32": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "push-main"
+    },
+    "tb33": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Status"
+    },
+    "tb34": {
+     "mode": "bar",
+     "pos": "bottom",
+     "text": "Diff"
+    },
+    "wheel": {
+     "mode": "over",
+     "pos": "middle",
+     "text": "Ops Hub"
+    }
+   },
+   "led_colors": {
+    "1": "#d97706",
+    "circle": "#2563eb"
+   },
+   "name": "Ops Hub",
+   "profile": "default",
+   "side_layout": {
+    "L": "cells",
+    "R": "cells"
+   },
+   "tuning": {}
+  }
+ }
+}

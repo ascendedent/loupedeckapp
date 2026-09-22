@@ -307,7 +307,8 @@ refuses, or an action for an application shortcut that does not exist. Both look
 finished and do nothing. What follows is how not to do that.
 
 **Generate it, do not hand-write it.** A full profile is a few hundred bound
-slots. `scripts/make_starter_profiles.py` and `scripts/make_vscode_profile.py`
+slots. `scripts/make_starter_profiles.py`, `scripts/make_vscode_profile.py` and
+`scripts/make_konsole_profile.py`
 are worked examples: build an `LdConfiguration`, set actions, labels and
 colours, and dump it. Keep the script, so the profile can be regenerated rather
 than hand-patched.

@@ -126,6 +126,15 @@ py-modules = [
     "Profiles/Visual Studio Code/app.json",
     "Profiles/Visual Studio Code/Visual Studio Code.json",
 ]
+# Terminal deck: git and GitHub on the first profile, then the dev, agent
+# and project-jump profiles that belong to the same application.
+"share/loupedeckapp/Profiles/Konsole" = [
+    "Profiles/Konsole/app.json",
+    "Profiles/Konsole/GitHub.json",
+    "Profiles/Konsole/Dev.json",
+    "Profiles/Konsole/Agents.json",
+    "Profiles/Konsole/Projects.json",
+]
 # setup_check points at these by path, so an install that leaves them out
 # tells the user to copy a file that is not there.
 "share/loupedeckapp/packaging" = [
