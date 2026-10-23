@@ -137,7 +137,11 @@ try:
     # Both branches, forced. Which one this takes depends on whether pyobjc is
     # installed on the machine running the suite, so leaving it to chance meant
     # the advice for the missing case went unchecked on the Macs that have it.
-    backend = input_backend.get_backend()
+    # The backend is pinned too: off a Mac there is no osascript, so detection
+    # picks a Linux backend that has no quartz() at all and both branches would
+    # read as "missing".
+    backend = input_backend.MacBackend()
+    input_backend._backend = backend
     backend._quartz = False
     media = setup_check.check_media()
     c.eq("macOS without pyobjc is told what media keys and scrolling need",
