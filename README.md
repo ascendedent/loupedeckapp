@@ -58,8 +58,8 @@ so a file written on one model opens on another.
 
 ### Actions
 - `command`/launch, `hotkey`, `text`, `scroll`, `media` (MPRIS), `macro` (a sequence),
-  `keyboard` (the desktop's on-screen keyboard), `workspace` (jump to a workspace), and
-  `submenu` / `back` navigation.
+  `keyboard` (the desktop's on-screen keyboard), `workspace` (jump to a workspace),
+  `plugin` (an action of an installed Loupedeck plugin, below), and `submenu` / `back` navigation.
 - **Hotkey recorder** that captures a key combination when you press it, plus a **presets** picker
   that includes your machine's configured KDE global shortcuts.
 - A searchable **action library** you drag onto controls, including scroll and volume. Search
@@ -89,6 +89,93 @@ wondering.
 
 Macros run on their own worker: pressing a button never blocks the device while a macro with waits
 in it plays out, and two macros run one after the other rather than interleaving.
+
+### Loupedeck plugins
+
+Plugins from Loupedeck's and Logitech's marketplace (`.lplug4`) install from the gear menu,
+**Install plugin…**, or from a terminal:
+
+```bash
+.venv/bin/python plugin_host.py install SomePlugin.lplug4    # also: list, remove NAME
+```
+
+Both kinds run:
+
+- **Node.js plugins** (Logitech's newer SDK, `pluginRuntime: nodejs`) run as a `node` process.
+  Needs Node.js 22 or newer.
+- **.NET plugins** (the older and larger catalogue, a `.dll` in the package) run against
+  `dotnet/PluginApi`: a clean-room stand-in for Logitech's `PluginApi.dll`, written from their public
+  documentation, their sample plugins and the shapes compiled plugins reference. It is built from
+  source the first time a .NET plugin starts, two ways:
+  - plugins built for **.NET 8 or 10** (current Logi plugins: Krita, Affinity Photo) run on the
+    .NET runtime: `sudo dnf install dotnet-sdk-10.0`. Drawing there is SkiaSharp, fetched from
+    NuGet on that first build.
+  - plugins built for **.NET Framework** (the Loupedeck 5 catalogue: Teams, Twitch, Spotify) run on
+    **Mono** (`sudo dnf install mono-complete`), or on .NET when Mono is not installed.
+
+  When one is installed, the app says which parts of the API it uses that are not implemented
+  here yet.
+
+Either way the plugin talks to the app over a local WebSocket the way it would talk to Logitech's
+software. Once it is running, its actions appear in the library under the plugin's name and in the
+inspector under the `plugin` type. Commands go on keys; an adjustment appears twice, ◀ and ▶, for
+the two rotate slots of an encoder or the dial (and as a third, *reset*, for its press, where the
+plugin has one); a fast turn reaches the plugin as a larger click count. A command that offers
+several variants (a .NET plugin's *parameters*) appears once per variant.
+
+A key bound to a plugin action shows the plugin's own image: one it draws (.NET plugins mostly
+do), or the icon its package ships (`actionicons/<action>.svg`). Its label follows the action's
+name **live**: a counter, a status or a clock is redrawn within about a second, and immediately
+after a press. Only the keys showing plugin actions are redrawn, so nothing else blinks.
+
+Some actions are set up per binding. A *profile action* asks for one value (a message to send, an
+item from a list or a tree); an *action editor* action has a small form (text, lists the plugin
+fills, checkboxes, sliders). Either way the inspector shows it under the action, and the values
+are kept with that key's binding, so the same action can be on several keys with different values.
+
+A plugin's *folders* open as a page of their own: bind the folder to a key, press it, and the keys
+and knobs show what the plugin puts there (Krita's tool pages, a playlist), with Back on the first
+key and ◀ ▶ to page through when there are more than fit. The plugin can change the page while it
+is open, and close it.
+
+A plugin that asks to sign in to a service shows a sign-in link under it in the gear menu; the
+plugin does the signing in (usually in your browser) and the link turns into its sign-out. Plugins
+whose browser sign-in comes back on a `loupedeck:` link get that link registered with the desktop
+when they are installed (`~/.local/share/applications/loupedeckapp-url.desktop` and `xdg-mime`), and
+the running app passes it to the plugin. Its
+settings and sign-ins live in `~/.config/loupedeckapp/Plugins/<name>.data/`, so updating the plugin
+keeps them. A few plugins fetched a configuration file from Loupedeck's own servers; a copy put in
+`<name>.data/online-files/` is used instead.
+
+A plugin that exits on its own is restarted, after 1, 2, 4, 8 and 16 seconds. One that keeps
+dying (six times in two minutes) is left stopped, and the gear menu says so and offers a restart.
+Its console output is in `~/.config/loupedeckapp/Plugins/<name>.log`.
+
+`dotnet/tools/ApiScan.cs` lists what any .NET plugin needs from the API and marks what is
+missing, which is the checklist for supporting a new one:
+
+```bash
+python3 dotnet/build.py
+MONO_PATH=dotnet/bin mono dotnet/bin/ApiScan.exe Some.dll dotnet/bin/PluginApi.dll
+```
+
+### Loupedeck profiles (.lp5)
+
+Profiles exported from Loupedeck's own software, and the ones its marketplace offers for an
+application, import directly: **Import app** in the application panel takes a `.lp5` as well as
+this app's own `.json`, or from a terminal:
+
+```bash
+.venv/bin/python lp5_import.py Slack_CT_Win.lp5
+```
+
+It becomes an application here, set to switch on that application's window, with its workspaces
+on the round buttons that chose them, its keys, knobs, square buttons, fn presses and key images
+where they were, and each knob's name on the side strip beside it. Keyboard shortcuts, macros of
+them, the mouse wheel and the default plugin's volume and media actions come across. What does not
+(long and double presses, extra pages, the wheel's clock and other tools, other plugins' actions)
+is listed when the import finishes rather than dropped silently. A profile made on Windows has
+Windows' Ctrl+Y redo turned into Ctrl+Shift+Z, which is what Chromium-based apps use elsewhere.
 
 ### The fn layer
 
@@ -232,6 +319,7 @@ The match key is whatever that platform considers authoritative, which is `Start
 | | |
 |---|---|
 | Profiles you edit, app bindings, preferences | `~/.config/loupedeckapp/` (`$XDG_CONFIG_HOME` is respected) |
+| Installed Loupedeck plugins and their logs | `~/.config/loupedeckapp/Plugins/` |
 | Profiles and applications you deleted | `~/.config/loupedeckapp/Deleted/`, twenty most recent, restorable from the gear |
 | Profiles and images shipped with the app | beside the code, never written to |
 
@@ -477,6 +565,9 @@ The core is Qt-free and layered, so the UI sits on top of reusable services:
 | `action_library` | Ready-to-use actions, with per-desktop application entries. |
 | `app_paths` | Bundled assets vs. user data; profile resolution and legacy migration. |
 | `settings` | Small persistent app preferences (brightness), separate from profile data. |
+| `lp5_import` | Converts a Loupedeck 5 profile (`.lp5`) into an application here, reporting what has no equivalent. |
+| `plugin_host` | Installs Loupedeck plugins (`.lplug4`) and hosts them over the SDK's WebSocket protocol: one `node` process per Node.js plugin, one Mono process per .NET plugin. |
+| `dotnet/` | The .NET side: `PluginApi` (clean-room stand-in for Logitech's API, plus the host that serves one plugin), `LoupedeckHost.exe`, and `ApiScan` (what a plugin needs vs what we have). Built by `dotnet/build.py` with Mono's `mcs`. |
 | `virtual_keyboard` | Toggles the desktop's on-screen keyboard (KDE via DBus, else a keyboard binary). |
 | `qml_app.py` + `qml/` | The PySide6 / QML front-end. |
 

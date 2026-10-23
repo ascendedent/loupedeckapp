@@ -95,6 +95,8 @@ py-modules = [
     "settings",
     "setup_check",
     "virtual_keyboard",
+    "plugin_host",
+    "lp5_import",
 ]
 
 # Flat module layout means there is no package for package-data to attach to,
@@ -136,6 +138,30 @@ py-modules = [
     "Profiles/Konsole/Projects.json",
     "Profiles/Konsole/Updates.json",
 ]
+# The .NET plugin host, as source: dotnet/build.py compiles it with Mono on
+# first use, into the user's cache when this directory is not writable.
+"share/loupedeckapp/dotnet" = ["dotnet/build.py"]
+"share/loupedeckapp/dotnet/PluginApi" = [
+    "dotnet/PluginApi/ActionEditor.cs",
+    "dotnet/PluginApi/Actions.cs",
+    "dotnet/PluginApi/AssemblyInfo.cs",
+    "dotnet/PluginApi/Bitmaps.cs",
+    "dotnet/PluginApi/Drawing.Gdi.cs",
+    "dotnet/PluginApi/Drawing.Skia.cs",
+    "dotnet/PluginApi/Folder.cs",
+    "dotnet/PluginApi/Helpers.cs",
+    "dotnet/PluginApi/Host.cs",
+    "dotnet/PluginApi/Json.cs",
+    "dotnet/PluginApi/Keys.cs",
+    "dotnet/PluginApi/Plugin.cs",
+]
+# The .NET 8/10 build of the same sources (needs the .NET SDK).
+"share/loupedeckapp/dotnet/core" = [
+    "dotnet/core/LoupedeckHost.csproj",
+    "dotnet/core/PluginApi.csproj",
+]
+"share/loupedeckapp/dotnet/LoupedeckHost" = ["dotnet/LoupedeckHost/Program.cs"]
+"share/loupedeckapp/dotnet/tools" = ["dotnet/tools/ApiScan.cs"]
 # setup_check points at these by path, so an install that leaves them out
 # tells the user to copy a file that is not there.
 "share/loupedeckapp/packaging" = [

@@ -11,8 +11,12 @@ if REPO not in sys.path:
 class Checks:
     def __init__(self):
         self.failed = []
+        # Put in front of every name, for a suite that runs the same checks
+        # more than once (one per runtime, say).
+        self.prefix = ""
 
     def eq(self, name, got, want):
+        name = self.prefix + name
         ok = got == want
         print("%-58s %s" % (name, "ok" if ok else "FAIL got=%r want=%r" % (got, want)))
         if not ok:

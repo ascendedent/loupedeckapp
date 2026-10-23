@@ -22,12 +22,14 @@ import app_paths
 import autostart
 import macro
 import input_backend
+import lp5_import
 import device_lib
 import installed_apps
 import settings as settings_mod
 import setup_check
 import tray
 import platform_env
+import plugin_host
 import profile_store
 import window_watcher
 import system_shortcuts
@@ -56,6 +58,12 @@ class Backend(QObject):
     # A line of text for the toast area: things that happened and are done,
     # where a dialog would be an interruption and the console is invisible.
     notify = Signal(str)
+    # A plugin started, stopped, or reported its actions.
+    pluginsChanged = Signal()
+    # Something worth reading after an import that worked: (title, text).
+    importNotes = Signal(str, str)
+    _pluginSig = Signal()
+    _folderSig = Signal(str, str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -98,7 +106,15 @@ class Backend(QObject):
         self._ctl.fn_inactive_color = self._settings.fn_inactive_color
         self._watcher = window_watcher.get_watcher(
             on_change=lambda c, t: self._focusSig.emit(c, t))
+        # Loupedeck plugins (Node.js SDK). One host for the app; LdAction
+        # reaches it through the module, the way macros reach their worker.
+        self._plugins = plugin_host.PluginHost(
+            on_change=lambda: self._pluginSig.emit(),
+            on_folder=lambda kind, value: self._folderSig.emit(kind, value))
+        plugin_host.set_host(self._plugins)
         self._marshal.connect(self._on_state_main, Qt.QueuedConnection)
+        self._pluginSig.connect(self._on_plugins_main, Qt.QueuedConnection)
+        self._folderSig.connect(self._on_folder_main, Qt.QueuedConnection)
         self._focusSig.connect(self._on_focus_main, Qt.QueuedConnection)
 
     # -- lifecycle ---------------------------------------------------------
@@ -146,10 +162,31 @@ class Backend(QObject):
         # which app you were last in, which the bind button needs. Acting on a
         # focus change is still gated on dynamic_mode below.
         self._watcher.start()
+        self._plugins.start()
 
     def shutdown(self):
         self._watcher.stop()
+        self._plugins.stop()
         self._ctl.close()
+
+    def _on_folder_main(self, kind, value):
+        # A plugin's folder that is open on the device changed, or the plugin
+        # closed it.
+        if kind == "close":
+            self._ctl.close_plugin_folder(value)
+        else:
+            self._ctl.refresh_plugin_folder(value)
+        self.stateChanged.emit()
+
+    def _on_plugins_main(self):
+        # Icons are SVG and Qt renders them, so here on the UI thread rather
+        # than on the host's socket threads. Once per icon; cached after.
+        self._plugins.render_icons()
+        self.pluginsChanged.emit()
+        # Labels and icons of plugin actions arrive after the page was drawn,
+        # and a plugin can change its text at any time.
+        self._ctl.redraw_plugin_controls()
+        self.stateChanged.emit()
 
     def _on_state_main(self, kind):
         if kind == "connected":
@@ -578,10 +615,17 @@ class Backend(QObject):
     def actionCategories(self):
         return list(action_library.CATEGORIES)
 
-    @Property("QVariantList", constant=True)
+    @Property("QVariantList", notify=pluginsChanged)
     def actionLibrary(self):
-        return [{"category": c, "label": l, "type": t, "value": v}
-                for (c, l, t, v) in self.ACTION_LIBRARY]
+        out = [{"category": c, "label": l, "type": t, "value": v}
+               for (c, l, t, v) in self.ACTION_LIBRARY]
+        # Each running plugin gets a section of its own, after the built-ins.
+        for plugin, label, value, _kind in self._plugins.actions():
+            icon = self._plugins.image_for(value)
+            out.append({"category": plugin, "label": label, "type": "plugin",
+                        "value": value,
+                        "icon": QUrl.fromLocalFile(icon).toString() if icon else ""})
+        return out
 
     # -- control selection + action editing (inspector) --------------------
     ACTION_TYPES = ["none", "command", "hotkey", "text", "scroll", "media",
@@ -673,7 +717,9 @@ class Backend(QObject):
         out = {}
         if not menu:
             return out
-        for key, path in menu.images.items():
+        for key in menu.images.keys():
+            # The device's choice, so a plugin action's icon shows here too.
+            path = self._ctl.effective_image(menu, key)
             if not path:
                 continue
             out[key] = QUrl.fromLocalFile(app_paths.asset_path(path)).toString()
@@ -772,45 +818,6 @@ class Backend(QObject):
     @Property(int, notify=stateChanged)
     def menuDepth(self):
         return len(self._ctl.submenu_stack)
-
-    # -- control selection + action editing (inspector) --------------------
-    ACTION_TYPES = ["none", "command", "hotkey", "text", "scroll", "media",
-                    "keyboard", "workspace", "profile", "macro"]
-
-    # Ready-to-use actions for the left-panel library (category, label, type,
-    # value). Dragged onto a control to bind it; templates (empty value) are
-    # filled in via the inspector afterwards.
-    ACTION_LIBRARY = [
-        ("General", "Type text…", "text", ""),
-        ("General", "Run command…", "command", ""),
-        ("System", "Copy", "hotkey", "ctrl+c"),
-        ("System", "Paste", "hotkey", "ctrl+v"),
-        ("System", "Cut", "hotkey", "ctrl+x"),
-        ("System", "Undo", "hotkey", "ctrl+z"),
-        ("System", "Redo", "hotkey", "ctrl+shift+z"),
-        ("System", "Select all", "hotkey", "ctrl+a"),
-        ("System", "Save", "hotkey", "ctrl+s"),
-        ("System", "Screenshot", "command", "spectacle"),
-        ("Adjustments", "Scroll up", "scroll", "up"),
-        ("Adjustments", "Scroll down", "scroll", "down"),
-        ("Adjustments", "Scroll left", "scroll", "left"),
-        ("Adjustments", "Scroll right", "scroll", "right"),
-        # Volume is a hotkey rather than a media action: playerctl drives the
-        # media player, while these are the system-wide multimedia keys, which
-        # is what people mean by "bind volume to a knob".
-        ("Adjustments", "Volume up", "hotkey", "volumeup"),
-        ("Adjustments", "Volume down", "hotkey", "volumedown"),
-        ("Adjustments", "Mute", "hotkey", "mute"),
-        ("Media", "Play / Pause", "media", "play-pause"),
-        ("Media", "Next track", "media", "next"),
-        ("Media", "Previous track", "media", "previous"),
-        ("Media", "Stop", "media", "stop"),
-        ("Navigation", "Submenu", "submenu", "submenu"),
-        ("Navigation", "Back", "back", ""),
-        ("Applications", "Terminal", "command", "konsole"),
-        ("Applications", "Files", "command", "dolphin"),
-        ("Applications", "Browser", "command", "xdg-open https://"),
-    ]
 
     def _slot_defs(self, key):
         """(slot-key, label) pairs a control exposes. Encoders and the dial
@@ -1155,6 +1162,8 @@ class Backend(QObject):
         """Action types offered for the selected control: submenu/back are only
         meaningful on single-action 'key' controls, not encoders/dial."""
         types = list(self.ACTION_TYPES)
+        if self._plugins.status():
+            types.append("plugin")
         if self._selected and self._kind(self._selected) == "key":
             types += ["submenu", "back"]
         return types
@@ -1214,11 +1223,131 @@ class Backend(QObject):
                       for i, k in enumerate(WS_KEYS)],
     }
 
-    @Property("QVariantMap", constant=True)
+    @Property("QVariantMap", notify=pluginsChanged)
     def valueOptions(self):
         """action type -> [{label, value}] for types the inspector should
         present as a dropdown."""
-        return dict(self.VALUE_OPTIONS)
+        out = dict(self.VALUE_OPTIONS)
+        plugin_opts = [{"label": "%s: %s" % (plugin, label), "value": value}
+                       for plugin, label, value, _kind in self._plugins.actions()]
+        if plugin_opts:
+            out["plugin"] = plugin_opts
+        return out
+
+    # -- plugins -----------------------------------------------------------
+    @Property("QVariantList", notify=pluginsChanged)
+    def plugins(self):
+        """Installed plugins and how each is doing, for preferences."""
+        return self._plugins.status()
+
+    @Slot(str, result=str)
+    def installPlugin(self, file_url):
+        """Install (or update) a .lplug4 and start it. Returns an error to
+        show, or ""."""
+        name, error = plugin_host.install(self._local(file_url))
+        if error:
+            return error
+        self._plugins.reload(name)
+        self.notify.emit("Installed plugin %s" % name)
+        info = next((i for i in plugin_host.installed() if i["name"] == name), None)
+        if info and info.get("runtime") == "dotnet" and plugin_host.uses_url_callbacks(info["entry"]):
+            # It signs in through the browser, which comes back on a
+            # loupedeck: link; make those links open here.
+            error = plugin_host.register_url_handler()
+            if error:
+                self.notify.emit(error)
+        if info and info.get("runtime") == "dotnet":
+            # Say up front what will not work, rather than leave missing
+            # actions to be noticed.
+            missing = plugin_host.missing_api(info["entry"])
+            if missing:
+                types = sorted({m.split("::")[0].replace("Loupedeck.", "") for m in missing})
+                self.importNotes.emit(
+                    "Installed %s" % name,
+                    "It uses %d parts of Logitech's plugin API that are not "
+                    "implemented here yet, so some of its actions may be missing "
+                    "or do nothing. They are in:\n\n%s"
+                    % (len(missing), ", ".join(types)))
+        return ""
+
+    @Slot(str, result=str)
+    def removePlugin(self, name):
+        self._plugins.remove(name)
+        error = plugin_host.uninstall(name)
+        if not error:
+            self.notify.emit("Removed plugin %s" % name)
+        return error
+
+    @Slot(str)
+    def restartPlugin(self, name):
+        self._plugins.reload(name)
+
+    # -- per-binding plugin values (profile actions, action editors) -------
+    @Slot(str, result="QVariantMap")
+    def pluginEditor(self, value):
+        """The form a plugin action is bound through, filled with this
+        binding's values, for the inspector. {} when it has none."""
+        editor = self._plugins.editor(value)
+        if not editor:
+            return {}
+        plugin, action, _ = plugin_host.parse_value(value)
+        rest = action.partition("|")[2]
+        state = self._plugins.editor_state(value) or {}
+        out = {"kind": editor.get("kind", ""), "type": editor.get("type", ""),
+               "prompt": editor.get("prompt", "")}
+        if out["kind"] == "profile":
+            out["value"] = rest
+            out["items"] = state.get("items") or []
+            return out
+        values = plugin_host.editor_values(rest)
+        values.update({k: v for k, v in (state.get("values") or {}).items()
+                       if k not in values and v is not None})
+        lists = state.get("lists") or {}
+        controls = []
+        for c in editor.get("controls") or []:
+            c = dict(c)
+            name = c.get("name", "")
+            c["value"] = values.get(name, c.get("default", ""))
+            if c.get("kind") == "list":
+                info = lists.get(name) or {}
+                c["items"] = info.get("items") or []
+                if not c["value"] and info.get("selected"):
+                    c["value"] = info["selected"]
+            controls.append(c)
+        out["controls"] = controls
+        out["displayName"] = values.get("__displayName", "")
+        return out
+
+    @Slot(str, str, str, str)
+    def setPluginEditorValue(self, slot_key, value, control, new_value):
+        """One control of an action editor binding changed. The plugin is
+        told, may change other values in turn, and the binding is rewritten
+        with the result."""
+        plugin, action, _ = plugin_host.parse_value(value)
+        values = plugin_host.editor_values(action.partition("|")[2])
+        values[control] = new_value
+        answer = self._plugins.editor_changed(value, control, values)
+        if answer:
+            values.update({k: ("" if v is None else str(v))
+                           for k, v in (answer.get("values") or {}).items()})
+            if answer.get("displayName"):
+                values["__displayName"] = answer["displayName"]
+        self._ctl.set_action(slot_key, "plugin", plugin_host.with_values(value, values))
+        self.stateChanged.emit()
+
+    @Slot(str, str, str)
+    def setPluginProfileValue(self, slot_key, value, new_value):
+        """A profile action's value: the text typed or the item picked."""
+        self._ctl.set_action(slot_key, "plugin", plugin_host.with_values(value, new_value))
+        self.stateChanged.emit()
+
+    @Slot(str, str, str)
+    def pluginAccount(self, plugin, account, action):
+        """Sign a plugin's account in or out ("login" / "logout"). The plugin
+        does the signing in, usually in the browser, and the list updates
+        when it reports back."""
+        if not self._plugins.account(plugin, account, action):
+            self.notify.emit("%s is not running" % plugin)
 
     # -- fn layer ----------------------------------------------------------
     @Slot(str, str, str)
@@ -1608,12 +1737,24 @@ class Backend(QObject):
 
     @Slot(str, result=str)
     def importApp(self, file_url):
-        app, error = profile_store.import_app(self._local(file_url))
+        path = self._local(file_url)
+        notes = []
+        if path.lower().endswith(lp5_import.SUFFIX):
+            # A profile exported from (or downloaded for) Loupedeck's own
+            # software, converted on the way in.
+            app, notes, error = lp5_import.import_lp5(path)
+        else:
+            app, error = profile_store.import_app(path)
         if error:
             return error
         self._browsing_app = app
         self.notify.emit("Imported %s" % app)
         self.stateChanged.emit()
+        if notes:
+            self.importNotes.emit(
+                "Imported %s" % app,
+                "Everything else came across. These did not, or changed:\n\n"
+                + "\n".join("• " + n for n in notes))
         return ""
 
     @Slot(str, result=str)

@@ -8,6 +8,7 @@ two thirds of a key to the right and reporting the wrong one when touched.
 None of this needs hardware. The arithmetic is the whole bug.
 """
 import sys
+import threading
 
 from _harness import Checks
 
@@ -137,6 +138,7 @@ class Recorder(DeviceController):
     def __init__(self, profile):
         self.profile = profile
         self.drawn = []
+        self._render_lock = threading.RLock()
 
     def set_img_to_touchbutton(self, path, keycode, label=None, bg_color=None):
         self.drawn.append(("key", keycode))
@@ -166,6 +168,7 @@ class Recorder(DeviceController):
 class FakeWorkspace:
     def __init__(self, keys):
         self.images = {k: "x.png" for k in keys}
+        self.actions = {}
 
 
 class DeviceStub:

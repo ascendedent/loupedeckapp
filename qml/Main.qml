@@ -462,6 +462,8 @@ ApplicationWindow {
 
     // ---- import / export --------------------------------------------------
     property string ioError: ""
+    // The error dialog is mostly about imports; plugins borrow it.
+    property string ioErrorTitle: "Import failed"
 
     FileDialog {
         id: exportDialog
@@ -504,7 +506,9 @@ ApplicationWindow {
         id: importAppDialog
         title: "Import an application"
         fileMode: FileDialog.OpenFile
-        nameFilters: ["Loupedeck application (*.json)", "All files (*)"]
+        // .lp5 is what Loupedeck's own software exports and its marketplace
+        // hands out; it is converted on the way in.
+        nameFilters: ["Loupedeck application (*.json *.lp5)", "All files (*)"]
         onAccepted: root.ioError = backend.importApp(selectedFile)
     }
 
@@ -516,6 +520,20 @@ ApplicationWindow {
         onAccepted: root.ioError = backend.importProfile(selectedFile)
     }
 
+    FileDialog {
+        id: pluginDialog
+        title: "Install a Loupedeck plugin"
+        fileMode: FileDialog.OpenFile
+        nameFilters: ["Loupedeck plugin (*.lplug4)", "All files (*)"]
+        onAccepted: {
+            var error = backend.installPlugin(selectedFile)
+            if (error === "")
+                return
+            root.ioErrorTitle = "Plugin not installed"
+            root.ioError = error
+        }
+    }
+
     // An import can fail for reasons worth reading (wrong schema, not a
     // profile), so the message is shown rather than only logged.
     Dialog {
@@ -523,9 +541,9 @@ ApplicationWindow {
         anchors.centerIn: parent
         modal: true
         width: 420
-        title: "Import failed"
+        title: root.ioErrorTitle
         standardButtons: Dialog.Ok
-        onClosed: root.ioError = ""
+        onClosed: { root.ioError = ""; root.ioErrorTitle = "Import failed" }
         Text {
             text: root.ioError; color: theme.text
             font.pixelSize: 12; wrapMode: Text.WordWrap
@@ -533,6 +551,14 @@ ApplicationWindow {
     }
 
     onIoErrorChanged: if (ioError !== "") ioErrorDialog.open()
+
+    Connections {
+        target: backend
+        function onImportNotes(title, text) {
+            root.ioErrorTitle = title
+            root.ioError = text
+        }
+    }
 
     // ---- unsaved-changes guard -------------------------------------------
     // Every action that would throw away a draft routes through withDraftCheck,
@@ -1348,6 +1374,150 @@ ApplicationWindow {
 
                             Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
 
+                            // Loupedeck plugins built on the Node.js SDK. Their
+                            // actions show up in the library under the
+                            // plugin's name once it is running.
+                            Text {
+                                Layout.fillWidth: true
+                                text: "Plugins"; color: theme.muted; font.pixelSize: 11
+                            }
+                            Repeater {
+                                model: backend.plugins
+                                Rectangle {
+                                    id: pluginRow
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 26
+                                    radius: 6; color: theme.panel2
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 8; anchors.rightMargin: 6
+                                        spacing: 6
+                                        Text {
+                                            text: pluginRow.modelData.displayName
+                                            color: theme.text; font.pixelSize: 10
+                                            Layout.fillWidth: true
+                                            elide: Text.ElideRight
+                                        }
+                                        Text {
+                                            text: pluginRow.modelData.state === "running"
+                                                  ? pluginRow.modelData.actions + " actions"
+                                                  : pluginRow.modelData.state
+                                            color: pluginRow.modelData.state === "failed"
+                                                   ? theme.warn : theme.muted
+                                            font.pixelSize: 10
+                                        }
+                                        Text {
+                                            visible: pluginRow.modelData.state !== "running"
+                                                     && pluginRow.modelData.state !== "starting"
+                                            text: "restart"
+                                            color: restartHover.hovered ? theme.ok : theme.muted
+                                            font.pixelSize: 10
+                                            HoverHandler {
+                                                id: restartHover
+                                                cursorShape: Qt.PointingHandCursor
+                                            }
+                                            TapHandler {
+                                                onTapped: backend.restartPlugin(pluginRow.modelData.name)
+                                            }
+                                        }
+                                        Text {
+                                            text: "remove"
+                                            color: removeHover.hovered ? theme.warn : theme.muted
+                                            font.pixelSize: 10
+                                            HoverHandler {
+                                                id: removeHover
+                                                cursorShape: Qt.PointingHandCursor
+                                            }
+                                            TapHandler {
+                                                onTapped: {
+                                                    var error = backend.removePlugin(
+                                                        pluginRow.modelData.name)
+                                                    if (error === "")
+                                                        return
+                                                    root.ioErrorTitle = "Plugin not removed"
+                                                    root.ioError = error
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            // Sign-ins a plugin asks for (a .NET plugin's
+                            // accounts), one row each under the plugin list.
+                            Repeater {
+                                model: {
+                                    var rows = []
+                                    backend.plugins.forEach(function(p) {
+                                        (p.accounts || []).forEach(function(a) {
+                                            rows.push({ plugin: p.name, pluginName: p.displayName,
+                                                        account: a })
+                                        })
+                                    })
+                                    return rows
+                                }
+                                Rectangle {
+                                    id: accountRow
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 26
+                                    radius: 6; color: theme.panel2
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 8; anchors.rightMargin: 6
+                                        spacing: 6
+                                        Text {
+                                            text: accountRow.modelData.account.isLoggedIn
+                                                  ? accountRow.modelData.pluginName + ": "
+                                                    + (accountRow.modelData.account.userName || "signed in")
+                                                  : accountRow.modelData.pluginName + ": "
+                                                    + accountRow.modelData.account.displayName
+                                            color: theme.text; font.pixelSize: 10
+                                            Layout.fillWidth: true
+                                            elide: Text.ElideRight
+                                        }
+                                        Text {
+                                            text: accountRow.modelData.account.isLoggedIn
+                                                  ? accountRow.modelData.account.logoutTitle
+                                                  : accountRow.modelData.account.loginTitle
+                                            color: signHover.hovered ? theme.ok : theme.accent
+                                            font.pixelSize: 10
+                                            HoverHandler {
+                                                id: signHover
+                                                cursorShape: Qt.PointingHandCursor
+                                            }
+                                            TapHandler {
+                                                onTapped: backend.pluginAccount(
+                                                    accountRow.modelData.plugin,
+                                                    accountRow.modelData.account.name,
+                                                    accountRow.modelData.account.isLoggedIn ? "logout" : "login")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                visible: backend.plugins.some(function(p) { return p.detail !== "" })
+                                text: backend.plugins.filter(function(p) { return p.detail !== "" })
+                                      .map(function(p) { return p.displayName + ": " + p.detail })
+                                      .join("\n")
+                                color: theme.warn; font.pixelSize: 10; wrapMode: Text.WordWrap
+                            }
+                            ActionButton {
+                                Layout.fillWidth: true
+                                label: "Install plugin…"
+                                onClicked: { prefsPopup.close(); pluginDialog.open() }
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                text: "Loupedeck plugins (.lplug4): Node.js ones need Node, "
+                                      + ".NET ones need Mono."
+                                color: theme.muted; font.pixelSize: 10; wrapMode: Text.WordWrap
+                            }
+
+                            Rectangle { Layout.fillWidth: true; height: 1; color: theme.line }
+
                             // Always reachable, not only when something breaks.
                             ActionButton {
                                 Layout.fillWidth: true
@@ -1563,7 +1733,9 @@ ApplicationWindow {
                 ListView {
                     id: libList
                     Layout.fillWidth: true; Layout.fillHeight: true; clip: true; spacing: 4
-                    model: backend.filterLibrary(librarySearch.text)
+                    // Reading actionLibrary makes this re-run when a
+                    // plugin starts and brings its actions with it.
+                    model: { backend.actionLibrary; return backend.filterLibrary(librarySearch.text) }
                     section.property: "category"
                     section.delegate: Text {
                         width: libList.width; topPadding: 8; bottomPadding: 2
@@ -1595,7 +1767,18 @@ ApplicationWindow {
                         RowLayout {
                             anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10; spacing: 8
                             visible: !dragMa.drag.active
-                            Rectangle { width: 18; height: 18; radius: 4; color: theme.accent; opacity: 0.85 }
+                            Rectangle {
+                                width: 18; height: 18; radius: 4; color: theme.accent; opacity: 0.85
+                                visible: !tile.modelData.icon
+                            }
+                            // A plugin action brings its own icon.
+                            Image {
+                                visible: !!tile.modelData.icon
+                                source: tile.modelData.icon || ""
+                                Layout.preferredWidth: 18; Layout.preferredHeight: 18
+                                sourceSize.width: 36; sourceSize.height: 36
+                                fillMode: Image.PreserveAspectFit
+                            }
                             Text { text: tile.modelData.label; color: theme.text; font.pixelSize: 13
                                 Layout.fillWidth: true; elide: Text.ElideRight }
                             Text { text: tile.modelData.type; color: theme.muted; font.pixelSize: 10 }
@@ -2246,6 +2429,13 @@ ApplicationWindow {
                                             for (var i = 0; i < opts.length; i++)
                                                 if (opts[i].value === modelData.value)
                                                     return i
+                                            // A plugin action bound with its own values
+                                            // ("Plugin/Action|..."): the action it is.
+                                            var bar = modelData.value.indexOf("|")
+                                            if (bar > 0)
+                                                for (var j = 0; j < opts.length; j++)
+                                                    if (opts[j].value === modelData.value.substring(0, bar))
+                                                        return j
                                             return 0
                                         }
                                         onActivated: {
@@ -2277,6 +2467,122 @@ ApplicationWindow {
                                             border.color: valueField.activeFocus ? theme.accent : theme.line
                                         }
                                         onEditingFinished: backend.setActionSlot(modelData.slot, typeBox.currentText, text)
+                                    }
+                                    // ---- plugin action settings ----
+                                    // A plugin action that takes values per binding:
+                                    // a profile action (one value, typed or picked) or
+                                    // an action editor (a small form the plugin
+                                    // describes). The values are kept in the binding.
+                                    ColumnLayout {
+                                        id: pluginForm
+                                        Layout.fillWidth: true; spacing: 4
+                                        property string slot: modelData.slot
+                                        property string bound: modelData.value
+                                        property var form: typeBox.currentText === "plugin"
+                                                           ? backend.pluginEditor(bound) : ({})
+                                        visible: !!form.kind
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            visible: (pluginForm.form.prompt || "") !== ""
+                                            text: pluginForm.form.prompt || ""
+                                            color: theme.muted; font.pixelSize: 11; wrapMode: Text.WordWrap
+                                        }
+                                        TextField {
+                                            Layout.fillWidth: true
+                                            visible: pluginForm.form.kind === "profile" && pluginForm.form.type === "text"
+                                            text: pluginForm.form.value || ""
+                                            color: theme.text
+                                            placeholderText: "value"
+                                            placeholderTextColor: theme.muted
+                                            onEditingFinished: backend.setPluginProfileValue(
+                                                pluginForm.slot, pluginForm.bound, text)
+                                        }
+                                        ComboBox {
+                                            Layout.fillWidth: true
+                                            visible: pluginForm.form.kind === "profile" && pluginForm.form.type !== "text"
+                                            textRole: "label"
+                                            model: pluginForm.form.items || []
+                                            currentIndex: {
+                                                var items = pluginForm.form.items || []
+                                                for (var i = 0; i < items.length; i++)
+                                                    if (items[i].value === pluginForm.form.value) return i
+                                                return -1
+                                            }
+                                            displayText: currentIndex < 0 ? "Choose…" : currentText
+                                            onActivated: backend.setPluginProfileValue(
+                                                pluginForm.slot, pluginForm.bound,
+                                                (pluginForm.form.items || [])[currentIndex].value)
+                                        }
+                                        Repeater {
+                                            model: pluginForm.form.kind === "editor" ? pluginForm.form.controls : []
+                                            delegate: ColumnLayout {
+                                                id: field
+                                                required property var modelData
+                                                Layout.fillWidth: true; spacing: 2
+                                                function set(v) {
+                                                    backend.setPluginEditorValue(pluginForm.slot, pluginForm.bound,
+                                                                                 field.modelData.name, v)
+                                                }
+                                                Text {
+                                                    visible: field.modelData.kind !== "check" && field.modelData.kind !== "button"
+                                                    text: field.modelData.label + (field.modelData.required ? " *" : "")
+                                                    color: theme.muted; font.pixelSize: 11
+                                                    Layout.fillWidth: true; elide: Text.ElideRight
+                                                }
+                                                TextField {
+                                                    Layout.fillWidth: true
+                                                    visible: ["text", "key", "file", "directory"].indexOf(field.modelData.kind) >= 0
+                                                    text: field.modelData.value || ""
+                                                    color: theme.text
+                                                    placeholderText: field.modelData.placeholder || ""
+                                                    placeholderTextColor: theme.muted
+                                                    onEditingFinished: if (text !== (field.modelData.value || "")) field.set(text)
+                                                }
+                                                ComboBox {
+                                                    Layout.fillWidth: true
+                                                    visible: field.modelData.kind === "list"
+                                                    textRole: "label"
+                                                    model: field.modelData.items || []
+                                                    currentIndex: {
+                                                        var items = field.modelData.items || []
+                                                        for (var i = 0; i < items.length; i++)
+                                                            if (items[i].value === field.modelData.value) return i
+                                                        return -1
+                                                    }
+                                                    displayText: currentIndex < 0 ? "Choose…" : currentText
+                                                    onActivated: field.set((field.modelData.items || [])[currentIndex].value)
+                                                }
+                                                CheckBox {
+                                                    visible: field.modelData.kind === "check"
+                                                    text: field.modelData.label
+                                                    checked: field.modelData.value === "true"
+                                                    onToggled: field.set(checked ? "true" : "false")
+                                                }
+                                                RowLayout {
+                                                    Layout.fillWidth: true
+                                                    visible: field.modelData.kind === "number" || field.modelData.kind === "slider"
+                                                    Slider {
+                                                        id: numberSlider
+                                                        Layout.fillWidth: true
+                                                        from: field.modelData.min || 0
+                                                        to: field.modelData.max || 100
+                                                        stepSize: field.modelData.step || 1
+                                                        value: Number(field.modelData.value || field.modelData.default || 0)
+                                                        onPressedChanged: if (!pressed) field.set(String(value))
+                                                    }
+                                                    Text {
+                                                        text: Math.round(numberSlider.value * 100) / 100
+                                                        color: theme.text; font.pixelSize: 11
+                                                    }
+                                                }
+                                                Button {
+                                                    visible: field.modelData.kind === "button"
+                                                    text: field.modelData.label
+                                                    onClicked: field.set("clicked")
+                                                }
+                                            }
+                                        }
                                     }
                                     // ---- macro editor ----
                                     // One step per line. A list editor would need a

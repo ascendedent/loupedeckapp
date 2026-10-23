@@ -4,6 +4,7 @@ from typing import Literal
 import app_paths
 import input_backend
 import macro
+import plugin_host
 import virtual_keyboard
 from DeviceProfile import CT_EXTRA_BUTTONS, WHEEL_DISPLAY, WS_KEYS
 
@@ -429,12 +430,13 @@ class LdAction:
   # Executable action types are routed through input_backend (Wayland-capable).
   # "command"/"launch" run a shell command (detached); "hotkey" sends a key
   # combo; "text" types a string; "media" controls playback. "submenu"/"back"
-  # are navigation (handled by the controller, not here); "none" is unbound.
+  # are navigation (handled by the controller, not here); "plugin" runs an
+  # action of an installed Loupedeck plugin (plugin_host); "none" is unbound.
   # A plain alias rather than a `type` statement: that syntax is 3.12+, and the
   # oldest macOS this runs on is stuck on PySide6 6.2, which is stuck on 3.10.
   ActionType = Literal["command", "launch", "hotkey", "text", "media", "submenu", "back", "none"]
 
-  EXECUTABLE = ("command", "launch", "hotkey", "text", "media", "back")
+  EXECUTABLE = ("command", "launch", "hotkey", "text", "media", "back", "plugin")
 
   def __init__(self, action_type: ActionType ="none", action="", summary=""):
     self.a_type = action_type
@@ -482,6 +484,11 @@ class LdAction:
           virtual_keyboard.set_active(False)
         else:
           virtual_keyboard.toggle()
+      elif self.a_type == "plugin":
+        # Sent to the plugin's process and answered there, so this returns at
+        # once. A command clamps to one run per event; an adjustment carries
+        # the repeat as signed clicks (plugin_host.execute).
+        plugin_host.execute(self.action, repeat=n)
       elif self.a_type == "workspace":
         # Handled by the controller, which owns workspace state; reaching here
         # means it was dispatched down the wrong path.

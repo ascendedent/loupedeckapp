@@ -24,6 +24,7 @@ import app_paths
 import ct_support
 import label_render
 import live_s_support
+import plugin_host
 from DeviceProfile import (DeviceProfile, DIAL_ID, WHEEL_DISPLAY, WS_KEYS,
                            forced_model)
 from LdConfiguration import (LdConfiguration, LdAction, LdSubmenu, LdWorkspace,
@@ -72,6 +73,11 @@ class DeviceController:
         # Written by the dispatch thread, cleared from the message thread.
         self._rot_accum = {}
         self._rot_lock = threading.Lock()
+        # Held while drawing to the device. A whole page is drawn from the
+        # message thread (a workspace press) and single keys from the UI thread
+        # (a plugin's text changing), and without it a key from the old page
+        # could land after the new page was drawn.
+        self._render_lock = threading.RLock()
         self._rot_q = queue.Queue()
         self._rot_thread = None
         # Speed signal for the acceleration curve: when each detent arrived, and
@@ -257,7 +263,7 @@ class DeviceController:
             self._rot_accum.clear()
             self._rot_last_ts.clear()
             self._rot_interval.clear()
-        self.submenu_stack.clear()
+        self._clear_submenus()
         self.selected_ws = WS_KEYS[0]
         self.dirty = False
         if self.device:
@@ -335,6 +341,10 @@ class DeviceController:
             return getattr(action, "name", "") or "menu"
         if t == "back":
             return "Back"
+        if t == "plugin":
+            # The summary is not saved with a profile, so after a reload it is
+            # the raw "Plugin/action" string; the plugin's own name is better.
+            return plugin_host.label_for(getattr(action, "action", ""))
         summary = (getattr(action, "summary", "") or "").strip()
         if summary and summary != "none":
             return summary
@@ -427,42 +437,83 @@ class DeviceController:
         label_render.draw_label(image, label, bg_color)
         ct_support.draw_wheel(self.device, image)
 
+    def effective_image(self, menu, key):
+        """The image to draw for a control: its own, else, for a control bound
+        to a plugin action, the image or icon that action comes with."""
+        path = menu.images.get(key, "")
+        if path:
+            return path
+        act = menu.actions.get(key)
+        if act is not None and getattr(act, "a_type", "") == "plugin":
+            return plugin_host.image_for(getattr(act, "action", ""))
+        return ""
+
     def render_workspace(self, ws):
         # The UI can switch workspace on its own now, and it stays usable while
         # the device is unplugged: without this that is an AttributeError.
         if not self.device:
             return
-        self.device.reset()
-        for key in ws.images.keys():   # every image-bearing control (tb/dis/wheel)
-            path = ws.images.get(key, "")
-            label = self.effective_label(ws, key)
-            bg = self.effective_bg(ws, key)
-            if not path and not label and not bg:
-                continue
-            if key.startswith("tb"):
-                if not self.tb_on_device(key):
-                    continue
-                self.set_img_to_touchbutton(path, self.tb_name_to_keycode(key), label, bg)
-            elif key.startswith("dis"):
-                # A profile written on a CT carries side-strip images, and a
-                # Live S has no side strips: the library still maps those
-                # displays onto the first and last 60 pixels of the one screen
-                # it does have, so drawing them painted the CT's strips over
-                # that model's outer key columns (issue #3).
-                if not self.profile.has_side_displays:
-                    continue
-                side, row = key[4], int(key[3])
-                if self.side_layout(side, ws) == "single":
-                    # One image for the strip, taken from the first cell; the
-                    # other two keep their data but are not drawn.
-                    if row == 1:
-                        self.set_img_to_side_display(path, side, label, bg)
-                else:
-                    self.set_img_to_touchdisplay(path, side, row,
-                                                 label=label, bg_color=bg)
-            elif key == WHEEL_DISPLAY and self.profile.has_wheel:
-                self.set_img_to_wheel(path, label, bg)
-        self.apply_leds(ws)
+        with self._render_lock:
+            self.device.reset()
+            for key in ws.images.keys():   # every image-bearing control (tb/dis/wheel)
+                self._draw_key(ws, key)
+            self.apply_leds(ws)
+            # The plugin actions now visible are the ones whose text matters.
+            plugin_host.watch(self._plugin_values(ws))
+
+    def _draw_key(self, ws, key):
+        path = self.effective_image(ws, key)
+        label = self.effective_label(ws, key)
+        bg = self.effective_bg(ws, key)
+        if not path and not label and not bg:
+            return
+        if key.startswith("tb"):
+            if not self.tb_on_device(key):
+                return
+            self.set_img_to_touchbutton(path, self.tb_name_to_keycode(key), label, bg)
+        elif key.startswith("dis"):
+            # A profile written on a CT carries side-strip images, and a
+            # Live S has no side strips: the library still maps those
+            # displays onto the first and last 60 pixels of the one screen
+            # it does have, so drawing them painted the CT's strips over
+            # that model's outer key columns (issue #3).
+            if not self.profile.has_side_displays:
+                return
+            side, row = key[4], int(key[3])
+            if self.side_layout(side, ws) == "single":
+                # One image for the strip, taken from the first cell; the
+                # other two keep their data but are not drawn.
+                if row == 1:
+                    self.set_img_to_side_display(path, side, label, bg)
+            else:
+                self.set_img_to_touchdisplay(path, side, row,
+                                             label=label, bg_color=bg)
+        elif key == WHEEL_DISPLAY and self.profile.has_wheel:
+            self.set_img_to_wheel(path, label, bg)
+
+    @staticmethod
+    def _plugin_values(menu):
+        return [act.action for key, act in menu.actions.items()
+                if act is not None and getattr(act, "a_type", "") == "plugin"
+                and key in menu.images]
+
+    def redraw_plugin_controls(self):
+        """Redraw the controls on the page being shown that run a plugin
+        action, after one of them changed its text or image. Only those: a
+        whole-page redraw would blink every key once a second for a clock."""
+        if not self.device:
+            return
+        with self._render_lock:
+            menu = self.current_menu()
+            # Also the moment a binding made in the editor becomes visible.
+            plugin_host.watch(self._plugin_values(menu))
+            for key in menu.images.keys():
+                act = menu.actions.get(key)
+                if act is not None and getattr(act, "a_type", "") == "plugin":
+                    try:
+                        self._draw_key(menu, key)
+                    except Exception as e:
+                        print("redrawing %s failed: %s" % (key, e))
 
     # -- physical-button RGB LEDs ------------------------------------------
     @staticmethod
@@ -536,11 +587,128 @@ class DeviceController:
         """Pop one level of submenu navigation."""
         if not self.submenu_stack:
             return False
-        self.submenu_stack.pop()
+        self._pop_submenu()
         if self.device:
             self.render_workspace(self.current_menu())
         self._emit("workspace")
         return True
+
+    # -- plugin folders (a page a plugin fills itself) -----------------------
+    # Keys left to right, then down; knobs down the left, then the right.
+    _FOLDER_ENCODERS = ("enc1L", "enc2L", "enc3L", "enc1R", "enc2R", "enc3R")
+
+    def _pop_submenu(self):
+        """Leave the innermost submenu, telling a plugin its folder closed."""
+        page = self.submenu_stack.pop()
+        folder = getattr(page, "plugin_folder", "")
+        if folder:
+            plugin_host.folder_close(folder)
+        return page
+
+    def _clear_submenus(self):
+        while self.submenu_stack:
+            self._pop_submenu()
+
+    def _folder_keys(self, ws):
+        keys = [k for k in ws.images if k.startswith("tb") and self.tb_on_device(k)]
+        return sorted(keys, key=lambda k: (int(k[2]), int(k[3:])))
+
+    def _folder_workspace(self, folder, layout, page):
+        """A workspace showing one page of an open folder: Back first (unless
+        the plugin places navigation itself), the plugin's commands on the
+        keys, ◀ ▶ in the last two when they do not all fit, and its
+        adjustments on the knobs."""
+        plugin = plugin_host.parse_value(folder)[0]
+        ws = LdWorkspace()
+        keys = self._folder_keys(ws)
+        nav = str(layout.get("navigation") or "ButtonArea")
+        items = [str(n) for n in layout.get("buttons") or []]
+        slots = list(keys)
+        if nav == "ButtonArea" and slots:
+            ws.actions[slots.pop(0)] = LdAction(action_type="back", summary="Back")
+        per_page = len(slots)
+        pages = 1
+        if len(items) > per_page and per_page > 2:
+            per_page -= 2
+            pages = (len(items) + per_page - 1) // per_page
+        page = max(0, min(page, pages - 1))
+        if pages > 1:
+            ws.actions[slots[-2]] = LdAction(action_type="folderpage", action="-1", summary="\u25c0")
+            ws.actions[slots[-1]] = LdAction(action_type="folderpage", action="1", summary="\u25b6")
+        for slot, name in zip(slots, items[page * per_page:(page + 1) * per_page]):
+            ws.actions[slot] = self._folder_action(plugin, name)
+        for enc, name in zip(self._FOLDER_ENCODERS, layout.get("rotate") or []):
+            ws.actions[enc + "-l"] = LdAction(action_type="plugin", action=plugin_host.make_value(plugin, name, "-"))
+            ws.actions[enc + "-r"] = LdAction(action_type="plugin", action=plugin_host.make_value(plugin, name, "+"))
+        for enc, name in zip(self._FOLDER_ENCODERS, layout.get("press") or []):
+            if name:
+                ws.actions[enc] = self._folder_action(plugin, name)
+        return ws, page, pages
+
+    @staticmethod
+    def _folder_action(plugin, name):
+        if name == "__folder_up__":
+            return LdAction(action_type="back", summary="Back")
+        if name in ("__folder_left__", "__folder_right__"):
+            return LdAction(action_type="folderpage", action="-1" if name.endswith("left__") else "1",
+                            summary="\u25c0" if name.endswith("left__") else "\u25b6")
+        if not name:
+            return LdAction()
+        return LdAction(action_type="plugin", action=plugin_host.make_value(plugin, name))
+
+    def open_plugin_folder(self, folder):
+        """Open a plugin's folder on the device, as a submenu that is built
+        from what the plugin says rather than read from the profile."""
+        layout = plugin_host.folder_open(folder)
+        if layout is None:
+            print("the plugin did not describe folder %s" % folder)
+            return False
+        ws, page, pages = self._folder_workspace(folder, layout, 0)
+        entry = LdSubmenu(name=plugin_host.label_for(folder), action=ws)
+        entry.plugin_folder = folder
+        entry.folder_page = page
+        entry.folder_layout = layout
+        self.submenu_stack.append(entry)
+        if self.device:
+            self.render_workspace(ws)
+        self._emit("workspace")
+        return True
+
+    def _open_folder_entry(self):
+        if self.submenu_stack and getattr(self.submenu_stack[-1], "plugin_folder", ""):
+            return self.submenu_stack[-1]
+        return None
+
+    def _turn_folder_page(self, delta):
+        entry = self._open_folder_entry()
+        if entry is None:
+            return
+        self._show_folder(entry, entry.folder_layout, entry.folder_page + delta)
+
+    def _show_folder(self, entry, layout, page):
+        ws, page, _pages = self._folder_workspace(entry.plugin_folder, layout, page)
+        entry.action = ws
+        entry.folder_page = page
+        entry.folder_layout = layout
+        if self.device:
+            self.render_workspace(ws)
+        self._emit("workspace")
+
+    def refresh_plugin_folder(self, folder=None):
+        """The plugin changed what is in its folder: show the new contents,
+        on the same page where it still exists."""
+        entry = self._open_folder_entry()
+        if entry is None or (folder and entry.plugin_folder != folder):
+            return
+        layout = plugin_host.folder_layout(entry.plugin_folder)
+        if layout is not None:
+            self._show_folder(entry, layout, entry.folder_page)
+
+    def close_plugin_folder(self, folder):
+        """The plugin closed its folder itself."""
+        entry = self._open_folder_entry()
+        if entry is not None and entry.plugin_folder == folder:
+            self.close_submenu()
 
     def set_image(self, key, path):
         """Set (or clear, when path is falsy) the image for an image-bearing
@@ -732,7 +900,7 @@ class DeviceController:
         if not self.config.profile:
             return
         self.config.load(self.config.profile)
-        self.submenu_stack.clear()
+        self._clear_submenus()
         if self.device:
             self.render_workspace(self.current_menu())
         self.dirty = False
@@ -760,7 +928,7 @@ class DeviceController:
             self._rot_last_ts.clear()
             self._rot_interval.clear()
         if self.submenu_stack:
-            self.submenu_stack.clear()
+            self._clear_submenus()
         self.selected_ws = ws_key
         # render_workspace applies images + LED colours (incl. selected=green)
         self.render_workspace(self.get_ws(ws_key))
@@ -891,9 +1059,13 @@ class DeviceController:
             self._emit("workspace")
         elif action.a_type == "back":
             if self.submenu_stack:
-                self.submenu_stack.pop()
+                self._pop_submenu()
                 self.render_workspace(self.current_menu())
                 self._emit("workspace")
+        elif action.a_type == "folderpage":
+            self._turn_folder_page(int(action.action or 0))
+        elif action.a_type == "plugin" and plugin_host.is_folder(action.action):
+            self.open_plugin_folder(action.action)
         else:
             action.execute()
 
@@ -1070,7 +1242,8 @@ class DeviceController:
     def run_bound_action(self, str_key, repeat=1):
         action = self.action_for(str_key)
         if action is not None:
-            if action.a_type in ("submenu", "back", "workspace", "profile"):
+            if action.a_type in ("submenu", "back", "workspace", "profile", "folderpage") or (
+                    action.a_type == "plugin" and plugin_host.is_folder(action.action)):
                 # Navigation never repeats: N steps into the same submenu, or
                 # the same workspace, is still one.
                 self.on_touch_press(str_key)
