@@ -1349,10 +1349,15 @@ class Backend(QObject):
         self.stateChanged.emit()
 
     @Slot(str, str, str)
-    def setPluginProfileValue(self, slot_key, value, new_value):
-        """A profile action's value: the text typed or the item picked."""
+    @Slot(str, str, str, bool)
+    def setPluginProfileValue(self, slot_key, value, new_value, final=True):
+        """A profile action's value: the text typed or the item picked.
+        Saved quietly (final=False) while it is being typed: announcing the
+        change rebuilds the inspector, which would take the field away from
+        the person typing in it."""
         self._ctl.set_action(slot_key, "plugin", plugin_host.with_values(value, new_value))
-        self.stateChanged.emit()
+        if final:
+            self.stateChanged.emit()
 
     @Slot(str, str, str)
     def pluginAccount(self, plugin, account, action):

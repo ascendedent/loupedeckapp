@@ -2489,14 +2489,39 @@ ApplicationWindow {
                                             color: theme.muted; font.pixelSize: 11; wrapMode: Text.WordWrap
                                         }
                                         TextField {
+                                            id: profileText
                                             Layout.fillWidth: true
                                             visible: pluginForm.form.kind === "profile" && pluginForm.form.type === "text"
                                             text: pluginForm.form.value || ""
                                             color: theme.text
-                                            placeholderText: "value"
+                                            placeholderText: "Type the value for this key"
                                             placeholderTextColor: theme.muted
-                                            onEditingFinished: backend.setPluginProfileValue(
-                                                pluginForm.slot, pluginForm.bound, text)
+                                            // Saved as it is typed (after a pause), not only on
+                                            // Enter or leaving the field: a click on the device view
+                                            // does not take focus, so the field is never "left".
+                                            // Typing saves quietly (the inspector stays as it is);
+                                            // Enter, leaving the field or choosing another key
+                                            // saves and refreshes.
+                                            property bool dirty: false
+                                            function save(final) {
+                                                saveTimer.stop()
+                                                if (!dirty) return
+                                                if (final) dirty = false
+                                                backend.setPluginProfileValue(pluginForm.slot, pluginForm.bound, text, final)
+                                            }
+                                            onTextEdited: { dirty = true; saveTimer.restart() }
+                                            onEditingFinished: save(true)
+                                            // Going away (another key chosen): saved, quietly, as
+                                            // the inspector is already being rebuilt.
+                                            Component.onDestruction: if (dirty) save(false)
+                                            Timer { id: saveTimer; interval: 600; onTriggered: profileText.save(false) }
+                                        }
+                                        Text {
+                                            Layout.fillWidth: true
+                                            visible: pluginForm.form.kind === "profile" && !(pluginForm.form.value || "")
+                                            text: "This action does nothing useful until it has a value."
+                                            color: theme.warn
+                                            font.pixelSize: 11; wrapMode: Text.WordWrap
                                         }
                                         ComboBox {
                                             Layout.fillWidth: true

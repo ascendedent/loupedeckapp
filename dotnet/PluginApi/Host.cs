@@ -197,10 +197,18 @@ namespace Loupedeck.Host
             var bar = name.IndexOf('|');
             var cls = bar < 0 ? name : name.Substring(0, bar);
             if (bar >= 0) parameter = name.Substring(bar + 1);
+            PluginAction found;
             lock (Actions)
             {
-                return Actions.FirstOrDefault(a => a.Name == cls);
+                found = Actions.FirstOrDefault(a => a.Name == cls);
             }
+            // A profile action bound before its value was filled in. The
+            // official software never runs one without a value, so plugins
+            // assume a string (Weather splits it); an empty one is the
+            // nearest thing.
+            var dynamic = found as PluginDynamicAction;
+            if (parameter == null && dynamic != null && dynamic.ProfileActionType != null) parameter = "";
+            return found;
         }
 
         // -- loading --
