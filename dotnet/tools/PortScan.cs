@@ -51,7 +51,7 @@ static class PortScan
     static readonly Regex Interesting = new Regex(
         @"\.exe\b|\.bat\b|\.ps1\b|powershell|\bcmd\b|osascript|AppleScript|tell application|" +
         @"[A-Za-z]:\\|%[A-Za-z]+%|\\\\|HKEY_|SOFTWARE\\|/Applications/|/Library/|/System/|" +
-        @"~/|\bopen -a\b|\.app\b|\bwmic\b|\bnircmd\b",
+        @"~/|\bopen -a\b|\.app\b|\bwmic\b|\bnircmd\b|^/[ck]\s",
         RegexOptions.IgnoreCase);
 
     static string Clean(string s)
@@ -178,6 +178,8 @@ static class PortScan
             .Where(f => f.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
                         || f.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
             .Where(f => !f.Contains(Path.DirectorySeparatorChar + "__MACOSX" + Path.DirectorySeparatorChar))
+            // Originals kept by PortPatch: the plugin as it was, not as it runs.
+            .Where(f => !f.Substring(root.Length).StartsWith(Path.DirectorySeparatorChar + ".orig" + Path.DirectorySeparatorChar))
             .Where(f => !string.Equals(Path.GetFileName(f), "PluginApi.dll", StringComparison.OrdinalIgnoreCase))
             .OrderBy(f => f, StringComparer.Ordinal);
         foreach (var f in files) Scan(root, f);

@@ -30,6 +30,7 @@ import setup_check
 import tray
 import platform_env
 import plugin_host
+import plugin_port
 import profile_store
 import window_watcher
 import system_shortcuts
@@ -1256,24 +1257,30 @@ class Backend(QObject):
             error = plugin_host.register_url_handler()
             if error:
                 self.notify.emit(error)
-        if info and info.get("windowsOnly"):
-            self.importNotes.emit(
-                "Installed %s" % name,
-                "This plugin is packaged for Windows only. Plugins like that "
-                "usually call into Windows itself, so it may not start here, "
-                "or some actions may do nothing. Its log says what failed.")
-        elif info and info.get("runtime") == "dotnet":
-            # Say up front what will not work, rather than leave missing
-            # actions to be noticed.
+        if info and info.get("runtime") == "dotnet":
+            # Say up front what was converted (plugin_port, at install) and
+            # what will not work, rather than leave it to be noticed.
+            parts = []
+            port = plugin_port.conversion(name)
+            if port and port.get("converted"):
+                parts.append("Converted to run here:\n" +
+                             "\n".join("• " + c for c in port["converted"]))
+            if port and port.get("remaining"):
+                parts.append("Still tied to Windows or macOS, so some of its actions "
+                             "may do nothing:\n" + "\n".join("• " + r for r in port["remaining"]))
+            elif port is None and info.get("windowsOnly"):
+                parts.append("This plugin is packaged for Windows only. Plugins like that "
+                             "usually call into Windows itself, so it may not start here, "
+                             "or some actions may do nothing. Its log says what failed.")
             missing = plugin_host.missing_api(info["entry"])
             if missing:
                 types = sorted({m.split("::")[0].replace("Loupedeck.", "") for m in missing})
-                self.importNotes.emit(
-                    "Installed %s" % name,
-                    "It uses %d parts of Logitech's plugin API that are not "
-                    "implemented here yet, so some of its actions may be missing "
-                    "or do nothing. They are in:\n\n%s"
-                    % (len(missing), ", ".join(types)))
+                parts.append("It uses %d parts of Logitech's plugin API that are not "
+                             "implemented here yet, so some of its actions may be missing "
+                             "or do nothing. They are in:\n\n%s"
+                             % (len(missing), ", ".join(types)))
+            if parts:
+                self.importNotes.emit("Installed %s" % name, "\n\n".join(parts))
         return ""
 
     @Slot(str, result=str)

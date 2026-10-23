@@ -175,6 +175,20 @@ python3 plugin_port.py Some.lplug4         # one plugin, in detail
 python3 plugin_port.py ~/Downloads         # every .lplug4 there, and what to write first
 ```
 
+What has a Linux stand-in is **converted when the plugin is installed**, and the install note
+says what was converted and what is still tied to Windows or macOS:
+
+- pages and files a plugin opens the Windows or macOS way (`cmd /c start`, `explorer`, `rundll32
+  url.dll`, `open`, or a URL protocol the plugin registered itself, as the Weather plugin does)
+  open with `xdg-open`;
+- bundled libraries with a stand-in are replaced by it: `WindowsInput` (InputSimulator) sends its
+  keys, text and wheel through the app's input backend.
+
+`dotnet/tools/PortPatch.cs` does the editing; the originals are kept in the plugin's `.orig/`
+folder (`python3 plugin_port.py revert <name>` puts them back), and `.port.json` records what was
+done. Mono's machine registry is per plugin (`MONO_REGISTRY_PATH` in the plugin's data folder),
+so plugins that register things at load work.
+
 ### Loupedeck profiles (.lp5)
 
 Profiles exported from Loupedeck's own software, and the ones its marketplace offers for an

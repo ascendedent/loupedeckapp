@@ -59,6 +59,8 @@ namespace Loupedeck
             var d = new Dictionary<Int32, String>
             {
                 { 0x08, "backspace" }, { 0x09, "tab" }, { 0x0D, "enter" }, { 0x13, "pause" },
+                // The either-side modifiers, which WindowsInput's users send.
+                { 0x10, "shift" }, { 0x11, "ctrl" }, { 0x12, "alt" },
                 { 0x14, "capslock" }, { 0x1B, "escape" }, { 0x20, "space" }, { 0x21, "pageup" },
                 { 0x22, "pagedown" }, { 0x23, "end" }, { 0x24, "home" }, { 0x25, "left" }, { 0x26, "up" },
                 { 0x27, "right" }, { 0x28, "down" }, { 0x2C, "printscreen" }, { 0x2D, "insert" },
@@ -81,6 +83,13 @@ namespace Loupedeck
             for (var c = 'a'; c <= 'z'; c++) d[0x41 + (c - 'a')] = c.ToString();
             for (var f = 1; f <= 24; f++) d[0x6F + f] = "f" + f;
             return d;
+        }
+
+        // The app's name for a Win32 virtual-key code, or null.
+        internal static String Name(Int32 virtualKey)
+        {
+            String name;
+            return Names.TryGetValue(virtualKey, out name) ? name : null;
         }
 
         internal static String Combo(VirtualKeyCode key, ModifierKey modifiers)

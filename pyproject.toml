@@ -156,6 +156,7 @@ py-modules = [
     "dotnet/PluginApi/Keys.cs",
     "dotnet/PluginApi/Native.cs",
     "dotnet/PluginApi/Plugin.cs",
+    "dotnet/PluginApi/Shims.cs",
 ]
 # The .NET 8/10 build of the same sources (needs the .NET SDK).
 "share/loupedeckapp/dotnet/core" = [
@@ -165,7 +166,11 @@ py-modules = [
 ]
 "share/loupedeckapp/dotnet/LoupedeckHost" = ["dotnet/LoupedeckHost/Program.cs"]
 "share/loupedeckapp/dotnet/tools" = ["dotnet/tools/ApiScan.cs",
-    "dotnet/tools/PortScan.cs"]
+    "dotnet/tools/PortScan.cs", "dotnet/tools/PortPatch.cs"]
+"share/loupedeckapp/dotnet/shims/WindowsInput" = [
+    "dotnet/shims/WindowsInput/VirtualKeyCode.cs",
+    "dotnet/shims/WindowsInput/WindowsInput.cs",
+]
 # setup_check points at these by path, so an install that leaves them out
 # tells the user to copy a file that is not there.
 "share/loupedeckapp/packaging" = [

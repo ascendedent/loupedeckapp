@@ -57,6 +57,14 @@ namespace Loupedeck.Host
             Send(Event("SendText", new Dictionary<String, Object> { { "text", text } }));
         }
 
+        // Positive clicks scroll up (or right), negative down (or left), as
+        // Windows' wheels do.
+        internal static void SendScroll(Int32 clicks, Boolean horizontal)
+        {
+            if (clicks != 0)
+                Send(Event("Scroll", new Dictionary<String, Object> { { "clicks", clicks }, { "horizontal", horizontal } }));
+        }
+
         internal static void Log(String text)
         {
             Console.Out.WriteLine("{0:HH:mm:ss} host {1}", DateTime.Now, text);

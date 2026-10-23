@@ -1,7 +1,7 @@
-"""What stands between a Windows or macOS Loupedeck plugin and running here.
+"""What stands between a Windows or macOS Loupedeck plugin and running here,
+and converting what has a Linux stand-in.
 
-The first half of porting: read a package and say what in it is bound to one
-platform, without running any of it. A .NET plugin's assemblies are read by
+Reading: a package's platform-bound parts, without running any of it. A .NET plugin's assemblies are read by
 dotnet/tools/PortScan.cs (metadata, through Mono.Cecil); a Node plugin's
 JavaScript and native addons are read here. The findings are grouped by what
 a Linux stand-in would have to do (send keys, find the focused window, set
@@ -10,10 +10,24 @@ the volume...), which is what decides which stand-ins to write first:
     python3 plugin_port.py Some.lplug4            one plugin, in detail
     python3 plugin_port.py ~/Downloads            every package there, ranked
     python3 plugin_port.py ... --json             the same, for a program
+    python3 plugin_port.py convert <name>         convert an installed plugin
+    python3 plugin_port.py revert <name>          put it back as installed
 
 A plugin's own code is reported in full. Libraries it bundles are judged as a
 whole when they are known (Newtonsoft.Json runs anywhere; AudioSwitcher's
 CoreAudio is Windows audio), so their internals do not drown the report.
+
+Converting (plugin_host.install does it for every .NET plugin): findings a
+rule covers are fixed in the installed copy by dotnet/tools/PortPatch.cs,
+originals kept in .orig/ and what was done recorded in .port.json:
+
+  - Process.Start calls that open things the Windows or macOS way (cmd /c
+    start, explorer, rundll32 url.dll, open, a URL protocol the plugin
+    registered) go to ProcessShim (dotnet/PluginApi/Shims.cs): xdg-open;
+  - bundled libraries with a stand-in (STAND_INS, dotnet/shims/) are
+    replaced by it and the plugin's references pointed at it.
+
+Each new rule is written once and covers every later plugin that needs it.
 
 Qt-free.
 """
@@ -185,7 +199,7 @@ FRAMEWORK_AREAS = [
 ]
 
 # A shell or a platform's own tool: an action that runs one does nothing here.
-SHELLS = re.compile(r"powershell|\bcmd(\.exe)?\b|osascript|AppleScript|tell application|"
+SHELLS = re.compile(r"powershell|\bcmd(\.exe)?\b|\bexplorer(\.exe)?\b|rundll32|^/[ck]\s|osascript|AppleScript|tell application|"
                     r"\bopen -a\b|\bwmic\b|\bnircmd|\breg(\.exe)? (add|query)|taskkill|\.bat\b|\.ps1\b|"
                     r"\bsvcl\b|\bsoundvolumeview\b",
                     re.IGNORECASE)
@@ -421,7 +435,9 @@ def _analyze_dotnet(root, entry):
         if platform not in ("any", "native"):
             findings.append(_finding("library", area, name, platform, "merged into " + entry_file))
 
-    if framework.startswith(".NETFramework"):
+    # The host runs anything not built for .NET (Core) on Mono, including an
+    # assembly that does not say what it was built for.
+    if not framework.startswith(".NETCoreApp"):
         for f in findings:
             for covered, why in MONO_COVERS:
                 if covered(f):
@@ -495,37 +511,60 @@ def _merge(findings):
     return sorted(merged.values(), key=lambda f: (f["area"], f["kind"], f["what"]))
 
 
+def _report(label, meta=None, error=""):
+    meta = meta or {}
+    return {"package": label, "name": meta.get("name", ""),
+            "displayName": meta.get("displayName") or meta.get("name", ""),
+            "version": meta.get("version", ""),
+            "runtime": plugin_host.runtime_of(meta) if meta else "",
+            "builds": [k[len("pluginFolder"):].lower() for k in plugin_host._DOTNET_FOLDERS if meta.get(k)],
+            "framework": "", "entry": "", "apps": [], "unknownLibraries": [], "findings": [],
+            "verdict": "unreadable", "error": error}
+
+
+def analyze_folder(root, meta, label=""):
+    """A report on a package already unpacked at root (an installed plugin,
+    say): as analyze() gives for the .lplug4."""
+    report = _report(label or root, meta)
+    names = set()
+    for dirpath, dirs, files in os.walk(root):
+        dirs[:] = [d for d in dirs if d != ".orig"]
+        for f in files:
+            names.add(os.path.relpath(os.path.join(dirpath, f), root).replace(os.sep, "/"))
+    entry = plugin_host.package_entry(meta, names)
+    report["entry"] = entry
+    try:
+        if not entry:
+            raise RuntimeError("the package does not have the file it names to start")
+        if report["runtime"] == "dotnet":
+            findings, framework, apps, unknown = _analyze_dotnet(root, entry)
+            report.update(framework=framework, apps=apps, unknownLibraries=unknown)
+        else:
+            findings = _analyze_node(root, entry)
+        report["findings"] = _merge(findings)
+    except (RuntimeError, OSError, ValueError, subprocess.TimeoutExpired) as e:
+        report["error"] = str(e)
+        return report
+    report["verdict"] = verdict(report)
+    return report
+
+
 def analyze(package):
     """A report on one .lplug4: what it is, which builds it ships, what in the
-    build that would run here is bound to Windows or macOS, and a verdict."""
+    build that would run here is bound to Windows or macOS, what the rules
+    below would convert, and a verdict."""
     meta, error = plugin_host.inspect_package(package)
-    report = {"package": package, "name": "", "displayName": "", "runtime": "", "builds": [],
-              "framework": "", "apps": [], "unknownLibraries": [], "findings": [],
-              "verdict": "unreadable", "error": error}
     if error:
-        return report
-    report.update(name=meta.get("name", ""), displayName=meta.get("displayName") or meta.get("name", ""),
-                  version=meta.get("version", ""),
-                  runtime=plugin_host.runtime_of(meta),
-                  builds=[k[len("pluginFolder"):].lower() for k in plugin_host._DOTNET_FOLDERS if meta.get(k)])
+        return _report(package, error=error)
     tmp = tempfile.mkdtemp(prefix="plugin-port-")
     try:
         with zipfile.ZipFile(package) as zf:
             plugin_host.extract(zf, tmp)
-            names = set(plugin_host._members(zf))
-        entry = plugin_host.package_entry(meta, names)
-        if report["runtime"] == "dotnet":
-            findings, framework, apps, unknown = _analyze_dotnet(tmp, entry)
-            report.update(framework=framework, apps=apps, unknownLibraries=unknown)
-        else:
-            findings = _analyze_node(tmp, entry)
-        report["findings"] = _merge(findings)
-    except (RuntimeError, OSError, ValueError, zipfile.BadZipFile, subprocess.TimeoutExpired) as e:
-        report["error"] = str(e)
-        return report
+        report = analyze_folder(tmp, meta, package)
+    except (OSError, ValueError, zipfile.BadZipFile) as e:
+        return _report(package, meta, str(e))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
-    report["verdict"] = verdict(report)
     return report
 
 
@@ -544,15 +583,86 @@ def blocking(report):
     return out
 
 
+# -- converting ------------------------------------------------------------------
+# Stand-ins for Windows-only libraries plugins bundle: assembly name -> the
+# stand-in, as dotnet/build.py builds it (under dotnet/bin/).
+STAND_INS = {
+    "WindowsInput": "shims/WindowsInput.dll",
+}
+
+# Commands that only open something (a page, a folder, a file), the Windows
+# or macOS way. ProcessShim (dotnet/PluginApi/Shims.cs) runs xdg-open for
+# them; a plugin's Process.Start calls are pointed at it.
+OPENERS = re.compile(
+    r"""^\s*"?(?:[A-Za-z]:\\[^"]*\\)?cmd(?:\.exe)?"?\s+/[ck]\s+"?start\b"""
+    r"""|^/[ck]\s+"?start\b"""
+    r"""|^\s*"?(?:[A-Za-z]:\\[^"]*\\)?explorer(?:\.exe)?"?(?:\s+\S|$)"""
+    r"""|rundll32(?:\.exe)?"?\s+url\.dll,\s*FileProtocolHandler"""
+    r"""|Start-Process\s+(?:-FilePath\s+)?['"]?\w+://"""
+    r"""|^open\s+(?!-a\b)\S""",
+    re.IGNORECASE)
+
+BARE_CMD = re.compile(r"""^\s*"?(?:[A-Za-z]:\\[^"]*\\)?cmd(?:\.exe)?"?\s*$""", re.IGNORECASE)
+
+# Where a conversion records what it did, beside the plugin.
+PORT_STATE = ".port.json"
+
+
+def _rule(f, report):
+    """The rule that covers a finding, or ""."""
+    if report.get("runtime") != "dotnet":
+        return ""
+    if f["kind"] == "library" and f["what"] in STAND_INS and f["where"] == "bundled":
+        return "swap"
+    if f["kind"] == "command" and OPENERS.search(f["what"]):
+        return "process"
+    # "cmd.exe" alone, its arguments in another string ("/c start <url>"):
+    # covered where the same file is seen opening things that way.
+    if f["kind"] == "command" and BARE_CMD.match(f["what"]):
+        files = set(f["where"].split(", "))
+        if any(g["kind"] == "command" and OPENERS.search(g["what"]) and files & set(g["where"].split(", "))
+               for g in report["findings"]):
+            return "process"
+    return ""
+
+
+def remaining(report):
+    """The blocking findings no rule covers yet."""
+    return [f for f in blocking(report) if not _rule(f, report)]
+
+
+def plan(report):
+    """What converting the plugin would do: {"process": [files whose
+    Process.Start calls go to ProcessShim], "swap": [libraries replaced by
+    stand-ins]}."""
+    out = {"process": [], "swap": []}
+    for f in blocking(report):
+        rule = _rule(f, report)
+        if rule == "process":
+            for where in f["where"].split(", "):
+                if where and where not in out["process"]:
+                    out["process"].append(where)
+        elif rule == "swap" and f["what"] not in out["swap"]:
+            out["swap"].append(f["what"])
+    return out
+
+
 def verdict(report):
-    """"runs" (nothing bound to another platform was found), "convertible"
-    (bound, in ways a Linux stand-in could cover) or "unreadable"."""
+    """"runs" (nothing bound to another platform was found), "converts"
+    (bound, but every part of it is covered by a rule here), "needs"
+    (stand-ins not written yet) or "unreadable"."""
     if report.get("error"):
         return "unreadable"
-    return "convertible" if blocking(report) else "runs"
+    if not blocking(report):
+        return "runs"
+    return "needs" if remaining(report) else "converts"
 
 
 # -- reporting ---------------------------------------------------------------------
+VERDICTS = {"runs": "runs as it is", "converts": "converts: every part listed is covered",
+            "needs": "needs Linux stand-ins for what is not marked converted",
+            "unreadable": "could not be read"}
+RULE_NAMES = {"process": "opens with xdg-open", "swap": "Linux stand-in library"}
 def describe(report):
     """A report as text, for one plugin."""
     lines = ["%s (%s)" % (report["displayName"] or os.path.basename(report["package"]), report["name"])]
@@ -564,12 +674,13 @@ def describe(report):
     if report["apps"]:
         lines.append("  controls: %s (it only does something where that application runs)"
                      % ", ".join(report["apps"]))
-    lines.append("  verdict: %s" % {"runs": "runs as it is",
-                                    "convertible": "needs Linux stand-ins for what is listed"}[report["verdict"]])
+    lines.append("  verdict: %s" % VERDICTS[report["verdict"]])
     blocked = blocking(report)
     for f in blocked:
-        lines.append("    %-10s %-9s %s%s" % (f["area"], f["kind"], f["what"][:100],
-                                              "  (x%d)" % f["count"] if f["count"] > 1 else ""))
+        rule = _rule(f, report)
+        lines.append("    %-10s %-9s %s%s%s" % (f["area"], f["kind"], f["what"][:100],
+                                                "  (x%d)" % f["count"] if f["count"] > 1 else "",
+                                                "  -> converted: " + RULE_NAMES[rule] if rule else ""))
     other = [f for f in report["findings"] if f not in blocked]
     if other:
         lines.append("  also seen:")
@@ -590,7 +701,7 @@ def summarize(reports):
     for r in reports:
         verdicts[r["verdict"]] = verdicts.get(r["verdict"], 0) + 1
         seen_areas, seen_things = set(), set()
-        for f in blocking(r):
+        for f in remaining(r):
             seen_areas.add(f["area"])
             seen_things.add((f["area"], f["kind"], f["what"]))
         for a in seen_areas:
@@ -605,15 +716,15 @@ def summarize(reports):
                          key=lambda x: (-x[3], x[0], x[2])),
         # What each plugin still needs, by area: a plugin is unlocked when
         # all of its areas are covered.
-        "needs": sorted(([r["name"], sorted({f["area"] for f in blocking(r)})] for r in reports
-                         if r["verdict"] == "convertible"), key=lambda x: (len(x[1]), x[0])),
+        "needs": sorted(([r["name"], sorted({f["area"] for f in remaining(r)})] for r in reports
+                         if r["verdict"] == "needs"), key=lambda x: (len(x[1]), x[0])),
     }
 
 
 def describe_summary(s):
     lines = ["%d plugins: %s" % (s["plugins"], ", ".join("%d %s" % (n, v) for v, n in sorted(s["verdicts"].items())))]
     lines.append("")
-    lines.append("areas, by how many plugins need them:")
+    lines.append("still to write, by how many plugins need it:")
     for area, n, names in s["areas"]:
         lines.append("  %-12s %3d  %s" % (area, n, ", ".join(names)[:110]))
     lines.append("")
@@ -621,10 +732,132 @@ def describe_summary(s):
     for area, kind, what, n, _names in s["things"][:40]:
         lines.append("  %3d  %-10s %-9s %s" % (n, area, kind, what))
     lines.append("")
-    lines.append("what each convertible plugin needs:")
+    lines.append("what each plugin still needs:")
     for name, need in s["needs"]:
         lines.append("  %-28s %s" % (name, ", ".join(need)))
     return "\n".join(lines)
+
+
+def _tools():
+    """(mono, bin dir) with PortPatch and the stand-ins built, or an error."""
+    found = _scanner()
+    if isinstance(found, str):
+        return found
+    mono, _scan, bin_dir = found
+    if not os.path.isfile(os.path.join(bin_dir, "PortPatch.exe")):
+        return "PortPatch was not built (it needs Mono.Cecil)"
+    return mono, bin_dir
+
+
+def _api_for(entry_path, bin_dir):
+    """Our PluginApi.dll for the runtime the plugin runs on: the .NET 10
+    build for plugins built for .NET 8/10, the Mono one otherwise."""
+    if plugin_host.target_framework(entry_path) == "core":
+        core, error = plugin_host.dotnet_core_host()
+        if not error:
+            return os.path.join(os.path.dirname(core), "PluginApi.dll")
+    return os.path.join(bin_dir, "PluginApi.dll")
+
+
+def _keep_original(folder, rel):
+    """Copy folder/rel to folder/.orig/rel, once."""
+    src = os.path.join(folder, rel)
+    dst = os.path.join(folder, ".orig", rel)
+    if os.path.isfile(src) and not os.path.exists(dst):
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        shutil.copy2(src, dst)
+
+
+def conversion(name):
+    """What converting an installed plugin did, as convert_installed()
+    recorded it, or None if it has not been converted."""
+    try:
+        with open(os.path.join(plugin_host.plugins_dir(), name, PORT_STATE), encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def convert_installed(name):
+    """Convert an installed plugin to run here, once: Process.Start calls
+    that open things go to ProcessShim, bundled Windows-only libraries that
+    have a stand-in are replaced by it. Originals are kept in .orig/.
+
+    Returns {"converted": [what was done], "remaining": [what is still bound
+    to Windows or macOS], "verdict": ..., "error": ""}, also saved beside the
+    plugin. A plugin that needs nothing is recorded as such."""
+    folder = os.path.join(plugin_host.plugins_dir(), name)
+    done = conversion(name)
+    if done is not None:
+        return done
+    state = {"converted": [], "remaining": [], "verdict": "", "error": ""}
+    try:
+        with open(plugin_host.metadata_path(folder), encoding="utf-8") as f:
+            meta = plugin_host.parse_metadata(f.read())
+    except OSError as e:
+        state["error"] = str(e)
+        return state
+    report = analyze_folder(folder, meta, name)
+    state["verdict"] = report["verdict"]
+    state["error"] = report["error"]
+    if report["error"]:
+        return state            # not saved: a later attempt may manage
+    todo = plan(report)
+    if todo["process"] or todo["swap"]:
+        tools = _tools()
+        if isinstance(tools, str):
+            state["error"] = tools
+            return state
+        mono, bin_dir = tools
+        entry_dir = os.path.dirname(os.path.join(folder, report["entry"]))
+        args = [mono, os.path.join(bin_dir, "PortPatch.exe"), folder,
+                _api_for(os.path.join(folder, report["entry"]), bin_dir)]
+        for rel in todo["process"]:
+            args += ["--process", os.path.relpath(os.path.join(entry_dir, rel), folder)]
+        for lib in todo["swap"]:
+            args += ["--swap", lib, os.path.join(bin_dir, STAND_INS[lib])]
+        out = subprocess.run(args, capture_output=True, text=True, timeout=300,
+                             env=dict(os.environ, MONO_PATH=bin_dir))
+        if out.returncode != 0:
+            state["error"] = "PortPatch failed: %s" % out.stderr.strip()[-500:]
+            return state
+        for line in out.stdout.splitlines():
+            kind, _, rest = line.partition("\t")
+            what, _, detail = rest.partition("\t")
+            if kind == "process":
+                state["converted"].append("%s opens pages and files with xdg-open (%s calls)" % (what, detail))
+            elif kind == "skip":
+                state["converted"].append("%s: %s" % (what, detail))
+        for lib in todo["swap"]:
+            for dirpath, dirs, files in os.walk(folder):
+                dirs[:] = [d for d in dirs if d != ".orig"]
+                for f in files:
+                    if f.lower() == lib.lower() + ".dll":
+                        rel = os.path.relpath(os.path.join(dirpath, f), folder)
+                        _keep_original(folder, rel)
+                        shutil.copy2(os.path.join(bin_dir, STAND_INS[lib]), os.path.join(folder, rel))
+            state["converted"].append("%s is replaced by a Linux stand-in" % lib)
+    state["remaining"] = ["%s: %s" % (f["area"], f["what"]) for f in remaining(report)]
+    with open(os.path.join(folder, PORT_STATE), "w", encoding="utf-8") as f:
+        json.dump(state, f, indent=1)
+    return state
+
+
+def revert(name):
+    """Put a converted plugin back as it was installed. Returns an error, or ""."""
+    folder = os.path.join(plugin_host.plugins_dir(), name)
+    orig = os.path.join(folder, ".orig")
+    if os.path.isdir(orig):
+        for dirpath, _dirs, files in os.walk(orig):
+            for f in files:
+                src = os.path.join(dirpath, f)
+                shutil.copy2(src, os.path.join(folder, os.path.relpath(src, orig)))
+        shutil.rmtree(orig, ignore_errors=True)
+    try:
+        os.remove(os.path.join(folder, PORT_STATE))
+    except OSError:
+        pass
+    return ""
 
 
 def _packages(paths):
@@ -639,6 +872,12 @@ def _packages(paths):
 
 
 def _main(argv):
+    if argv[:1] in (["convert"], ["revert"]) and len(argv) == 2:
+        if argv[0] == "revert":
+            return 1 if revert(argv[1]) else 0
+        state = convert_installed(argv[1])
+        print(json.dumps(state, indent=1))
+        return 1 if state["error"] else 0
     as_json = "--json" in argv
     paths = [a for a in argv if not a.startswith("--")]
     if not paths:

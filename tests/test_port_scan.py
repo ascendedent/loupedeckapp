@@ -118,7 +118,7 @@ c.eq("a bundled PluginApi.dll is never opened",
 r = pp.analyze(package)
 c.eq("it is read", r["error"], "")
 c.eq("it is a .NET plugin with a Windows build only", (r["runtime"], r["builds"]), ("dotnet", ["win"]))
-c.eq("it needs stand-ins", r["verdict"], "convertible")
+c.eq("it needs stand-ins not written yet", r["verdict"], "needs")
 found = {(f["area"], f["kind"], f["what"]) for f in r["findings"]}
 c.eq("sending keys is input", ("input", "native", "user32!SendInput") in found, True)
 c.eq("even declared and never called", ("input", "native", "user32!keybd_event") in found, True)
@@ -134,7 +134,9 @@ c.eq("merged library code is judged as the library",
      any("GetTickCount" in w for _a, _k, w in found), False)
 c.eq("the application it controls is known", r["apps"], ["FooApp"])
 blocking_areas = sorted({f["area"] for f in pp.blocking(r)})
-c.eq("what it needs, by area", blocking_areas, ["audio", "input", "registry", "shell", "windows"])
+c.eq("what it needs, by area (Mono covers the registry)", blocking_areas, ["audio", "input", "shell", "windows"])
+c.eq("the registry is listed as Mono's",
+     [f["detail"] for f in r["findings"] if f["area"] == "registry"][:1], ["Mono keeps a registry of its own"])
 
 # -- a Node plugin --------------------------------------------------------------------
 node = os.path.join(tmp, "NodeMac.lplug4")
@@ -173,7 +175,7 @@ c.eq("a plugin with nothing platform-bound runs as it is", r["verdict"], "runs")
 
 # -- across many -------------------------------------------------------------------
 s = pp.summarize([pp.analyze(package), pp.analyze(node), r])
-c.eq("the summary counts verdicts", s["verdicts"], {"convertible": 2, "runs": 1})
+c.eq("the summary counts verdicts", s["verdicts"], {"needs": 2, "runs": 1})
 c.eq("and ranks areas by how many plugins need them", s["areas"][0][1], 2)
 c.eq("shell is needed by both", [a for a, n, _ in s["areas"] if n == 2], ["shell"])
 c.eq("an unreadable file says so", pp.analyze(os.path.join(tmp, "nope.lplug4"))["verdict"], "unreadable")

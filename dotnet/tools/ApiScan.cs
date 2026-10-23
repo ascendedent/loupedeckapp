@@ -1,6 +1,9 @@
 // What a Loupedeck .NET plugin needs from PluginApi.
 //
-//   mono ApiScan.exe Plugin.dll [PluginApi.dll]
+//   mono ApiScan.exe Plugin.dll [PluginApi.dll] [--full] [--assembly <name>]
+//
+// --assembly checks another library the same way: what the plugin uses of
+// WindowsInput, say, against a stand-in for it.
 //
 // Lists every PluginApi type and member the plugin references, and every
 // virtual it overrides in a class derived from a PluginApi type. Given our
@@ -16,7 +19,7 @@ using Mono.Cecil;
 
 static class ApiScan
 {
-    const string Api = "PluginApi";
+    static string Api = "PluginApi";
 
     static bool FromApi(TypeReference t)
     {
@@ -70,9 +73,11 @@ static class ApiScan
             Console.Error.WriteLine("usage: ApiScan.exe Plugin.dll [PluginApi.dll]");
             return 2;
         }
+        var named = Array.IndexOf(args, "--assembly");
+        if (named >= 0 && named + 1 < args.Length) Api = args[named + 1];
         var module = ModuleDefinition.ReadModule(args[0]);
         HashSet<string> have = null;
-        if (args.Length > 1 && args[1] != "" && args[1] != "--full") {
+        if (args.Length > 1 && args[1] != "" && !args[1].StartsWith("--")) {
             var ours = ModuleDefinition.ReadModule(args[1]);
             have = new HashSet<string>();
             foreach (var t in ours.GetTypes()) {

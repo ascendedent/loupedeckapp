@@ -53,6 +53,11 @@ TARGETS = [
     ("LoupedeckHost.exe", ["LoupedeckHost/*.cs"], ["@PluginApi.dll"], "exe"),
     ("ApiScan.exe", ["tools/ApiScan.cs"], ["@cecil"], "exe"),
     ("PortScan.exe", ["tools/PortScan.cs"], ["@cecil"], "exe"),
+    ("PortPatch.exe", ["tools/PortPatch.cs"], ["@cecil"], "exe"),
+    # Stand-ins for Windows-only libraries plugins bundle (plugin_port.py
+    # puts them in place of the originals). Built for .NET Framework; the
+    # .NET 10 host loads them too.
+    ("shims/WindowsInput.dll", ["shims/WindowsInput/*.cs"], ["@PluginApi.dll"], "library"),
 ]
 
 # Libraries the Loupedeck software ships beside its plugins, so plugins use
@@ -200,13 +205,14 @@ def build_mono(quiet=True):
         deps = [os.path.join(BIN, r[1:]) for r in refs if r.startswith("@") and r != "@cecil"]
         if not _stale(output, sources, deps):
             continue
+        os.makedirs(os.path.dirname(os.path.join(BIN, output)), exist_ok=True)
         args = [mcs, "-nologo", "-debug-", "-optimize+", "-target:" + kind,
                 "-out:" + os.path.join(BIN, output)]
         for r in refs:
             if r == "@cecil":
                 cecil = _cecil()
                 if not cecil:
-                    if output in ("ApiScan.exe", "PortScan.exe"):
+                    if output in ("ApiScan.exe", "PortScan.exe", "PortPatch.exe"):
                         continue   # the scanners are tools, not something plugins need
                     return "Mono.Cecil not found"
                 args.append("-r:" + cecil)

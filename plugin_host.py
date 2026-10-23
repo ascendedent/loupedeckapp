@@ -242,6 +242,15 @@ def install(path):
     except (OSError, ValueError, zipfile.BadZipFile) as e:
         shutil.rmtree(staging, ignore_errors=True)
         return "", "could not install %s: %s" % (name, e)
+    if runtime_of(meta) == "dotnet":
+        # Windows and macOS plugins: what has a Linux stand-in is converted
+        # now (plugin_port.py), and recorded beside the plugin. A conversion
+        # that fails leaves the plugin as it came, installed.
+        try:
+            import plugin_port
+            plugin_port.convert_installed(name)
+        except Exception as e:                       # noqa: BLE001
+            print("plugin %s: not converted: %s" % (name, e))
     return name, ""
 
 
@@ -1281,6 +1290,11 @@ class PluginHost:
             "LPS_PLUGIN_NAME": p.name,
             "LPS_PLUGIN_PACKAGE_DIRECTORY_PATH": p.dir,
             "LPS_PLUGIN_DATA_DIRECTORY": data_dir(p.name),
+            # Mono keeps HKEY_LOCAL_MACHINE and HKEY_CLASSES_ROOT under
+            # /etc/mono/registry, which only root can write, and Windows
+            # plugins write there (Weather registers a URL protocol on
+            # load). Each plugin gets a machine registry of its own instead.
+            "MONO_REGISTRY_PATH": os.path.join(data_dir(p.name), "registry"),
         })
         try:
             # Appended across restarts, so the output that led to a crash is
@@ -1561,6 +1575,16 @@ class PluginHost:
                 # plugin's other messages should not wait behind it.
                 threading.Thread(target=_send_keys, args=(p.name, combo),
                                  name="plugin-keys", daemon=True).start()
+        elif name == "Scroll":
+            try:
+                clicks = int(params.get("clicks") or 0)
+            except (TypeError, ValueError):
+                clicks = 0
+            if clicks:
+                horizontal = bool(params.get("horizontal"))
+                direction = ("right" if clicks > 0 else "left") if horizontal else ("up" if clicks > 0 else "down")
+                threading.Thread(target=_scroll, args=(p.name, direction, abs(clicks)),
+                                 name="plugin-keys", daemon=True).start()
         elif name == "SendText":
             text = str(params.get("text") or "")
             if text:
@@ -1660,6 +1684,14 @@ def _send_keys(plugin, combo):
         input_backend.send_hotkey(combo)
     except Exception as e:
         print("plugin %s: could not send %s: %s" % (plugin, combo, e))
+
+
+def _scroll(plugin, direction, clicks):
+    try:
+        import input_backend
+        input_backend.scroll(direction, amount=clicks)
+    except Exception as e:
+        print("plugin %s: could not scroll: %s" % (plugin, e))
 
 
 def _send_text(plugin, text):
