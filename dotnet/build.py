@@ -154,8 +154,8 @@ def dotnet_sdk():
 
 
 def _core_sources():
-    return (_sources(["PluginApi/*.cs", "LoupedeckHost/*.cs"])
-            + _sources(["core/*.csproj", "core/Directory.Build.props"]))
+    return (_sources(["PluginApi/*.cs", "LoupedeckHost/*.cs", "tools/*.cs", "shims/*/*.cs"])
+            + _sources(["core/*.csproj", "core/*.slnx", "core/Directory.Build.props"]))
 
 
 def _core_stale():
@@ -165,20 +165,9 @@ def _core_stale():
     return any(os.path.getmtime(s) > built for s in _core_sources())
 
 
-def _host_provided_to_core():
-    """Libraries the host provides (built by the Mono half), beside the
-    .NET 10 host too: it loads .NET Framework assemblies like these."""
-    for name in ("LoupedeckShared.dll",):
-        src, dst = os.path.join(BIN, name), os.path.join(CORE_BIN, name)
-        if os.path.isfile(src) and os.path.isdir(CORE_BIN) and (
-                not os.path.isfile(dst) or os.path.getmtime(dst) < os.path.getmtime(src)):
-            shutil.copy2(src, dst)
-
-
 def build_core(quiet=True):
     """The .NET 10 host. Returns an error string, or "". The first build
     fetches SkiaSharp from NuGet."""
-    _host_provided_to_core()
     if not _core_stale():
         return ""
     dotnet = dotnet_sdk()
@@ -189,10 +178,16 @@ def build_core(quiet=True):
                        capture_output=True, text=True)
     if p.returncode != 0:
         return "building the .NET host failed:\n%s%s" % (p.stdout[-4000:], p.stderr[-2000:])
+    # The porting tools and the stand-ins, for machines without Mono: into
+    # tools/ and shims/ beside the host, LoupedeckShared beside it.
+    p = subprocess.run([dotnet, "build", os.path.join(HERE, "core", "Linux.slnx"),
+                        "-c", "Release", "-p:LinuxOut=" + CORE_BIN, "-nologo", "-v", "q"],
+                       capture_output=True, text=True)
+    if p.returncode != 0:
+        return "building the .NET porting tools failed:\n%s%s" % (p.stdout[-4000:], p.stderr[-2000:])
     # dotnet does not touch an output it considers current; make the stamp
     # this staleness check reads say "now".
     os.utime(CORE_HOST, None)
-    _host_provided_to_core()
     if not quiet:
         print("built core/LoupedeckHost.dll")
     return ""

@@ -163,10 +163,16 @@ py-modules = [
     "dotnet/core/LoupedeckHost.csproj",
     "dotnet/core/PluginApi.csproj",
     "dotnet/core/Directory.Build.props",
+    "dotnet/core/Linux.slnx",
+    "dotnet/core/PortTools.csproj",
+    "dotnet/core/Shim.LoupedeckShared.csproj",
+    "dotnet/core/Shim.WindowsInput.csproj",
+    "dotnet/core/Shim.AudioSwitcher.AudioApi.csproj",
+    "dotnet/core/Shim.AudioSwitcher.AudioApi.CoreAudio.csproj",
 ]
 "share/loupedeckapp/dotnet/LoupedeckHost" = ["dotnet/LoupedeckHost/Program.cs"]
 "share/loupedeckapp/dotnet/tools" = ["dotnet/tools/ApiScan.cs",
-    "dotnet/tools/PortScan.cs", "dotnet/tools/PortPatch.cs"]
+    "dotnet/tools/PortScan.cs", "dotnet/tools/PortPatch.cs", "dotnet/tools/PortTools.cs"]
 "share/loupedeckapp/dotnet/shims/WindowsInput" = [
     "dotnet/shims/WindowsInput/VirtualKeyCode.cs",
     "dotnet/shims/WindowsInput/WindowsInput.cs",

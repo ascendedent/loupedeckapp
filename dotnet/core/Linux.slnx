@@ -1,0 +1,9 @@
+<Solution>
+  <!-- What the .NET 10 side builds besides the host: the porting tools and
+       the stand-ins (dotnet/build.py, build_core). -->
+  <Project Path="PortTools.csproj" />
+  <Project Path="Shim.LoupedeckShared.csproj" />
+  <Project Path="Shim.WindowsInput.csproj" />
+  <Project Path="Shim.AudioSwitcher.AudioApi.csproj" />
+  <Project Path="Shim.AudioSwitcher.AudioApi.CoreAudio.csproj" />
+</Solution>

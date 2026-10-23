@@ -277,26 +277,50 @@ def _framework_area(member):
 
 
 # -- reading a package --------------------------------------------------------------
-def _scanner():
-    """(mono, PortScan.exe, bin dir), or an error string."""
-    host, error = plugin_host.dotnet_host()
-    if error:
-        return error
-    mono = shutil.which("mono")
-    scan = os.path.join(os.path.dirname(host), "PortScan.exe")
-    if not mono or not os.path.isfile(scan):
-        return "the scanner needs Mono (mono-complete) and Mono.Cecil"
-    return mono, scan, os.path.dirname(host)
+def toolset():
+    """How to run the porting tools here, or an error string:
+    {"kind": "mono" or "core", "scan"/"patch"/"api": argv to run each,
+    "bin": the folder holding the stand-ins, LoupedeckShared and PluginApi,
+    "env"}. Mono's when it is here: its stand-ins are built for .NET
+    Framework, which Mono runs and .NET 10 loads too. The .NET SDK's
+    otherwise (dotnet/core/Linux.slnx), whose stand-ins only .NET 10 runs;
+    when Mono arrives the fingerprint changes and plugins are converted
+    again with Mono's."""
+    errors = []
+    mono = plugin_host.mono_path()
+    if mono:
+        host, error = plugin_host.dotnet_host()
+        b = os.path.dirname(host) if not error else ""
+        if error:
+            errors.append(error)
+        elif all(os.path.isfile(os.path.join(b, x)) for x in ("PortScan.exe", "PortPatch.exe", "ApiScan.exe")):
+            return {"kind": "mono", "scan": [mono, os.path.join(b, "PortScan.exe")],
+                    "patch": [mono, os.path.join(b, "PortPatch.exe")],
+                    "api": [mono, os.path.join(b, "ApiScan.exe")],
+                    "bin": b, "env": dict(os.environ, MONO_PATH=b)}
+        else:
+            errors.append("Mono's porting tools were not built (they need Mono.Cecil)")
+    dotnet = shutil.which("dotnet")
+    if dotnet:
+        core, error = plugin_host.dotnet_core_host()
+        b = os.path.dirname(core) if not error else ""
+        tools = os.path.join(b, "tools", "PortTools.dll")
+        if not error and os.path.isfile(tools):
+            return {"kind": "core", "scan": [dotnet, tools, "scan"], "patch": [dotnet, tools, "patch"],
+                    "api": [dotnet, tools, "api"], "bin": b, "env": dict(os.environ)}
+        errors.append(error or "the .NET porting tools were not built")
+    if not mono and not dotnet:
+        errors.append("converting plugins needs Mono (mono-complete) or the .NET SDK")
+    return "; ".join(errors)
 
 
 def _scan_dotnet(folder):
     """PortScan's records for a folder, as lists of fields."""
-    found = _scanner()
-    if isinstance(found, str):
-        raise RuntimeError(found)
-    mono, scan, bin_dir = found
-    out = subprocess.run([mono, scan, folder], capture_output=True, text=True, timeout=300,
-                         env=dict(os.environ, MONO_PATH=bin_dir))
+    tools = toolset()
+    if isinstance(tools, str):
+        raise RuntimeError(tools)
+    out = subprocess.run(tools["scan"] + [folder], capture_output=True, text=True, timeout=300,
+                         env=tools["env"])
     if out.returncode != 0:
         raise RuntimeError("PortScan failed: %s" % out.stderr.strip()[-500:])
     rows = []
@@ -443,8 +467,8 @@ def _analyze_dotnet(root, entry):
             findings.append(_finding("library", area, name, platform, "merged into " + entry_file))
 
     # The host runs anything not built for .NET (Core) on Mono, including an
-    # assembly that does not say what it was built for.
-    if not framework.startswith(".NETCoreApp"):
+    # assembly that does not say what it was built for, when Mono is here.
+    if not framework.startswith(".NETCoreApp") and plugin_host.mono_path():
         for f in findings:
             for covered, why in MONO_COVERS:
                 if covered(f):
@@ -778,21 +802,12 @@ def describe_summary(s):
     return "\n".join(lines)
 
 
-def _tools():
-    """(mono, bin dir) with PortPatch and the stand-ins built, or an error."""
-    found = _scanner()
-    if isinstance(found, str):
-        return found
-    mono, _scan, bin_dir = found
-    if not os.path.isfile(os.path.join(bin_dir, "PortPatch.exe")):
-        return "PortPatch was not built (it needs Mono.Cecil)"
-    return mono, bin_dir
-
-
-def _api_for(entry_path, bin_dir):
+def _api_for(entry_path, tools):
     """Our PluginApi.dll for the runtime the plugin runs on: the .NET 10
-    build for plugins built for .NET 8/10, the Mono one otherwise."""
-    if plugin_host.target_framework(entry_path) == "core":
+    build for plugins built for .NET 8/10 (and for every plugin where
+    there is no Mono), the Mono one otherwise."""
+    bin_dir = tools["bin"]
+    if tools["kind"] == "mono" and plugin_host.target_framework(entry_path) == "core":
         core, error = plugin_host.dotnet_core_host()
         if not error:
             return os.path.join(os.path.dirname(core), "PluginApi.dll")
@@ -818,11 +833,12 @@ def fingerprint():
     before. "" when the tools are not here to convert with."""
     global _fingerprint
     if _fingerprint is None:
-        tools = _tools()
+        tools = toolset()
         if isinstance(tools, str):
             return ""
-        _mono, bin_dir = tools
+        bin_dir = tools["bin"]
         h = hashlib.sha256()
+        h.update(tools["kind"].encode())
         with open(os.path.abspath(__file__), "rb") as f:
             h.update(f.read())
         for name in sorted(STAND_INS):
@@ -900,14 +916,13 @@ def convert_installed(name):
         return state            # not saved: a later attempt may manage
     todo = plan(report)
     if todo["process"] or todo["swap"] or todo["value"]:
-        tools = _tools()
+        tools = toolset()
         if isinstance(tools, str):
             state["error"] = tools
             return state
-        mono, bin_dir = tools
+        bin_dir = tools["bin"]
         entry_dir = os.path.dirname(os.path.join(folder, report["entry"]))
-        args = [mono, os.path.join(bin_dir, "PortPatch.exe"), folder,
-                _api_for(os.path.join(folder, report["entry"]), bin_dir)]
+        args = tools["patch"] + [folder, _api_for(os.path.join(folder, report["entry"]), tools)]
         for rel in todo["process"]:
             args += ["--process", os.path.relpath(os.path.join(entry_dir, rel), folder)]
         for lib in todo["swap"]:
@@ -915,8 +930,7 @@ def convert_installed(name):
         for rel, getter in todo["value"]:
             args += ["--value", os.path.relpath(os.path.join(entry_dir, rel), folder), getter,
                      os.path.join(bin_dir, "LoupedeckShared.dll"), MODEL_SOURCE]
-        out = subprocess.run(args, capture_output=True, text=True, timeout=300,
-                             env=dict(os.environ, MONO_PATH=bin_dir))
+        out = subprocess.run(args, capture_output=True, text=True, timeout=300, env=tools["env"])
         if out.returncode != 0:
             state["error"] = "PortPatch failed: %s" % out.stderr.strip()[-500:]
             return state

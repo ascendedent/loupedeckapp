@@ -57,8 +57,15 @@ host, error = ph.dotnet_host()
 c.eq("the host and the converters build", error, "")
 if error:
     raise SystemExit(c.done())
-bin_dir = os.path.dirname(host)
-api = os.path.join(bin_dir, "PluginApi.dll")
+api = os.path.join(os.path.dirname(host), "PluginApi.dll")   # to compile the fixtures against
+# Where conversion takes its stand-ins from: Mono's, or the .NET SDK's on a
+# machine without Mono (LOUPEDECKAPP_NO_MONO, test_port_convert_core.py).
+NO_MONO = bool(os.environ.get("LOUPEDECKAPP_NO_MONO"))
+tools = pp.toolset()
+c.eq("the porting tools are here", isinstance(tools, dict) and tools["kind"], "core" if NO_MONO else "mono")
+if not isinstance(tools, dict):
+    raise SystemExit(c.done())
+bin_dir = tools["bin"]
 
 # -- the "original" WindowsInput, strong-named as the real one is --------------------
 FAKE_WINDOWSINPUT = r"""
@@ -127,8 +134,14 @@ namespace Loupedeck.WinPlugin
         // As Weather does: a URL protocol whose command opens a page.
         public override void Load()
         {
-            using (var key = Registry.ClassesRoot.CreateSubKey(@"winplugin\shell\open\command"))
-                key.SetValue("", "\"C:\\Windows\\System32\\cmd.exe\" /c \"START https://example.org/%1\"");
+            // .NET on Linux has no registry (Mono keeps one); without it the
+            // protocol is simply not registered.
+            try
+            {
+                using (var key = Registry.ClassesRoot.CreateSubKey(@"winplugin\shell\open\command"))
+                    key.SetValue("", "\"C:\\Windows\\System32\\cmd.exe\" /c \"START https://example.org/%1\"");
+            }
+            catch (Exception) { }
         }
     }
 
@@ -240,7 +253,8 @@ with zipfile.ZipFile(package, "w") as zf:
     zf.write(openai_dll, "bin\\win\\OpenAI_API.dll")
 
 report = pp.analyze(package)
-c.eq("the analyzer says it converts", report["verdict"], "converts")
+# Without Mono the registry is not covered: .NET on Linux has none.
+c.eq("the analyzer says it converts", report["verdict"], "needs" if NO_MONO else "converts")
 c.eq("by pointing Process.Start at the shim, swapping WindowsInput and asking for the set model",
      pp.plan(report), {"process": ["WinPluginPlugin.dll"], "swap": ["WindowsInput"],
                        "value": [("WinPluginPlugin.dll", "OpenAI_API.Models.Model::get_ChatGPTTurbo")]})
@@ -251,7 +265,8 @@ c.eq("it installs", (name, err), ("WinPlugin", ""))
 folder = os.path.join(ph.plugins_dir(), "WinPlugin")
 state = pp.conversion("WinPlugin")
 c.eq("and was converted on the way in",
-     (state and state["verdict"], state and state["error"], state and len(state["converted"])), ("converts", "", 3))
+     (state and state["verdict"], state and state["error"], state and len(state["converted"])),
+     ("needs" if NO_MONO else "converts", "", 3))
 c.eq("and asks the app for an OpenAI key and model",
      [x["name"] for x in pp.settings("WinPlugin")], ["openai_key", "openai_model"])
 c.eq("a setting is saved where the plugin reads it", pp.write_setting("WinPlugin", "openai_model", "my-model"), "")
@@ -260,7 +275,8 @@ c.eq("the key is kept private",
      oct(os.stat(os.path.join(ph.data_dir("WinPlugin"), "online-files", "gpt-openai-access.json")).st_mode & 0o777),
      "0o600")
 c.eq("an unknown setting is refused", pp.write_setting("WinPlugin", "nope", "x") != "", True)
-c.eq("with nothing left over", state and state["remaining"], [])
+c.eq("with nothing left over but, without Mono, the registry",
+     [r.split(":")[0] for r in (state and state["remaining"]) or []], ["registry"] * 2 if NO_MONO else [])
 c.eq("the originals are kept",
      sorted(os.listdir(os.path.join(folder, ".orig", "bin", "win"))), ["WinPluginPlugin.dll", "WindowsInput.dll"])
 c.eq("converting again does nothing new", pp.convert_installed("WinPlugin"), state)
@@ -316,7 +332,13 @@ def opened():
 
 
 try:
-    c.eq("it starts", wait_for(lambda: any(s["state"] == "running" for s in host_.status())), True)
+    started = wait_for(lambda: any(s["state"] == "running" for s in host_.status()))
+    c.eq("it starts", started, True)
+    if not started:
+        try:
+            print(open(ph.log_path("WinPlugin")).read()[:4000])
+        except OSError:
+            pass
     c.eq("after being converted again with what is here now",
          ((pp.conversion("WinPlugin") or {}).get("fingerprint") == pp.fingerprint(),
           sha(os.path.join(folder, "bin", "win", "WindowsInput.dll")) == sha(os.path.join(bin_dir, pp.STAND_INS["WindowsInput"])),
@@ -327,8 +349,9 @@ try:
     c.eq("cmd /c start opens the page with xdg-open",
          wait_for(lambda: "https://example.com/page" in opened()), True)
     ph.execute(values["Open protocol"])
-    c.eq("its own protocol runs the command it registered, translated",
-         wait_for(lambda: "https://example.org/winplugin:42" in opened()), True)
+    if not NO_MONO:
+        c.eq("its own protocol runs the command it registered, translated",
+             wait_for(lambda: "https://example.org/winplugin:42" in opened()), True)
     ph.execute(values["Open with info"])
     c.eq("process.Start() with explorer is translated too",
          wait_for(lambda: "https://example.net/" in opened()), True)

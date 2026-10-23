@@ -186,7 +186,7 @@ static class PortPatch
         }
     }
 
-    static int Main(string[] args)
+    internal static int Main(string[] args)
     {
         if (args.Length < 2 || !Directory.Exists(args[0]))
         {

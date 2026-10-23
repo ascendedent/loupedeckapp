@@ -194,7 +194,12 @@ says what was converted and what is still tied to Windows or macOS:
 
 `dotnet/tools/PortPatch.cs` does the editing; the originals are kept in the plugin's `.orig/`
 folder (`python3 plugin_port.py revert <name>` puts them back), and `.port.json` records what was
-done and with which rules and stand-ins. When those change (the app was updated), plugins
+done and with which rules and stand-ins. Converting needs Mono or the .NET SDK: with Mono the
+tools read plugins with Mono's Mono.Cecil and the stand-ins are built for .NET Framework (which both
+runtimes load); with only the .NET SDK the same tools and stand-ins are built with it
+(`dotnet/core/Linux.slnx`, Mono.Cecil from NuGet). Without Mono, plugins that use the Windows
+registry (Weather registers itself there) do not convert: .NET on Linux has no registry, Mono keeps
+one. When those change (the app was updated), plugins
 converted before are converted again when the app starts, before they run; so are plugins
 installed before conversion existed. Mono's machine registry is per plugin (`MONO_REGISTRY_PATH` in the plugin's data folder),
 so plugins that register things at load work.

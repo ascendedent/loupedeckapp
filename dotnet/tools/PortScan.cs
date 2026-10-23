@@ -170,7 +170,7 @@ static class PortScan
         }
     }
 
-    static int Main(string[] args)
+    internal static int Main(string[] args)
     {
         if (args.Length != 1 || !Directory.Exists(args[0]))
         {

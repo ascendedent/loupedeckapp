@@ -67,7 +67,7 @@ static class ApiScan
                 p.ParameterType.FullName + (string.IsNullOrEmpty(p.Name) ? "" : " " + p.Name))) + ")";
     }
 
-    static int Main(string[] args)
+    internal static int Main(string[] args)
     {
         if (args.Length < 1) {
             Console.Error.WriteLine("usage: ApiScan.exe Plugin.dll [PluginApi.dll]");

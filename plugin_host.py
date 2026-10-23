@@ -369,23 +369,30 @@ def target_framework(dll_path):
     return ""
 
 
+def mono_path():
+    """Mono, if it is here. LOUPEDECKAPP_NO_MONO=1 makes this machine one
+    without it (so the .NET-only path can be tried, and tested, where Mono
+    is installed)."""
+    if os.environ.get("LOUPEDECKAPP_NO_MONO"):
+        return None
+    return shutil.which("mono")
+
+
 def missing_api(dll_path):
     """What a .NET plugin uses from Logitech's PluginApi that ours does not
     provide yet, as "Type::Member(...)" lines; [] when nothing is missing, or
     None when the check could not run. dotnet/tools/ApiScan.cs does the
     reading, from metadata alone: nothing of the plugin is executed."""
-    host, error = dotnet_host()
-    mono = shutil.which("mono")
-    if error or not mono:
-        return None
-    bin_dir = os.path.dirname(host)
-    scan = os.path.join(bin_dir, "ApiScan.exe")
-    if not os.path.isfile(scan):
-        return None
-    env = dict(os.environ, MONO_PATH=bin_dir)
     try:
-        out = subprocess.run([mono, scan, dll_path, os.path.join(bin_dir, "PluginApi.dll")],
-                             capture_output=True, text=True, timeout=60, env=env)
+        import plugin_port
+        tools = plugin_port.toolset()
+    except Exception:                                    # noqa: BLE001
+        return None
+    if isinstance(tools, str):
+        return None
+    try:
+        out = subprocess.run(tools["api"] + [dll_path, os.path.join(tools["bin"], "PluginApi.dll")],
+                             capture_output=True, text=True, timeout=60, env=tools["env"])
     except (OSError, subprocess.TimeoutExpired):
         return None
     if out.returncode != 0:
@@ -805,7 +812,7 @@ class PluginHost:
 
     def __init__(self, node=None, on_change=None, mono=None, on_folder=None):
         self.node = node if node is not None else shutil.which("node")
-        self.mono = mono if mono is not None else shutil.which("mono")
+        self.mono = mono if mono is not None else mono_path()
         self.dotnet = shutil.which("dotnet")
         self.on_change = on_change
         # (event, value) when a plugin's folder changes ("changed") or the
