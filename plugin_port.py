@@ -12,6 +12,7 @@ the volume...), which is what decides which stand-ins to write first:
     python3 plugin_port.py ... --json             the same, for a program
     python3 plugin_port.py convert <name>         convert an installed plugin
     python3 plugin_port.py revert <name>          put it back as installed
+    python3 plugin_port.py refresh <name>         convert again if the rules or stand-ins changed
 
 A plugin's own code is reported in full. Libraries it bundles are judged as a
 whole when they are known (Newtonsoft.Json runs anywhere; AudioSwitcher's
@@ -31,6 +32,7 @@ Each new rule is written once and covers every later plugin that needs it.
 
 Qt-free.
 """
+import hashlib
 import json
 import os
 import re
@@ -777,6 +779,62 @@ def _keep_original(folder, rel):
         shutil.copy2(src, dst)
 
 
+_fingerprint = None
+
+
+def fingerprint():
+    """What a conversion depends on: the rules (this file) and the stand-ins
+    as built. A plugin converted under another fingerprint is converted
+    again (refresh), so improving a stand-in reaches plugins installed
+    before. "" when the tools are not here to convert with."""
+    global _fingerprint
+    if _fingerprint is None:
+        tools = _tools()
+        if isinstance(tools, str):
+            return ""
+        _mono, bin_dir = tools
+        h = hashlib.sha256()
+        with open(os.path.abspath(__file__), "rb") as f:
+            h.update(f.read())
+        for name in sorted(STAND_INS):
+            h.update(name.encode())
+            try:
+                with open(os.path.join(bin_dir, STAND_INS[name]), "rb") as f:
+                    h.update(f.read())
+            except OSError:
+                pass
+        _fingerprint = h.hexdigest()
+    return _fingerprint
+
+
+def stale(name):
+    """Whether an installed .NET plugin needs converting (again): never
+    converted (installed before conversion existed), or converted under
+    other rules or stand-ins than these."""
+    folder = os.path.join(plugin_host.plugins_dir(), name)
+    try:
+        with open(plugin_host.metadata_path(folder), encoding="utf-8") as f:
+            if plugin_host.runtime_of(plugin_host.parse_metadata(f.read())) != "dotnet":
+                return False
+    except OSError:
+        return False
+    current = fingerprint()
+    if not current:
+        return False            # nothing to convert with; do not retry forever
+    state = conversion(name)
+    return state is None or state.get("fingerprint") != current
+
+
+def refresh(name):
+    """Convert an installed plugin again if it is stale: back to what was
+    installed, then converted as it would be now. Returns its state."""
+    if not stale(name):
+        return conversion(name)
+    if conversion(name) is not None:
+        revert(name)
+    return convert_installed(name)
+
+
 def conversion(name):
     """What converting an installed plugin did, as convert_installed()
     recorded it, or None if it has not been converted."""
@@ -799,7 +857,7 @@ def convert_installed(name):
     done = conversion(name)
     if done is not None:
         return done
-    state = {"converted": [], "remaining": [], "verdict": "", "error": ""}
+    state = {"converted": [], "remaining": [], "verdict": "", "error": "", "fingerprint": fingerprint()}
     try:
         with open(plugin_host.metadata_path(folder), encoding="utf-8") as f:
             meta = plugin_host.parse_metadata(f.read())
@@ -881,10 +939,10 @@ def _packages(paths):
 
 
 def _main(argv):
-    if argv[:1] in (["convert"], ["revert"]) and len(argv) == 2:
+    if argv[:1] in (["convert"], ["revert"], ["refresh"]) and len(argv) == 2:
         if argv[0] == "revert":
             return 1 if revert(argv[1]) else 0
-        state = convert_installed(argv[1])
+        state = refresh(argv[1]) if argv[0] == "refresh" else convert_installed(argv[1])
         print(json.dumps(state, indent=1))
         return 1 if state["error"] else 0
     as_json = "--json" in argv

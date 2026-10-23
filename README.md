@@ -190,7 +190,9 @@ says what was converted and what is still tied to Windows or macOS:
 
 `dotnet/tools/PortPatch.cs` does the editing; the originals are kept in the plugin's `.orig/`
 folder (`python3 plugin_port.py revert <name>` puts them back), and `.port.json` records what was
-done. Mono's machine registry is per plugin (`MONO_REGISTRY_PATH` in the plugin's data folder),
+done and with which rules and stand-ins. When those change (the app was updated), plugins
+converted before are converted again when the app starts, before they run; so are plugins
+installed before conversion existed. Mono's machine registry is per plugin (`MONO_REGISTRY_PATH` in the plugin's data folder),
 so plugins that register things at load work.
 
 ### Loupedeck profiles (.lp5)

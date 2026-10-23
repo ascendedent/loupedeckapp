@@ -834,7 +834,29 @@ class PluginHost:
             return      # no server and no port until there is a plugin
         self._open_server()
         self._open_url_server()
+        stale = []
         for info in infos:
+            if _needs_converting(info):
+                stale.append(info)
+            else:
+                self._launch(info)
+        if stale:
+            # Converted under older rules or stand-ins (the app was updated),
+            # or installed before conversion existed: converted again first,
+            # off the UI thread, then launched.
+            threading.Thread(target=self._convert_then_launch, args=(stale,),
+                             name="plugin-host-convert", daemon=True).start()
+
+    def _convert_then_launch(self, infos):
+        for info in infos:
+            if self._closing:
+                return
+            try:
+                import plugin_port
+                plugin_port.refresh(info["name"])
+            except Exception as e:                       # noqa: BLE001
+                print("plugin %s: not converted again: %s" % (info["name"], e))
+            info = next((i for i in installed() if i["name"] == info["name"]), info)
             self._launch(info)
 
     def _open_url_server(self):
@@ -1686,6 +1708,19 @@ class PluginHost:
         except OSError:
             pass
         self._changed()
+
+
+def _needs_converting(info):
+    """Whether an installed plugin must be converted (again) before it runs;
+    see plugin_port.stale."""
+    if info.get("runtime") != "dotnet":
+        return False
+    try:
+        import plugin_port
+        return plugin_port.stale(info["name"])
+    except Exception as e:                               # noqa: BLE001
+        print("plugin %s: could not check its conversion: %s" % (info["name"], e))
+        return False
 
 
 class _Keyboard:

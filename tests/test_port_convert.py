@@ -233,6 +233,19 @@ c.eq("WindowsInput is now the stand-in",
      sha(os.path.join(folder, "bin", "win", "WindowsInput.dll")),
      sha(os.path.join(bin_dir, pp.STAND_INS["WindowsInput"])))
 
+c.eq("the conversion records what it was made with", state and state["fingerprint"], pp.fingerprint())
+c.eq("so it is not stale", pp.stale("WinPlugin"), False)
+
+# -- converted under an older stand-in: redone when the host starts ----------------------
+state_path = os.path.join(folder, pp.PORT_STATE)
+with open(state_path) as f:
+    older = json.load(f)
+older["fingerprint"] = "an older one"
+with open(state_path, "w") as f:
+    json.dump(older, f)
+shutil.copy2(wi_dll, os.path.join(folder, "bin", "win", "WindowsInput.dll"))   # as an older stand-in
+c.eq("a conversion made with other stand-ins is stale", pp.stale("WinPlugin"), True)
+
 # -- and it runs the Linux way ---------------------------------------------------------
 out = os.path.join(tmp, "out.txt")
 os.environ["TEST_OUT"] = out
@@ -260,6 +273,11 @@ def opened():
 
 try:
     c.eq("it starts", wait_for(lambda: any(s["state"] == "running" for s in host_.status())), True)
+    c.eq("after being converted again with what is here now",
+         ((pp.conversion("WinPlugin") or {}).get("fingerprint") == pp.fingerprint(),
+          sha(os.path.join(folder, "bin", "win", "WindowsInput.dll")) == sha(os.path.join(bin_dir, pp.STAND_INS["WindowsInput"])),
+          sorted(os.listdir(os.path.join(folder, ".orig", "bin", "win")))),
+         (True, True, ["WinPluginPlugin.dll", "WindowsInput.dll"]))
     values = {label: value for _g, label, value, _k in host_.actions()}
     ph.execute(values["Open page"])
     c.eq("cmd /c start opens the page with xdg-open",
@@ -307,6 +325,8 @@ c.eq("and puts both files back as they were",
       sha(os.path.join(folder, "bin", "win", "WinPluginPlugin.dll"))), before)
 c.eq("forgetting the conversion", (pp.conversion("WinPlugin"), os.path.exists(os.path.join(folder, ".orig"))),
      (None, False))
+c.eq("a plugin never converted (installed before conversion existed) is stale too",
+     pp.stale("WinPlugin"), True)
 
 shutil.rmtree(tmp, ignore_errors=True)
 raise SystemExit(c.done())
