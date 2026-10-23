@@ -100,6 +100,36 @@ _DEFAULT_COMMANDS = {
     "previoustrack": ("media", "previous"),
     "stop": ("media", "stop"),
 }
+# Mouse actions -> this app's "mouse" values (input_backend.mouse). A key
+# held around one comes as the argument: "@MouseClick___AltLeft".
+_MOUSE_COMMANDS = {
+    "mouseclick": "click", "mousedoubleclick": "doubleclick",
+    "mouseclickright": "rightclick", "mouserightclick": "rightclick",
+    "mouseclickmiddle": "middleclick", "mousemiddleclick": "middleclick",
+}
+# Knobs: turning left is up (or left), right down (or right), as the wheel.
+_MOUSE_ADJUSTMENTS = {
+    "mousewheel": ("scroll-up", "scroll-down"),
+    "mousedraganddropvertically": ("drag-up", "drag-down"),
+    "mousedraganddrophorizontally": ("drag-left", "drag-right"),
+    "mousemovevertical": ("move-up", "move-down"),
+    "mousemovehorizontal": ("move-left", "move-right"),
+}
+_HELD = {"control": "ctrl", "ctrl": "ctrl", "controlorcommand": "ctrl", "alt": "alt",
+         "altoroption": "alt", "option": "alt", "shift": "shift", "command": "super",
+         "windows": "super", "win": "super", "meta": "super"}
+
+
+def _held(arg):
+    """'ControlLeft' -> 'ctrl+': the keys held around a mouse action."""
+    out = []
+    for part in re.split(r"[+,]", str(arg or "")):
+        name = re.sub(r"(left|right)$", "", part.strip().lower().replace(" ", ""))
+        if _HELD.get(name) and _HELD[name] not in out:
+            out.append(_HELD[name])
+    return "".join(m + "+" for m in out)
+
+
 # Knobs that press arrow keys: turning left is left (or up), right is right
 # (or down), as the mouse wheel is.
 _ARROW_ADJUSTMENTS = {
@@ -223,6 +253,8 @@ class _Converter:
             elif source == "generic" and kind == "typetext":
                 if arg:
                     lines.append("text %s" % arg)
+            elif source == "generic" and kind in _MOUSE_COMMANDS:
+                lines.append("mouse %s%s" % (_held(arg), _MOUSE_COMMANDS[kind]))
             elif source == "generic" and kind in ("delay", "wait"):
                 try:
                     lines.append("wait %d" % int(float(arg)))
@@ -263,6 +295,8 @@ class _Converter:
                 return None
             if len(lines) == 1 and lines[0].startswith("text "):
                 return ("text", lines[0][len("text "):], label)
+            if len(lines) == 1 and lines[0].startswith("mouse "):
+                return ("mouse", lines[0][len("mouse "):], label)
             if len(lines) == 1 and lines[0].startswith("hotkey "):
                 combo = lines[0][len("hotkey "):]
                 native = _OFF_WINDOWS.get((label.lower(), combo))
@@ -275,6 +309,9 @@ class _Converter:
             return ("macro", "\nwait 50\n".join(lines), label)
         if source == "generic" and kind == "typetext" and arg:
             return ("text", arg, label_hint or arg)
+        if source == "generic" and kind in _MOUSE_COMMANDS:
+            value = _held(arg) + _MOUSE_COMMANDS[kind]
+            return ("mouse", value, label_hint or _nice(rest.lstrip("@").split("___")[0]))
         if source == "generic" and kind == "keyboardshortcut":
             combo = convert_combo(arg)
             if combo:
@@ -303,6 +340,8 @@ class _Converter:
         if source == "generic" and kind in _ARROW_ADJUSTMENTS:
             left, right = _ARROW_ADJUSTMENTS[kind]
             return ("hotkey", left), ("hotkey", right), _nice(rest.lstrip("@"))
+        if source == "generic" and kind in _MOUSE_ADJUSTMENTS:
+            return self._mouse_knob(kind, arg) + (_nice(rest.lstrip("@").split("___")[0]),)
         if source == "generic" and kind == "macroadjustment":
             adj = self.adjusts.get(arg)
             if adj is None:
@@ -322,6 +361,16 @@ class _Converter:
                   % (_nice(rest), raw_source))
         return None
 
+    @staticmethod
+    def _mouse_knob(kind, arg):
+        """((type, value), (type, value)) for a mouse knob, left then right.
+        The plain wheel stays a scroll action, as it always imported."""
+        held = _held(arg)
+        left, right = _MOUSE_ADJUSTMENTS[kind]
+        if kind == "mousewheel" and not held:
+            return ("scroll", "up"), ("scroll", "down")
+        return ("mouse", held + left), ("mouse", held + right)
+
     def _side(self, steps, label, wheel_direction):
         """One direction of an adjustment. The mouse wheel is the one generic
         step that is a direction rather than a key: turning left scrolls up,
@@ -330,6 +379,9 @@ class _Converter:
         if len(steps) == 1 and steps[0].lower().endswith("@mousewheel"):
             return ("scroll", wheel_direction)
         parsed = parse_ref(steps[0]) if len(steps) == 1 else None
+        if parsed and parsed[0] == "generic" and parsed[1] in _MOUSE_ADJUSTMENTS:
+            back, forward = self._mouse_knob(parsed[1], parsed[2])
+            return back if wheel_direction == "up" else forward
         if parsed and parsed[0] == "generic" and parsed[1] in _ARROW_ADJUSTMENTS:
             back, forward = _ARROW_ADJUSTMENTS[parsed[1]]
             return ("hotkey", back if wheel_direction == "up" else forward)
@@ -527,6 +579,11 @@ def validate(cfg):
             elif act.a_type == "macro":
                 _steps, errors = macro.parse(act.action)
                 problems += ["%s: line %d %s" % (slot, n, msg) for n, msg in errors]
+            elif act.a_type == "mouse":
+                try:
+                    input_backend.parse_mouse(act.action)
+                except ValueError as e:
+                    problems.append("%s: %s" % (slot, e))
     return problems
 
 

@@ -119,6 +119,20 @@ class InputBackend:
     def key_up(self, name):
         raise NotImplementedError
 
+    # The mouse: buttons are "left", "right" or "middle"; moves are relative,
+    # in pixels.
+    def click(self, button="left", count=1):
+        raise NotImplementedError
+
+    def mouse_move(self, dx, dy):
+        raise NotImplementedError
+
+    def mouse_down(self, button="left"):
+        raise NotImplementedError
+
+    def mouse_up(self, button="left"):
+        raise NotImplementedError
+
 
 class NullBackend(InputBackend):
     """Used when no working backend exists; logs instead of crashing."""
@@ -145,6 +159,18 @@ class NullBackend(InputBackend):
 
     def key_up(self, name):
         print("[input] no working backend; would release: %s" % name)
+
+    def click(self, button="left", count=1):
+        print("[input] no working backend; would click %s x%d" % (button, count))
+
+    def mouse_move(self, dx, dy):
+        print("[input] no working backend; would move the mouse %d,%d" % (dx, dy))
+
+    def mouse_down(self, button="left"):
+        print("[input] no working backend; would hold the %s button" % button)
+
+    def mouse_up(self, button="left"):
+        print("[input] no working backend; would release the %s button" % button)
 
 
 class YdotoolBackend(InputBackend):
@@ -260,6 +286,21 @@ class YdotoolBackend(InputBackend):
     def key_up(self, name):
         self._run(["key", "%d:0" % _parse_combo(name)[0]])
 
+    # ydotool's button codes: the button (0 left, 1 right, 2 middle) with
+    # 0x40 for down and 0x80 for up; 0xC0 is a whole left click.
+    def click(self, button="left", count=1):
+        code = 0xC0 | MOUSE_BUTTONS[button]
+        self._run(["click", "-r", str(max(1, int(count))), "-D", "40", "0x%02X" % code])
+
+    def mouse_move(self, dx, dy):
+        self._run(["mousemove", "-x", str(int(dx)), "-y", str(int(dy))])
+
+    def mouse_down(self, button="left"):
+        self._run(["click", "0x%02X" % (0x40 | MOUSE_BUTTONS[button])])
+
+    def mouse_up(self, button="left"):
+        self._run(["click", "0x%02X" % (0x80 | MOUSE_BUTTONS[button])])
+
     def scroll(self, direction, amount=1):
         """One invocation carrying the whole magnitude, not `amount` clicks."""
         dx, dy = _parse_scroll(direction)
@@ -300,6 +341,21 @@ class XdotoolBackend(InputBackend):
 
     def key_up(self, name):
         subprocess.run([self.bin, "keyup", name], check=True)
+
+    _X_BUTTONS = {"left": "1", "middle": "2", "right": "3"}
+
+    def click(self, button="left", count=1):
+        subprocess.run([self.bin, "click", "--repeat", str(max(1, int(count))),
+                        self._X_BUTTONS[button]], check=True)
+
+    def mouse_move(self, dx, dy):
+        subprocess.run([self.bin, "mousemove_relative", "--", str(int(dx)), str(int(dy))], check=True)
+
+    def mouse_down(self, button="left"):
+        subprocess.run([self.bin, "mousedown", self._X_BUTTONS[button]], check=True)
+
+    def mouse_up(self, button="left"):
+        subprocess.run([self.bin, "mouseup", self._X_BUTTONS[button]], check=True)
 
     def scroll(self, direction, amount=1):
         # X11 has no magnitude: wheel is buttons 4/5 (up/down), 6/7 (left/right).
@@ -344,6 +400,22 @@ class PyAutoGuiBackend(InputBackend):
     def key_up(self, name):
         import pyautogui
         pyautogui.keyUp(name)
+
+    def click(self, button="left", count=1):
+        import pyautogui
+        pyautogui.click(button=button, clicks=max(1, int(count)))
+
+    def mouse_move(self, dx, dy):
+        import pyautogui
+        pyautogui.moveRel(int(dx), int(dy))
+
+    def mouse_down(self, button="left"):
+        import pyautogui
+        pyautogui.mouseDown(button=button)
+
+    def mouse_up(self, button="left"):
+        import pyautogui
+        pyautogui.mouseUp(button=button)
 
     def scroll(self, direction, amount=1):
         import pyautogui
@@ -620,6 +692,66 @@ def key_down(name):
 
 def key_up(name):
     get_backend().key_up(name)
+
+
+MOUSE_BUTTONS = {"left": 0, "right": 1, "middle": 2}
+MOUSE_STEP_PX = 10        # one notch of a knob that moves or drags the mouse
+
+# What a "mouse" action can be, before an optional "ctrl+"-style prefix of
+# keys held around it.
+MOUSE_ACTIONS = ("click", "doubleclick", "rightclick", "middleclick",
+                 "scroll-up", "scroll-down", "scroll-left", "scroll-right",
+                 "move-left", "move-right", "move-up", "move-down",
+                 "drag-left", "drag-right", "drag-up", "drag-down")
+_MOVES = {"left": (-1, 0), "right": (1, 0), "up": (0, -1), "down": (0, 1)}
+
+
+def parse_mouse(action):
+    """'ctrl+click' -> (['ctrl'], 'click'). ValueError when it is not one."""
+    parts = [p.strip() for p in str(action or "").lower().split("+") if p.strip()]
+    if not parts or parts[-1] not in MOUSE_ACTIONS:
+        raise ValueError("not a mouse action: %r" % action)
+    for m in parts[:-1]:
+        if m not in ("ctrl", "alt", "shift", "super"):
+            raise ValueError("not a key to hold: %r" % m)
+    return parts[:-1], parts[-1]
+
+
+def mouse(action, amount=1):
+    """A mouse action (MOUSE_ACTIONS, optionally "ctrl+click" and the like,
+    the keys held around it). `amount` is the notches of a knob: how far a
+    scroll, move or drag goes; clicks happen once."""
+    mods, op = parse_mouse(action)
+    b = get_backend()
+    n = max(1, int(amount))
+    held = []
+    try:
+        for m in mods:
+            try:
+                b.key_down(m)
+                held.append(m)
+            except NotImplementedError:
+                break           # a backend that cannot hold keys clicks plain
+        if op in ("click", "doubleclick"):
+            b.click("left", 2 if op == "doubleclick" else 1)
+        elif op in ("rightclick", "middleclick"):
+            b.click(op[:-len("click")])
+        elif op.startswith("scroll-"):
+            b.scroll(op[len("scroll-"):], amount=n)
+        else:
+            kind, _, direction = op.partition("-")
+            dx, dy = _MOVES[direction]
+            if kind == "drag":
+                b.mouse_down("left")
+                try:
+                    b.mouse_move(dx * n * MOUSE_STEP_PX, dy * n * MOUSE_STEP_PX)
+                finally:
+                    b.mouse_up("left")
+            else:
+                b.mouse_move(dx * n * MOUSE_STEP_PX, dy * n * MOUSE_STEP_PX)
+    finally:
+        for m in reversed(held):
+            b.key_up(m)
 
 
 def launch_app(command):

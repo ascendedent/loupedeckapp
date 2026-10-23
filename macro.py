@@ -53,6 +53,13 @@ def parse(text):
                 errors.append((lineno, "wait needs a number of milliseconds"))
                 continue
             steps.append(("wait", ms))
+        elif kind == "mouse":
+            try:
+                input_backend.parse_mouse(value)
+            except ValueError as e:
+                errors.append((lineno, str(e)))
+                continue
+            steps.append((kind, value))
         elif kind in ("hotkey", "scroll", "media", "keyboard"):
             if not value:
                 errors.append((lineno, "%s needs a value" % kind))
@@ -66,7 +73,7 @@ def parse(text):
 
 
 # The kinds a step may have, in the order the UI offers them.
-STEP_KINDS = ("hotkey", "text", "wait", "scroll", "media", "keyboard",
+STEP_KINDS = ("hotkey", "text", "wait", "scroll", "mouse", "media", "keyboard",
               "command", "launch")
 
 
@@ -116,6 +123,8 @@ def run_step(kind, value):
         except (TypeError, ValueError):
             n = 1
         input_backend.scroll(direction, amount=n)
+    elif kind == "mouse":
+        input_backend.mouse(value)
     elif kind == "media":
         input_backend.media(value)
     elif kind == "keyboard":

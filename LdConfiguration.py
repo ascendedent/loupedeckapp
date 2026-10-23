@@ -434,9 +434,9 @@ class LdAction:
   # action of an installed Loupedeck plugin (plugin_host); "none" is unbound.
   # A plain alias rather than a `type` statement: that syntax is 3.12+, and the
   # oldest macOS this runs on is stuck on PySide6 6.2, which is stuck on 3.10.
-  ActionType = Literal["command", "launch", "hotkey", "text", "media", "submenu", "back", "none"]
+  ActionType = Literal["command", "launch", "hotkey", "text", "media", "mouse", "submenu", "back", "none"]
 
-  EXECUTABLE = ("command", "launch", "hotkey", "text", "media", "back", "plugin")
+  EXECUTABLE = ("command", "launch", "hotkey", "text", "media", "back", "plugin", "mouse")
 
   def __init__(self, action_type: ActionType ="none", action="", summary=""):
     self.a_type = action_type
@@ -470,6 +470,10 @@ class LdAction:
         input_backend.scroll(self.action, amount=n)
       elif self.a_type == "media":
         input_backend.media(self.action)
+      elif self.a_type == "mouse":
+        # A click happens once; a knob's notches are how far a scroll, move
+        # or drag goes (input_backend.mouse).
+        input_backend.mouse(self.action, amount=n)
       elif self.a_type == "macro":
         # Runs on the macro worker, not here: a macro with waits in it would
         # otherwise block the device's message thread for its whole duration.

@@ -629,7 +629,7 @@ class Backend(QObject):
         return out
 
     # -- control selection + action editing (inspector) --------------------
-    ACTION_TYPES = ["none", "command", "hotkey", "text", "scroll", "media",
+    ACTION_TYPES = ["none", "command", "hotkey", "text", "scroll", "mouse", "media",
                     "keyboard", "workspace", "profile", "macro"]
 
     # Per-platform, from action_library: the applications differ by desktop.
@@ -1209,6 +1209,29 @@ class Backend(QObject):
     # Action types whose value is a fixed set rather than free text. Typing
     # 'up' by hand is a needless way to get 'sideways' wrong.
     VALUE_OPTIONS = {
+        # Keys before "+" are held around it; a knob's notches are how far a
+        # move or drag goes (input_backend.mouse).
+        "mouse": [
+                  {"label": "Click", "value": "click"},
+                  {"label": "Double click", "value": "doubleclick"},
+                  {"label": "Right click", "value": "rightclick"},
+                  {"label": "Middle click", "value": "middleclick"},
+                  {"label": "Ctrl + click", "value": "ctrl+click"},
+                  {"label": "Shift + click", "value": "shift+click"},
+                  {"label": "Alt + click", "value": "alt+click"},
+                  {"label": "Ctrl + right click", "value": "ctrl+rightclick"},
+                  {"label": "Ctrl + scroll up", "value": "ctrl+scroll-up"},
+                  {"label": "Ctrl + scroll down", "value": "ctrl+scroll-down"},
+                  {"label": "Shift + scroll up", "value": "shift+scroll-up"},
+                  {"label": "Shift + scroll down", "value": "shift+scroll-down"},
+                  {"label": "Move left", "value": "move-left"},
+                  {"label": "Move right", "value": "move-right"},
+                  {"label": "Move up", "value": "move-up"},
+                  {"label": "Move down", "value": "move-down"},
+                  {"label": "Drag left", "value": "drag-left"},
+                  {"label": "Drag right", "value": "drag-right"},
+                  {"label": "Drag up", "value": "drag-up"},
+                  {"label": "Drag down", "value": "drag-down"}],
         "scroll": [{"label": "Up", "value": "up"},
                    {"label": "Down", "value": "down"},
                    {"label": "Left", "value": "left"},

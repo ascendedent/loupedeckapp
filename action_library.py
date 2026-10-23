@@ -13,7 +13,7 @@ Qt-free: the UI reads this, nothing here reads the UI.
 
 import platform_env
 
-CATEGORIES = ["General", "Adjustments", "Navigation", "Media", "System",
+CATEGORIES = ["General", "Adjustments", "Mouse", "Navigation", "Media", "System",
               "Applications"]
 
 # Everything that does not depend on which desktop is installed.
@@ -32,6 +32,17 @@ PORTABLE = [
     ("Adjustments", "Volume up", "hotkey", "volumeup"),
     ("Adjustments", "Volume down", "hotkey", "volumedown"),
     ("Adjustments", "Mute", "hotkey", "mute"),
+
+    ("Mouse", "Click", "mouse", "click"),
+    ("Mouse", "Double click", "mouse", "doubleclick"),
+    ("Mouse", "Right click", "mouse", "rightclick"),
+    ("Mouse", "Middle click", "mouse", "middleclick"),
+    ("Mouse", "Ctrl + scroll up", "mouse", "ctrl+scroll-up"),
+    ("Mouse", "Ctrl + scroll down", "mouse", "ctrl+scroll-down"),
+    ("Mouse", "Move left", "mouse", "move-left"),
+    ("Mouse", "Move right", "mouse", "move-right"),
+    ("Mouse", "Drag up", "mouse", "drag-up"),
+    ("Mouse", "Drag down", "mouse", "drag-down"),
 
     ("Media", "Play / Pause", "media", "play-pause"),
     ("Media", "Next track", "media", "next"),
