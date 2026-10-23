@@ -1443,6 +1443,55 @@ ApplicationWindow {
                                     }
                                 }
                             }
+                            // Settings a converted plugin needs from the app (an
+                            // OpenAI key and model), one row each. Saved when the
+                            // field is left; the plugin restarts to read them.
+                            Repeater {
+                                model: {
+                                    var rows = []
+                                    backend.plugins.forEach(function(p) {
+                                        (p.settings || []).forEach(function(s) {
+                                            rows.push({ plugin: p.name, pluginName: p.displayName,
+                                                        setting: s })
+                                        })
+                                    })
+                                    return rows
+                                }
+                                Rectangle {
+                                    id: settingRow
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 30
+                                    radius: 6; color: theme.panel2
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 8; anchors.rightMargin: 6
+                                        spacing: 6
+                                        Text {
+                                            text: settingRow.modelData.pluginName + ": "
+                                                  + settingRow.modelData.setting.label
+                                            color: theme.text; font.pixelSize: 10
+                                            Layout.preferredWidth: 150
+                                            elide: Text.ElideRight
+                                        }
+                                        TextField {
+                                            Layout.fillWidth: true
+                                            font.pixelSize: 10
+                                            text: settingRow.modelData.setting.value || ""
+                                            placeholderText: settingRow.modelData.setting.placeholder || ""
+                                            placeholderTextColor: theme.muted
+                                            color: theme.text
+                                            echoMode: settingRow.modelData.setting.secret
+                                                      ? TextInput.Password : TextInput.Normal
+                                            onEditingFinished: {
+                                                if (text !== (settingRow.modelData.setting.value || ""))
+                                                    backend.setPluginSetting(settingRow.modelData.plugin,
+                                                        settingRow.modelData.setting.name, text)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                             // Sign-ins a plugin asks for (a .NET plugin's
                             // accounts), one row each under the plugin list.
                             Repeater {

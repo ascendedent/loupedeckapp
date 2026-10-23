@@ -172,6 +172,7 @@ py-modules = [
     "dotnet/shims/WindowsInput/WindowsInput.cs",
 ]
 "share/loupedeckapp/dotnet/shims/AudioSwitcher.AudioApi" = ["dotnet/shims/AudioSwitcher.AudioApi/AudioApi.cs"]
+"share/loupedeckapp/dotnet/shims/LoupedeckShared" = ["dotnet/shims/LoupedeckShared/LoupedeckShared.cs"]
 "share/loupedeckapp/dotnet/shims/AudioSwitcher.AudioApi.CoreAudio" = [
     "dotnet/shims/AudioSwitcher.AudioApi.CoreAudio/CoreAudio.cs",
 ]

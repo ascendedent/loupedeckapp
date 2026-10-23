@@ -57,6 +57,8 @@ TARGETS = [
     # Stand-ins for Windows-only libraries plugins bundle (plugin_port.py
     # puts them in place of the originals). Built for .NET Framework; the
     # .NET 10 host loads them too.
+    # Provided by the host, as Loupedeck's software provides it beside plugins.
+    ("LoupedeckShared.dll", ["shims/LoupedeckShared/*.cs"], [], "library"),
     ("shims/WindowsInput.dll", ["shims/WindowsInput/*.cs"], ["@PluginApi.dll"], "library"),
     ("shims/AudioSwitcher.AudioApi.dll", ["shims/AudioSwitcher.AudioApi/*.cs"], [], "library"),
     ("shims/AudioSwitcher.AudioApi.CoreAudio.dll", ["shims/AudioSwitcher.AudioApi.CoreAudio/*.cs"],
@@ -163,9 +165,20 @@ def _core_stale():
     return any(os.path.getmtime(s) > built for s in _core_sources())
 
 
+def _host_provided_to_core():
+    """Libraries the host provides (built by the Mono half), beside the
+    .NET 10 host too: it loads .NET Framework assemblies like these."""
+    for name in ("LoupedeckShared.dll",):
+        src, dst = os.path.join(BIN, name), os.path.join(CORE_BIN, name)
+        if os.path.isfile(src) and os.path.isdir(CORE_BIN) and (
+                not os.path.isfile(dst) or os.path.getmtime(dst) < os.path.getmtime(src)):
+            shutil.copy2(src, dst)
+
+
 def build_core(quiet=True):
     """The .NET 10 host. Returns an error string, or "". The first build
     fetches SkiaSharp from NuGet."""
+    _host_provided_to_core()
     if not _core_stale():
         return ""
     dotnet = dotnet_sdk()
@@ -179,6 +192,7 @@ def build_core(quiet=True):
     # dotnet does not touch an output it considers current; make the stamp
     # this staleness check reads say "now".
     os.utime(CORE_HOST, None)
+    _host_provided_to_core()
     if not quiet:
         print("built core/LoupedeckHost.dll")
     return ""

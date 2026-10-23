@@ -241,7 +241,10 @@ namespace Loupedeck.Host
                 var n = new AssemblyName(e.Name).Name;
                 if (n == "PluginApi") return api;
                 var path = Path.Combine(folder, n + ".dll");
-                return File.Exists(path) ? Assembly.LoadFrom(path) : null;
+                if (File.Exists(path)) return Assembly.LoadFrom(path);
+                // What the host provides beside itself (LoupedeckShared).
+                var provided = Path.Combine(Path.GetDirectoryName(api.Location), n + ".dll");
+                return File.Exists(provided) ? Assembly.LoadFrom(provided) : null;
             };
 
             try

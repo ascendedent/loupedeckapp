@@ -65,4 +65,31 @@ namespace Loupedeck.Host
         }
 #endif
     }
+
+    // What plugins get through JsonHelpers: Newtonsoft.Json, which the host
+    // provides as the official software does, and which plugins are written
+    // against (classes with only a constructor taking parameters, [JsonProperty]
+    // names). The host's own serializer when it is not there.
+    internal static class PluginJson
+    {
+        private static readonly Type Convert = Type.GetType("Newtonsoft.Json.JsonConvert, Newtonsoft.Json", false);
+        private static readonly System.Reflection.MethodInfo ToJson =
+            Convert == null ? null : Convert.GetMethod("SerializeObject", new[] { typeof(Object) });
+        private static readonly System.Reflection.MethodInfo FromJson =
+            Convert == null ? null : Convert.GetMethod("DeserializeObject", new[] { typeof(String), typeof(Type) });
+
+        internal static String Serialize(Object value)
+        {
+            if (ToJson == null) return Json.Serialize(value);
+            try { return (String)ToJson.Invoke(null, new[] { value }); }
+            catch (System.Reflection.TargetInvocationException ex) { throw ex.InnerException ?? ex; }
+        }
+
+        internal static T Deserialize<T>(String text)
+        {
+            if (FromJson == null) return Json.Deserialize<T>(text);
+            try { return (T)FromJson.Invoke(null, new Object[] { text, typeof(T) }); }
+            catch (System.Reflection.TargetInvocationException ex) { throw ex.InnerException ?? ex; }
+        }
+    }
 }

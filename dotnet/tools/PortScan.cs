@@ -45,6 +45,10 @@ static class PortScan
         "System.Runtime.InteropServices.Marshal::GetActiveObject",
         "System.Environment::GetFolderPath", "System.Environment::ExpandEnvironmentVariables",
         "System.Type::GetTypeFromCLSID", "System.Type::GetTypeFromProgID",
+        // A fixed OpenAI model, which OpenAI retires in time (plugin_port
+        // points it at the one set in the app).
+        "OpenAI_API.Models.Model::get_ChatGPTTurbo", "OpenAI_API.Models.Model::get_ChatGPTTurbo0301",
+        "OpenAI_API.Models.Model::get_DavinciText",
     };
 
     // Literals worth showing: executables, shells, scripting, paths, keys.

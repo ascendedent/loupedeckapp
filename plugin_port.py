@@ -53,7 +53,7 @@ import plugin_host
 LIBRARIES = {
     "Newtonsoft.Json": ("any", ""), "YamlDotNet": ("any", ""), "DotNetZip": ("any", ""),
     "Ionic.Zip": ("any", ""), "websocket-sharp": ("any", ""), "RestSharp": ("any", ""),
-    "OpenAI_API": ("any", ""), "Polly": ("any", ""), "NLog": ("any", ""), "Serilog": ("any", ""),
+    "OpenAI_API": ("any", ""), "Polly": ("any", ""), "LoupedeckShared": ("any", ""), "NLog": ("any", ""), "Serilog": ("any", ""),
     "Serilog.": ("any", ""), "HtmlAgilityPack": ("any", ""), "MQTTnet": ("any", ""),
     "Websocket.Client": ("any", ""), "Octokit": ("any", ""), "Google.Protobuf": ("any", ""),
     "BouncyCastle.Crypto": ("any", ""), "Microsoft.Bcl.": ("any", ""), "Microsoft.Extensions.": ("any", ""),
@@ -198,6 +198,7 @@ FRAMEWORK_AREAS = [
     ("ObjCRuntime", "cocoa"), ("CoreGraphics", "cocoa"),
     ("System.Type::GetTypeFrom", "com"), ("System.Runtime.InteropServices.Marshal::GetActiveObject", "com"),
     ("System.Diagnostics.Process", "processes"), ("System.Environment", "paths"),
+    ("OpenAI_API.Models.Model", "ai"),
 ]
 
 # A shell or a platform's own tool: an action that runs one does nothing here.
@@ -409,6 +410,10 @@ def _analyze_dotnet(root, entry):
             area = _framework_area(r[2])
             if area in ("processes", "paths"):
                 continue      # portable by themselves; the strings say what they run
+            if area == "ai":
+                # Not tied to a platform, but to a model OpenAI retires.
+                findings.append(_finding("model", "ai", r[2], "", rel, int(r[3])))
+                continue
             findings.append(_finding("framework", area, r[2], "windows" if area != "cocoa" else "mac",
                                      rel, int(r[3])))
         elif kind == "string":
@@ -611,6 +616,20 @@ OPENERS = re.compile(
     r"""|^open\s+(?!-a\b)\S""",
     re.IGNORECASE)
 
+# OpenAI_API's fixed models: the request asks for the one set in the app
+# instead (LoupedeckShared's OpenAi.ChatModel), so a retired model does not
+# leave the plugin with nothing to talk to.
+MODEL_GETTERS = ("OpenAI_API.Models.Model::get_ChatGPTTurbo", "OpenAI_API.Models.Model::get_ChatGPTTurbo0301",
+                 "OpenAI_API.Models.Model::get_DavinciText")
+MODEL_SOURCE = "Loupedeck.LinuxShared.OpenAi::ChatModel"
+
+# What the app asks for, for a plugin converted that way. Written to the
+# files the plugin reads when it starts (write_setting).
+OPENAI_SETTINGS = [
+    {"name": "openai_key", "label": "OpenAI API key", "secret": True, "placeholder": "sk-..."},
+    {"name": "openai_model", "label": "OpenAI model", "secret": False, "placeholder": "gpt-4o-mini"},
+]
+
 BARE_CMD = re.compile(r"""^\s*"?(?:[A-Za-z]:\\[^"]*\\)?cmd(?:\.exe)?"?\s*$""", re.IGNORECASE)
 
 # Where a conversion records what it did, beside the plugin.
@@ -625,6 +644,8 @@ def _rule(f, report):
         return "swap"
     if f["kind"] == "command" and OPENERS.search(f["what"]):
         return "process"
+    if f["kind"] == "model" and f["what"] in MODEL_GETTERS:
+        return "model"
     # "cmd.exe" alone, its arguments in another string ("/c start <url>"):
     # covered where the same file is seen opening things that way.
     if f["kind"] == "command" and BARE_CMD.match(f["what"]):
@@ -644,7 +665,12 @@ def plan(report):
     """What converting the plugin would do: {"process": [files whose
     Process.Start calls go to ProcessShim], "swap": [libraries replaced by
     stand-ins]}."""
-    out = {"process": [], "swap": []}
+    out = {"process": [], "swap": [], "value": []}
+    for f in report["findings"]:
+        if _rule(f, report) == "model":
+            for where in f["where"].split(", "):
+                if where and (where, f["what"]) not in out["value"]:
+                    out["value"].append((where, f["what"]))
     for f in blocking(report):
         rule = _rule(f, report)
         if rule == "process":
@@ -673,7 +699,8 @@ def verdict(report):
 VERDICTS = {"runs": "runs as it is", "converts": "converts: every part listed is covered",
             "needs": "needs Linux stand-ins for what is not marked converted",
             "unreadable": "could not be read"}
-RULE_NAMES = {"process": "opens with xdg-open", "swap": "Linux stand-in library"}
+RULE_NAMES = {"process": "opens with xdg-open", "swap": "Linux stand-in library",
+              "model": "asks for the model set in the app"}
 def describe(report):
     """A report as text, for one plugin."""
     lines = ["%s (%s)" % (report["displayName"] or os.path.basename(report["package"]), report["name"])]
@@ -697,6 +724,8 @@ def describe(report):
         lines.append("  also seen:")
         for f in other[:15]:
             why = ("  -- " + f["detail"]) if f["platform"] == "check" and f["detail"] else ""
+            if _rule(f, report):
+                why = "  -> converted: " + RULE_NAMES[_rule(f, report)]
             lines.append("    %-10s %-9s %s%s" % (f["area"], f["kind"], f["what"][:100], why))
         if len(other) > 15:
             lines.append("    ... and %d more" % (len(other) - 15))
@@ -870,7 +899,7 @@ def convert_installed(name):
     if report["error"]:
         return state            # not saved: a later attempt may manage
     todo = plan(report)
-    if todo["process"] or todo["swap"]:
+    if todo["process"] or todo["swap"] or todo["value"]:
         tools = _tools()
         if isinstance(tools, str):
             state["error"] = tools
@@ -883,6 +912,9 @@ def convert_installed(name):
             args += ["--process", os.path.relpath(os.path.join(entry_dir, rel), folder)]
         for lib in todo["swap"]:
             args += ["--swap", lib, os.path.join(bin_dir, STAND_INS[lib])]
+        for rel, getter in todo["value"]:
+            args += ["--value", os.path.relpath(os.path.join(entry_dir, rel), folder), getter,
+                     os.path.join(bin_dir, "LoupedeckShared.dll"), MODEL_SOURCE]
         out = subprocess.run(args, capture_output=True, text=True, timeout=300,
                              env=dict(os.environ, MONO_PATH=bin_dir))
         if out.returncode != 0:
@@ -893,6 +925,9 @@ def convert_installed(name):
             what, _, detail = rest.partition("\t")
             if kind == "process":
                 state["converted"].append("%s opens pages and files with xdg-open (%s calls)" % (what, detail))
+            elif kind == "value":
+                state["converted"].append("%s asks OpenAI for the model set in the app" % what)
+                state["settings"] = OPENAI_SETTINGS
             elif kind == "skip":
                 state["converted"].append("%s: %s" % (what, detail))
         for lib in todo["swap"]:
@@ -908,6 +943,80 @@ def convert_installed(name):
     with open(os.path.join(folder, PORT_STATE), "w", encoding="utf-8") as f:
         json.dump(state, f, indent=1)
     return state
+
+
+# -- settings a conversion asks for ------------------------------------------------
+_ACCESS_FILE = "gpt-openai-access.json"
+_ACTIONS_FILE = "gpt-openai-actions.json"
+
+# What the AI Assistant offers when nothing else is set: its configuration
+# came from Loupedeck's servers, which are not here. Each prompt is followed
+# by the selected text.
+DEFAULT_PROMPTS = [
+    ("Writing", "Fix spelling and grammar",
+     "Correct the spelling and grammar of the following text. Reply with the corrected text only.\n\n"),
+    ("Writing", "Make it shorter",
+     "Rewrite the following text to be shorter, keeping its meaning. Reply with the rewritten text only.\n\n"),
+    ("Writing", "Make it formal",
+     "Rewrite the following text in a formal, professional tone. Reply with the rewritten text only.\n\n"),
+    ("Writing", "Make it friendly",
+     "Rewrite the following text in a warm, friendly tone. Reply with the rewritten text only.\n\n"),
+    ("Explain", "Summarize",
+     "Summarize the following text in a few sentences.\n\n"),
+    ("Explain", "Explain simply",
+     "Explain the following in plain words, briefly.\n\n"),
+    ("Translate", "Translate to English",
+     "Translate the following text to English. Reply with the translation only.\n\n"),
+    ("Code", "Explain code",
+     "Explain what the following code does, briefly.\n\n"),
+]
+
+
+def _online_files(name):
+    return os.path.join(plugin_host.data_dir(name), "online-files")
+
+
+def settings(name):
+    """The settings a converted plugin needs from the app, with their
+    current values: [{"name", "label", "secret", "placeholder", "value"}]."""
+    state = conversion(name) or {}
+    wanted = state.get("settings") or []
+    if not wanted:
+        return []
+    try:
+        with open(os.path.join(_online_files(name), _ACCESS_FILE), encoding="utf-8") as f:
+            access = json.load(f)
+    except (OSError, ValueError):
+        access = {}
+    values = {"openai_key": access.get("APIKey", ""), "openai_model": access.get("Model", "")}
+    return [dict(s, value=values.get(s["name"], "")) for s in wanted]
+
+
+def write_setting(name, key, value):
+    """Set one of settings(name), in the files the plugin reads when it
+    starts (restart it after). Returns an error, or ""."""
+    if key not in {s["name"] for s in OPENAI_SETTINGS}:
+        return "%s has no setting %r" % (name, key)
+    folder = _online_files(name)
+    os.makedirs(folder, exist_ok=True)
+    path = os.path.join(folder, _ACCESS_FILE)
+    try:
+        with open(path, encoding="utf-8") as f:
+            access = json.load(f)
+    except (OSError, ValueError):
+        access = {"APIKey": "", "Organization": ""}
+    access["APIKey" if key == "openai_key" else "Model"] = str(value or "").strip()
+    with open(path + ".tmp", "w", encoding="utf-8") as f:
+        json.dump(access, f)
+    os.chmod(path + ".tmp", 0o600)        # it holds the key
+    os.replace(path + ".tmp", path)
+    actions = os.path.join(folder, _ACTIONS_FILE)
+    if not os.path.exists(actions):
+        with open(actions, "w", encoding="utf-8") as f:
+            json.dump({"Actions": [{"ActionPath": group, "DisplayName": label, "Description": label,
+                                    "Prompt": prompt, "Parameter": []}
+                                   for group, label, prompt in DEFAULT_PROMPTS]}, f, indent=1)
+    return ""
 
 
 def revert(name):

@@ -95,6 +95,21 @@ namespace WindowsInput
 }
 """
 
+# OpenAI_API's shape where it matters: a fixed model, made from a name.
+FAKE_OPENAI = r"""
+namespace OpenAI_API.Models
+{
+    public class Model
+    {
+        public string ModelID;
+        public Model(string name) { ModelID = name; }
+        public static Model ChatGPTTurbo { get { return new Model("gpt-3.5-turbo"); } }
+        public static implicit operator Model(string name) { return new Model(name); }
+        public static implicit operator string(Model model) { return model.ModelID; }
+    }
+}
+"""
+
 PLUGIN = r"""
 using System;
 using System.Diagnostics;
@@ -164,6 +179,17 @@ namespace Loupedeck.WinPlugin
         }
     }
 
+    // Which model it would ask OpenAI for.
+    public class AskModel : PluginDynamicCommand
+    {
+        public AskModel() : base("Ask model", "", "Win") { }
+        protected override void RunCommand(string p)
+        {
+            string model = OpenAI_API.Models.Model.ChatGPTTurbo;
+            System.IO.File.WriteAllText(Environment.GetEnvironmentVariable("TEST_MODEL_OUT"), model);
+        }
+    }
+
     // Holds Shift and dies: the app must let go of it.
     public class HoldAndDie : PluginDynamicCommand
     {
@@ -178,6 +204,11 @@ namespace Loupedeck.WinPlugin
 }
 """
 
+openai_src = os.path.join(tmp, "OpenAI.cs")
+openai_dll = os.path.join(tmp, "OpenAI_API.dll")
+with open(openai_src, "w") as f:
+    f.write(FAKE_OPENAI)
+subprocess.run(["mcs", "-nologo", "-target:library", "-out:" + openai_dll, openai_src], check=True)
 wi_src = os.path.join(tmp, "WindowsInput.cs")
 plugin_src = os.path.join(tmp, "WinPlugin.cs")
 with open(wi_src, "w") as f:
@@ -192,6 +223,7 @@ p = subprocess.run(["mcs", "-nologo", "-target:library", "-keyfile:" + snk, "-ou
 c.eq("the fake WindowsInput compiles, strong-named", p.returncode, 0)
 plugin_dll = os.path.join(tmp, "WinPluginPlugin.dll")
 p2 = subprocess.run(["mcs", "-nologo", "-target:library", "-out:" + plugin_dll, "-r:" + api, "-r:" + wi_dll,
+                     "-r:" + openai_dll,
                      plugin_src], capture_output=True, text=True)
 c.eq("the Windows-style plugin compiles", p2.returncode, 0)
 if p.returncode or p2.returncode:
@@ -205,11 +237,13 @@ with zipfile.ZipFile(package, "w") as zf:
                 "pluginFileName: WinPluginPlugin.dll\npluginFolderWin: bin\\win\n")
     zf.write(plugin_dll, "bin\\win\\WinPluginPlugin.dll")
     zf.write(wi_dll, "bin\\win\\WindowsInput.dll")
+    zf.write(openai_dll, "bin\\win\\OpenAI_API.dll")
 
 report = pp.analyze(package)
 c.eq("the analyzer says it converts", report["verdict"], "converts")
-c.eq("by pointing Process.Start at the shim and swapping WindowsInput",
-     pp.plan(report), {"process": ["WinPluginPlugin.dll"], "swap": ["WindowsInput"]})
+c.eq("by pointing Process.Start at the shim, swapping WindowsInput and asking for the set model",
+     pp.plan(report), {"process": ["WinPluginPlugin.dll"], "swap": ["WindowsInput"],
+                       "value": [("WinPluginPlugin.dll", "OpenAI_API.Models.Model::get_ChatGPTTurbo")]})
 
 # -- install converts it ------------------------------------------------------------
 name, err = ph.install(package)
@@ -217,7 +251,15 @@ c.eq("it installs", (name, err), ("WinPlugin", ""))
 folder = os.path.join(ph.plugins_dir(), "WinPlugin")
 state = pp.conversion("WinPlugin")
 c.eq("and was converted on the way in",
-     (state and state["verdict"], state and state["error"], state and len(state["converted"])), ("converts", "", 2))
+     (state and state["verdict"], state and state["error"], state and len(state["converted"])), ("converts", "", 3))
+c.eq("and asks the app for an OpenAI key and model",
+     [x["name"] for x in pp.settings("WinPlugin")], ["openai_key", "openai_model"])
+c.eq("a setting is saved where the plugin reads it", pp.write_setting("WinPlugin", "openai_model", "my-model"), "")
+c.eq("and reads back", [x["value"] for x in pp.settings("WinPlugin")], ["", "my-model"])
+c.eq("the key is kept private",
+     oct(os.stat(os.path.join(ph.data_dir("WinPlugin"), "online-files", "gpt-openai-access.json")).st_mode & 0o777),
+     "0o600")
+c.eq("an unknown setting is refused", pp.write_setting("WinPlugin", "nope", "x") != "", True)
 c.eq("with nothing left over", state and state["remaining"], [])
 c.eq("the originals are kept",
      sorted(os.listdir(os.path.join(folder, ".orig", "bin", "win"))), ["WinPluginPlugin.dll", "WindowsInput.dll"])
@@ -249,6 +291,8 @@ c.eq("a conversion made with other stand-ins is stale", pp.stale("WinPlugin"), T
 # -- and it runs the Linux way ---------------------------------------------------------
 out = os.path.join(tmp, "out.txt")
 os.environ["TEST_OUT"] = out
+model_out = os.path.join(tmp, "model.txt")
+os.environ["TEST_MODEL_OUT"] = model_out
 host_ = ph.PluginHost()
 ph.set_host(host_)
 host_.start()
@@ -292,6 +336,9 @@ try:
     c.eq("WindowsInput's keys, text and wheel go through the input backend",
          wait_for(lambda: sent == [("keys", "ctrl+k"), ("text", "hi"), ("scroll", "down", 2)]), True)
     c.eq("and the original library was never used", os.path.exists(out), False)
+    ph.execute(values["Ask model"])
+    c.eq("the plugin asks OpenAI for the model set in the app, not its fixed one",
+         wait_for(lambda: os.path.exists(model_out) and open(model_out).read() == "my-model"), True)
     del sent[:]
     ph.execute(values["Zoom"])
     c.eq("a key held while the wheel turns is held, in order",

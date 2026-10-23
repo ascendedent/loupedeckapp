@@ -1238,8 +1238,25 @@ class Backend(QObject):
     # -- plugins -----------------------------------------------------------
     @Property("QVariantList", notify=pluginsChanged)
     def plugins(self):
-        """Installed plugins and how each is doing, for preferences."""
-        return self._plugins.status()
+        """Installed plugins and how each is doing, for preferences, with
+        the settings a conversion asked for (an OpenAI key, say)."""
+        out = []
+        for p in self._plugins.status():
+            p = dict(p)
+            p["settings"] = plugin_port.settings(p["name"]) if p.get("runtime") == "dotnet" else []
+            out.append(p)
+        return out
+
+    @Slot(str, str, str)
+    def setPluginSetting(self, plugin, key, value):
+        """One of a converted plugin's settings; the plugin restarts to read
+        it, as it reads them only when it starts."""
+        error = plugin_port.write_setting(plugin, key, value)
+        if error:
+            self.notify.emit(error)
+            return
+        self._plugins.reload(plugin)
+        self.pluginsChanged.emit()
 
     @Slot(str, result=str)
     def installPlugin(self, file_url):
@@ -1268,6 +1285,10 @@ class Backend(QObject):
             if port and port.get("remaining"):
                 parts.append("Still tied to Windows or macOS, so some of its actions "
                              "may do nothing:\n" + "\n".join("• " + r for r in port["remaining"]))
+            if port and port.get("settings"):
+                parts.append("It needs settings before it can work: "
+                             + ", ".join(s["label"] for s in port["settings"])
+                             + ". They are under its name in Preferences.")
             elif port is None and info.get("windowsOnly"):
                 parts.append("This plugin is packaged for Windows only. Plugins like that "
                              "usually call into Windows itself, so it may not start here, "

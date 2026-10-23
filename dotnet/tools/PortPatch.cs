@@ -6,6 +6,12 @@
 //                             ProcessShim, which opens URLs and files with
 //                             xdg-open where the plugin used cmd, explorer,
 //                             rundll32 or open
+//   --value <file> <Type::Getter> <dll> <Type::Method>
+//                             calls in <file> to the static Getter (a fixed
+//                             value, such as OpenAI_API's Model.ChatGPTTurbo)
+//                             call Method in <dll> instead, which returns a
+//                             string, made the getter's type by its implicit
+//                             conversion from string
 //   --swap <assembly> <dll>   every assembly in the folder that references
 //                             <assembly> references the stand-in <dll>
 //                             instead (its version, no strong name);
@@ -15,6 +21,7 @@
 // original can be put back. Prints one line per change:
 //
 //   process  file  call-sites
+//   value    file  getter
 //   swap     file  assembly
 //   skip     file  why
 //
@@ -109,6 +116,49 @@ static class PortPatch
         Console.WriteLine("process\t{0}\t{1}", Rel(path), count);
     }
 
+    static void Value(string path, string getter, string dllPath, string target)
+    {
+        var module = Read(path);
+        var dll = ModuleDefinition.ReadModule(dllPath);
+        var parts = target.Split(new[] { "::" }, StringSplitOptions.None);
+        var targetType = dll.GetType(parts[0]);
+        var method = targetType == null ? null
+            : targetType.Methods.FirstOrDefault(x => x.Name == parts[1] && x.IsStatic && x.Parameters.Count == 0
+                                                     && x.ReturnType.FullName == "System.String");
+        if (method == null) { Console.WriteLine("skip\t{0}\tno {1} in {2}", Rel(path), target, dllPath); return; }
+        var count = 0;
+        foreach (var type in module.GetTypes())
+            foreach (var body in type.Methods.Where(m => m.HasBody).Select(m => m.Body))
+                foreach (var ins in body.Instructions.ToList())
+                {
+                    var m = ins.Operand as MethodReference;
+                    if (m == null || m.HasThis || m.Parameters.Count > 0
+                        || m.DeclaringType.FullName + "::" + m.Name != getter)
+                        continue;
+                    var valueType = m.ReturnType.Resolve();
+                    var implicitOp = valueType == null ? null : valueType.Methods.FirstOrDefault(x =>
+                        x.Name == "op_Implicit" && x.Parameters.Count == 1
+                        && x.Parameters[0].ParameterType.FullName == "System.String"
+                        && x.ReturnType.FullName == valueType.FullName);
+                    if (implicitOp == null)
+                    {
+                        Console.WriteLine("skip\t{0}\t{1} has no conversion from string", Rel(path), m.ReturnType.FullName);
+                        return;
+                    }
+                    var convert = module.ImportReference(implicitOp);
+                    convert.DeclaringType.Scope = m.DeclaringType.Scope;   // the plugin's own reference to it
+                    var call = module.ImportReference(method);
+                    Rescope(module, call.DeclaringType, dll.Assembly.Name.Name);
+                    ins.OpCode = OpCodes.Call;
+                    ins.Operand = call;
+                    body.GetILProcessor().InsertAfter(ins, Instruction.Create(OpCodes.Call, convert));
+                    count++;
+                }
+        if (count == 0) { Console.WriteLine("skip\t{0}\tno {1} to replace", Rel(path), getter); return; }
+        Write(module, path);
+        Console.WriteLine("value\t{0}\t{1}", Rel(path), getter);
+    }
+
     static void Swap(string name, string shimPath)
     {
         var shim = ModuleDefinition.ReadModule(shimPath).Assembly.Name;
@@ -149,6 +199,11 @@ static class PortPatch
         {
             if (args[i] == "--process" && i + 1 < args.Length)
                 Process(Path.Combine(_root, args[++i]), api);
+            else if (args[i] == "--value" && i + 4 < args.Length)
+            {
+                Value(Path.Combine(_root, args[i + 1]), args[i + 2], args[i + 3], args[i + 4]);
+                i += 4;
+            }
             else if (args[i] == "--swap" && i + 2 < args.Length)
             {
                 Swap(args[i + 1], args[i + 2]);

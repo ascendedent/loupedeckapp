@@ -274,31 +274,31 @@ namespace Loupedeck
     // Newtonsoft's attributes bring Newtonsoft with them, as Twitch does.
     public static class JsonHelpers
     {
-        public static String SerializeObject(Object obj) { return Host.Json.Serialize(obj); }
+        public static String SerializeObject(Object obj) { return Host.PluginJson.Serialize(obj); }
 
-        public static T DeserializeObject<T>(String json) { return Host.Json.Deserialize<T>(json); }
+        public static T DeserializeObject<T>(String json) { return Host.PluginJson.Deserialize<T>(json); }
 
-        public static T DeserializeAnyObject<T>(String json) { return Host.Json.Deserialize<T>(json); }
+        public static T DeserializeAnyObject<T>(String json) { return Host.PluginJson.Deserialize<T>(json); }
 
         public static T DeserializeAnyObjectFromFile<T>(String filePath)
         {
-            return Host.Json.Deserialize<T>(File.ReadAllText(filePath));
+            return Host.PluginJson.Deserialize<T>(File.ReadAllText(filePath));
         }
 
         public static void SerializeAnyObjectToFile(Object obj, String filePath)
         {
-            File.WriteAllText(filePath, Host.Json.Serialize(obj));
+            File.WriteAllText(filePath, Host.PluginJson.Serialize(obj));
         }
 
         public static Boolean TryDeserializeAnyObject<T>(String json, out T obj)
         {
-            try { obj = Host.Json.Deserialize<T>(json); return obj != null; }
+            try { obj = Host.PluginJson.Deserialize<T>(json); return obj != null; }
             catch (Exception) { obj = default(T); return false; }
         }
 
         public static Boolean TrySerializeAnyObject(Object obj, out String json)
         {
-            try { json = Host.Json.Serialize(obj); return true; }
+            try { json = Host.PluginJson.Serialize(obj); return true; }
             catch (Exception) { json = null; return false; }
         }
     }
