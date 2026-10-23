@@ -37,7 +37,7 @@ namespace Loupedeck.TestPlugin
             this.OnPluginStatusChanged(PluginStatus.Warning, "not signed in yet");
 
             // A browser sign-in coming back on a loupedeck: link.
-            this.ServiceEvents.UrlCallbackReceived += (s, e) => Out("url " + e.Uri.Query);
+            this.ServiceEvents.UrlCallbackReceived += (s, e) => Out("url " + e.Uri.Query + " " + e.PathAndQuery);
         }
 
         public override void Unload() { Out("unload"); }

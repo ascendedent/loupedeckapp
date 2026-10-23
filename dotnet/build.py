@@ -17,10 +17,14 @@ a source change is picked up without anyone remembering to run this.
 Qt-free.
 """
 import glob
+import hashlib
+import io
 import os
 import shutil
 import subprocess
 import sys
+import urllib.request
+import zipfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -49,6 +53,42 @@ TARGETS = [
     ("LoupedeckHost.exe", ["LoupedeckHost/*.cs"], ["@PluginApi.dll"], "exe"),
     ("ApiScan.exe", ["tools/ApiScan.cs"], ["@cecil"], "exe"),
 ]
+
+# Libraries the Loupedeck software ships beside its plugins, so plugins use
+# them without bundling a copy (VLC's and the AI Assistant reference
+# Newtonsoft.Json 13 and carry none). The Mono host gets them here; the .NET
+# 10 host through its PackageReference. (NuGet id, version, file inside the
+# package, sha256 of the .nupkg, as nuget.org's catalog lists it.)
+SHARED = [
+    ("newtonsoft.json", "13.0.3", "lib/net45/Newtonsoft.Json.dll",
+     "872fc189e638ab1056555b03aaa38f68bcb54286e221aa646eb1129babf63c77"),
+]
+
+
+def _shared_libs():
+    """Put SHARED beside the Mono host. From the NuGet cache when the SDK
+    has filled it, else from nuget.org, checked against the pinned hash.
+    Returns an error string, or ""."""
+    for package, version, member, sha256 in SHARED:
+        out = os.path.join(BIN, os.path.basename(member))
+        if os.path.isfile(out):
+            continue
+        cached = os.path.expanduser(os.path.join("~/.nuget/packages", package, version, member))
+        if os.path.isfile(cached):
+            shutil.copy2(cached, out)
+            continue
+        url = "https://api.nuget.org/v3-flatcontainer/%s/%s/%s.%s.nupkg" % (package, version, package, version)
+        try:
+            with urllib.request.urlopen(url, timeout=60) as r:
+                data = r.read()
+        except OSError as e:
+            return "could not fetch %s %s: %s" % (package, version, e)
+        if hashlib.sha256(data).hexdigest() != sha256:
+            return "%s %s from nuget.org does not match its pinned hash" % (package, version)
+        with zipfile.ZipFile(io.BytesIO(data)) as z, open(out + ".part", "wb") as f:
+            f.write(z.read(member))
+        os.replace(out + ".part", out)
+    return ""
 
 
 def _sources(patterns):
@@ -80,6 +120,8 @@ def needs_build():
         deps = [os.path.join(BIN, r[1:]) for r in refs if r.startswith("@") and r != "@cecil"]
         if _stale(output, _sources(patterns), deps):
             return True
+    if any(not os.path.isfile(os.path.join(BIN, os.path.basename(m))) for _p, _v, m, _h in SHARED):
+        return True
     return bool(dotnet_sdk()) and _core_stale()
 
 
@@ -102,7 +144,7 @@ def dotnet_sdk():
 
 def _core_sources():
     return (_sources(["PluginApi/*.cs", "LoupedeckHost/*.cs"])
-            + _sources(["core/*.csproj"]))
+            + _sources(["core/*.csproj", "core/Directory.Build.props"]))
 
 
 def _core_stale():
@@ -177,7 +219,7 @@ def build_mono(quiet=True):
             return "building %s failed:\n%s%s" % (output, p.stdout, p.stderr)
         if not quiet:
             print("built %s" % output)
-    return ""
+    return _shared_libs()
 
 
 if __name__ == "__main__":

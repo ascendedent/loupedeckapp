@@ -1256,7 +1256,13 @@ class Backend(QObject):
             error = plugin_host.register_url_handler()
             if error:
                 self.notify.emit(error)
-        if info and info.get("runtime") == "dotnet":
+        if info and info.get("windowsOnly"):
+            self.importNotes.emit(
+                "Installed %s" % name,
+                "This plugin is packaged for Windows only. Plugins like that "
+                "usually call into Windows itself, so it may not start here, "
+                "or some actions may do nothing. Its log says what failed.")
+        elif info and info.get("runtime") == "dotnet":
             # Say up front what will not work, rather than leave missing
             # actions to be noticed.
             missing = plugin_host.missing_api(info["entry"])

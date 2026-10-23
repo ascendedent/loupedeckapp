@@ -439,16 +439,18 @@ namespace Loupedeck
 
         public Int32 StatesCount { get { return this._states == null ? 0 : this._states.Count; } }
 
-        protected Int32 AddState(String displayName, String description)
+        // Returns the state's name. Return types here are what compiled
+        // plugins (VLC, Home Assistant, YTMDesktop) bind to.
+        protected String AddState(String displayName, String description)
         {
             return this.AddState(displayName, displayName, description);
         }
 
-        protected Int32 AddState(String name, String displayName, String description)
+        protected String AddState(String name, String displayName, String description)
         {
             if (this._states == null) this._states = new List<PluginMultistateDynamicCommandState>();
             this._states.Add(new PluginMultistateDynamicCommandState(name, displayName, description));
-            return this._states.Count - 1;
+            return name;
         }
 
         private Int32 Current(String actionParameter)
@@ -472,13 +474,21 @@ namespace Loupedeck
             return this.StatesCount > 0;
         }
 
-        protected void SetCurrentState(Int32 newStateIndex) { this.SetCurrentState(null, newStateIndex); }
-
-        protected void SetCurrentState(String actionParameter, Int32 newStateIndex)
+        public Boolean TryGetCurrentStateIndex(String actionParameter, out Int32 currentStateIndex)
         {
-            if (this.StatesCount == 0) return;
-            this._current[actionParameter ?? ""] = ((newStateIndex % this.StatesCount) + this.StatesCount) % this.StatesCount;
+            return this.TryGetCurrentState(actionParameter, out currentStateIndex);
+        }
+
+        // Returns the state now current.
+        protected Int32 SetCurrentState(Int32 newStateIndex) { return this.SetCurrentState(null, newStateIndex); }
+
+        protected Int32 SetCurrentState(String actionParameter, Int32 newStateIndex)
+        {
+            if (this.StatesCount == 0) return 0;
+            var i = ((newStateIndex % this.StatesCount) + this.StatesCount) % this.StatesCount;
+            this._current[actionParameter ?? ""] = i;
             this.ActionImageChanged(actionParameter);
+            return i;
         }
 
         protected void IncrementCurrentState() { this.IncrementCurrentState(null); }
@@ -495,7 +505,11 @@ namespace Loupedeck
             this.SetCurrentState(actionParameter, this.Current(actionParameter) - 1);
         }
 
-        protected void ToggleCurrentState() { this.ToggleCurrentState(null); }
+        protected Int32 ToggleCurrentState()
+        {
+            this.ToggleCurrentState(null);
+            return this.Current(null);
+        }
 
         // Two states only, as in the original.
         protected void ToggleCurrentState(String actionParameter)

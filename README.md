@@ -151,8 +151,13 @@ A plugin that exits on its own is restarted, after 1, 2, 4, 8 and 16 seconds. On
 dying (six times in two minutes) is left stopped, and the gear menu says so and offers a restart.
 Its console output is in `~/.config/loupedeckapp/Plugins/<name>.log`.
 
-`dotnet/tools/ApiScan.cs` lists what any .NET plugin needs from the API and marks what is
-missing, which is the checklist for supporting a new one:
+Plugins can type text and use the clipboard (`wl-copy`/`wl-paste`, or `xclip` on X11), and get
+`Newtonsoft.Json` 13 from the host, as the official software provides it; the build fetches it
+from NuGet and checks it against a pinned hash. A package that ships only a Windows build is
+installed with a note saying it may not run: most such plugins call into Windows itself.
+
+`dotnet/tools/ApiScan.cs` lists what any .NET plugin needs from the API, return types included,
+and marks what is missing, which is the checklist for supporting a new one:
 
 ```bash
 python3 dotnet/build.py

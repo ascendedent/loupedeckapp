@@ -116,6 +116,12 @@ namespace Loupedeck
 
         public static Boolean IsLinux() { return !IsWindows(); }
 
+        // Plugins check this against the version they need; this host means
+        // to be current.
+        public static Version LoupedeckSoftwareVersion { get { return new Version(6, 0, 0); } }
+
+        public static Boolean IsDebugBuild() { return false; }
+
         // Run something and report whether it threw, rather than throwing.
         public static Boolean TryExecuteAction(Action action)
         {

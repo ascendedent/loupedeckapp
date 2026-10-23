@@ -27,6 +27,7 @@ namespace Loupedeck
             this.ServiceEvents = new PluginServiceEvents();
             this.PluginEvents = new PluginEvents();
             this.KeyboardApi = new KeyboardApi();
+            this.NativeApi = new NativeApi();
             this.Localization = new PluginLocalization();
             Host.Service.Register(this);
         }
@@ -68,6 +69,8 @@ namespace Loupedeck
         public PluginEvents PluginEvents { get; private set; }
 
         public KeyboardApi KeyboardApi { get; private set; }
+
+        public INativeApi NativeApi { get; private set; }
 
         public PluginLocalization Localization { get; private set; }
 
@@ -245,9 +248,9 @@ namespace Loupedeck
         public Boolean Error(String text) { return this.Write("error", null, text); }
         public Boolean Error(Exception ex, String text) { return this.Write("error", ex, text); }
 
-        public void WriteOpenLine() { }
+        public Boolean WriteOpenLine() { return true; }
 
-        public void WriteCloseLine() { }
+        public Boolean WriteCloseLine() { return true; }
 
         private Boolean Write(String level, Exception ex, String text)
         {
@@ -460,5 +463,23 @@ namespace Loupedeck
         public UrlCallbackReceivedEventArgs(Uri uri) { this.Uri = uri; }
 
         public Uri Uri { get; private set; }
+
+        // What follows the plugin's name and "callback/": a plugin's own
+        // retry link is loupedeck://plugin/<name>/callback/refreshconfiguration
+        // and it compares this with "refreshconfiguration".
+        public String PathAndQuery
+        {
+            get
+            {
+                var s = this.Uri.OriginalString;
+                var i = s.IndexOf("plugin/", StringComparison.OrdinalIgnoreCase);
+                if (i < 0) return this.Uri.PathAndQuery;
+                var rest = s.Substring(i + "plugin/".Length);
+                var slash = rest.IndexOf('/');
+                rest = slash < 0 ? "" : rest.Substring(slash + 1);
+                return rest.StartsWith("callback/", StringComparison.OrdinalIgnoreCase)
+                    ? rest.Substring("callback/".Length) : rest;
+            }
+        }
     }
 }

@@ -36,7 +36,11 @@ static class ApiScan
         var mr = m as MethodReference;
         if (mr != null)
             return owner + "::" + mr.Name + "(" +
-                string.Join(", ", mr.Parameters.Select(p => TypeKey(p.ParameterType))) + ")";
+                string.Join(", ", mr.Parameters.Select(p => TypeKey(p.ParameterType))) + ") : " +
+                TypeKey(mr.ReturnType);
+        // The type matters as much as the name: a plugin binds to both.
+        var fr = m as FieldReference;
+        if (fr != null) return owner + "::" + m.Name + " : " + TypeKey(fr.FieldType);
         return owner + "::" + m.Name;
     }
 

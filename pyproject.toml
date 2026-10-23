@@ -153,12 +153,14 @@ py-modules = [
     "dotnet/PluginApi/Host.cs",
     "dotnet/PluginApi/Json.cs",
     "dotnet/PluginApi/Keys.cs",
+    "dotnet/PluginApi/Native.cs",
     "dotnet/PluginApi/Plugin.cs",
 ]
 # The .NET 8/10 build of the same sources (needs the .NET SDK).
 "share/loupedeckapp/dotnet/core" = [
     "dotnet/core/LoupedeckHost.csproj",
     "dotnet/core/PluginApi.csproj",
+    "dotnet/core/Directory.Build.props",
 ]
 "share/loupedeckapp/dotnet/LoupedeckHost" = ["dotnet/LoupedeckHost/Program.cs"]
 "share/loupedeckapp/dotnet/tools" = ["dotnet/tools/ApiScan.cs"]

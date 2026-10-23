@@ -12,5 +12,7 @@
   <ItemGroup>
     <Compile Include="../LoupedeckHost/*.cs" />
     <ProjectReference Include="PluginApi.csproj" />
+    <!-- Shipped beside plugins by the Loupedeck software; see SHARED in build.py. -->
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 </Project>

@@ -85,7 +85,16 @@ c.eq("a .NET package is accepted", err, "")
 c.eq("and recognised as .NET", ph.runtime_of(meta), "dotnet")
 c.eq("the macOS build is the one run", ph.package_entry(meta, {"mac/TestPlugin.dll", "win/TestPlugin.dll"}),
      "mac/TestPlugin.dll")
-no_dll = os.path.join(tmp, "nodll.lplug4")
+win_meta = {"name": "W", "pluginFileName": "W.dll", "pluginFolderWin": "./bin/win/"}
+c.eq("a folder written ./bin/win/ is found (VolumeControl's)",
+     ph.package_entry(win_meta, {"bin/win/W.dll"}), "bin/win/W.dll")
+c.eq("and .\\bin\\win too",
+     ph.package_entry(dict(win_meta, pluginFolderWin=".\\bin\\win"), {"bin/win/W.dll"}), "bin/win/W.dll")
+c.eq("and . means the top of the package",
+     ph.package_entry(dict(win_meta, pluginFolderWin="."), {"W.dll"}), "W.dll")
+c.eq("a package with only a Windows build is flagged", ph.windows_only(win_meta), True)
+c.eq("one with a macOS build too is not", ph.windows_only(meta), False)
+no_dll =os.path.join(tmp, "nodll.lplug4")
 with zipfile.ZipFile(no_dll, "w") as zf:
     zf.writestr(ph.METADATA, META)
 c.eq("one missing its assembly is refused", "not in the package" in ph.inspect_package(no_dll)[1], True)
@@ -336,7 +345,7 @@ def scenario(runtime):
     # -- loupedeck: links -------------------------------------------------------------------
     c.eq("a link reaches the plugin it names",
          (ph.send_url("loupedeck:plugin/TestPlugin/callback/login?code=abc"),
-          wait_for(lambda: "url ?code=abc" in calls())), ("ok", True))
+          wait_for(lambda: "url ?code=abc login?code=abc" in calls())), ("ok", True))
     c.eq("the other spelling too",
          ph.parse_link("loupedeck://plugin/TestPlugin/callback/x"), ("TestPlugin", "callback/x"))
     c.eq("a link for a plugin that is not here says so",

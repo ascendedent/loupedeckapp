@@ -52,6 +52,11 @@ namespace Loupedeck.Host
             Send(Event("SendKeyboardShortcut", new Dictionary<String, Object> { { "combo", combo } }));
         }
 
+        internal static void SendText(String text)
+        {
+            Send(Event("SendText", new Dictionary<String, Object> { { "text", text } }));
+        }
+
         internal static void Log(String text)
         {
             Console.Out.WriteLine("{0:HH:mm:ss} host {1}", DateTime.Now, text);

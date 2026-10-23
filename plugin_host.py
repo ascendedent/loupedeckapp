@@ -54,6 +54,7 @@ import hashlib
 import io
 import json
 import os
+import posixpath
 import re
 import secrets
 import shutil
@@ -162,11 +163,21 @@ def package_entry(meta, names):
     if runtime == "dotnet":
         dll = meta.get("pluginFileName", "")
         for key in _DOTNET_FOLDERS:
-            folder = meta.get(key, "").strip("/")
-            if folder and "%s/%s" % (folder, dll) in names:
+            # Written every way: "bin", "./bin/win/", ".\bin\win", ".".
+            folder = meta.get(key, "").strip().replace("\\", "/")
+            folder = posixpath.normpath(folder).strip("/") if folder else ""
+            if folder and folder != "." and "%s/%s" % (folder, dll) in names:
                 return "%s/%s" % (folder, dll)
         return dll if dll in names else ""
     return ""
+
+
+def windows_only(meta):
+    """Whether a .NET package ships a Windows build and nothing else. Most
+    such plugins call into Windows itself (audio, windows, COM) and cannot
+    work here, though some are only packaged that way."""
+    return (runtime_of(meta) == "dotnet" and bool(meta.get("pluginFolderWin"))
+            and not meta.get("pluginFolderMac") and not meta.get("pluginFolderLinux"))
 
 
 def _safe_members(zf, dest):
@@ -257,6 +268,7 @@ def installed():
             "version": meta.get("version", ""),
             "description": meta.get("description", ""),
             "runtime": runtime_of(meta),
+            "windowsOnly": windows_only(meta),
             "dir": d,
             "entry": os.path.join(d, entry) if entry else "",
         })
@@ -1521,6 +1533,11 @@ class PluginHost:
                 # plugin's other messages should not wait behind it.
                 threading.Thread(target=_send_keys, args=(p.name, combo),
                                  name="plugin-keys", daemon=True).start()
+        elif name == "SendText":
+            text = str(params.get("text") or "")
+            if text:
+                threading.Thread(target=_send_text, args=(p.name, text),
+                                 name="plugin-keys", daemon=True).start()
 
     def _on_text_changed(self, p, conn, msg):
         """A plugin announcing new text itself. The SDK this was written
@@ -1615,6 +1632,14 @@ def _send_keys(plugin, combo):
         input_backend.send_hotkey(combo)
     except Exception as e:
         print("plugin %s: could not send %s: %s" % (plugin, combo, e))
+
+
+def _send_text(plugin, text):
+    try:
+        import input_backend
+        input_backend.type_text(text)
+    except Exception as e:
+        print("plugin %s: could not type text: %s" % (plugin, e))
 
 
 # -- the one the app uses ------------------------------------------------------

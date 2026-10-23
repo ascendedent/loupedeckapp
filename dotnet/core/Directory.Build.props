@@ -1,0 +1,7 @@
+<Project>
+  <!-- Both projects live in this folder; without this they share obj/ and
+       the second restore overwrites the first one's package list. -->
+  <PropertyGroup>
+    <BaseIntermediateOutputPath>obj/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+</Project>

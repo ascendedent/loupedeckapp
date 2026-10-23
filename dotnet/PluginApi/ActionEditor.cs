@@ -522,6 +522,12 @@ namespace Loupedeck
             return this._current.TryGetValue(actionParameters.Key(), out i) ? i : 0;
         }
 
+        public Boolean TryGetCurrentStateIndex(ActionEditorActionParameters actionParameters, out Int32 currentStateIndex)
+        {
+            currentStateIndex = this.GetCurrentState(actionParameters);
+            return this._states.Count > 0;
+        }
+
         public Int32 SetCurrentState(ActionEditorActionParameters actionParameters, Int32 stateIndex)
         {
             var n = Math.Max(1, this._states.Count);
