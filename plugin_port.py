@@ -1,0 +1,667 @@
+"""What stands between a Windows or macOS Loupedeck plugin and running here.
+
+The first half of porting: read a package and say what in it is bound to one
+platform, without running any of it. A .NET plugin's assemblies are read by
+dotnet/tools/PortScan.cs (metadata, through Mono.Cecil); a Node plugin's
+JavaScript and native addons are read here. The findings are grouped by what
+a Linux stand-in would have to do (send keys, find the focused window, set
+the volume...), which is what decides which stand-ins to write first:
+
+    python3 plugin_port.py Some.lplug4            one plugin, in detail
+    python3 plugin_port.py ~/Downloads            every package there, ranked
+    python3 plugin_port.py ... --json             the same, for a program
+
+A plugin's own code is reported in full. Libraries it bundles are judged as a
+whole when they are known (Newtonsoft.Json runs anywhere; AudioSwitcher's
+CoreAudio is Windows audio), so their internals do not drown the report.
+
+Qt-free.
+"""
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import zipfile
+
+import plugin_host
+
+# -- what is known about bundled libraries ------------------------------------------
+# Assembly name (or a prefix ending in ".") -> (platform, area). Platform is
+# "any" for libraries that run here as they are (they guard their own
+# platform code), "native" for ones that need a native library the host can
+# supply, "check" for ones that may or may not work here (listed, not
+# counted against the plugin), or the one platform they are bound to.
+LIBRARIES = {
+    "Newtonsoft.Json": ("any", ""), "YamlDotNet": ("any", ""), "DotNetZip": ("any", ""),
+    "Ionic.Zip": ("any", ""), "websocket-sharp": ("any", ""), "RestSharp": ("any", ""),
+    "OpenAI_API": ("any", ""), "Polly": ("any", ""), "NLog": ("any", ""), "Serilog": ("any", ""),
+    "Serilog.": ("any", ""), "HtmlAgilityPack": ("any", ""), "MQTTnet": ("any", ""),
+    "Websocket.Client": ("any", ""), "Octokit": ("any", ""), "Google.Protobuf": ("any", ""),
+    "BouncyCastle.Crypto": ("any", ""), "Microsoft.Bcl.": ("any", ""), "Microsoft.Extensions.": ("any", ""),
+    "Microsoft.CSharp": ("any", ""), "Microsoft.IdentityModel.": ("any", ""), "System.": ("any", ""),
+    "TwitchLib.": ("any", ""), "Discord.": ("any", ""), "SocketIOClient": ("any", ""),
+    "SocketIO.": ("any", ""), "Jint": ("any", ""), "ICSharpCode.SharpZipLib": ("any", ""),
+    "CommandLine": ("any", ""), "Humanizer": ("any", ""), "AngleSharp": ("any", ""),
+    "SkiaSharp": ("native", "drawing"), "HarfBuzzSharp": ("native", "drawing"),
+    "SQLitePCLRaw.": ("native", "storage"), "Microsoft.Data.Sqlite": ("native", "storage"),
+    "LibVLCSharp": ("native", "media"),
+    # Microsoft's System.Drawing, when merged into a plugin: its drawing goes
+    # through gdiplus (libgdiplus here), but it also calls gdi32 and user32.
+    # Referenced normally, it is Mono's own and fine.
+    "System.Drawing": ("check", "drawing"),
+    # Logitech's telemetry, in plugins built from the current template. Its
+    # native half is not there; Krita and VLC run without it.
+    "LogiEventTracing": ("any", "tracing"),
+    # svg-net itself draws through System.Drawing, which .NET 8+ does not
+    # support off Windows; Svg.Custom is the fork Svg.Skia renders with Skia.
+    "Svg": ("check", "drawing"), "Svg.Custom": ("any", ""), "Svg.Skia": ("any", ""),
+    "Svg.Model": ("any", ""), "ShimSkiaSharp": ("any", ""), "ExCSS": ("any", ""),
+    "AudioSwitcher.AudioApi": ("any", ""),
+    "AudioSwitcher.AudioApi.CoreAudio": ("windows", "audio"), "NAudio.Wasapi": ("windows", "audio"),
+    "NAudio.WinMM": ("windows", "audio"), "NAudio.WinForms": ("windows", "audio"),
+    "CSCore": ("windows", "audio"), "InputSimulator": ("windows", "input"),
+    "WindowsInput": ("windows", "input"), "H.InputSimulator": ("windows", "input"),
+    "AutoHotkey.Interop": ("windows", "input"), "Interop.": ("windows", "com"),
+    "Microsoft.Toolkit.Uwp.Notifications": ("windows", "notifications"),
+    "Microsoft.Windows.SDK.NET": ("windows", "winrt"), "Microsoft.WindowsAPICodePack": ("windows", "shell"),
+    "Vanara.": ("windows", "win32"), "PInvoke.": ("windows", "win32"),
+    "LibreHardwareMonitorLib": ("windows", "hardware"), "OpenHardwareMonitorLib": ("windows", "hardware"),
+    "Hardcodet.NotifyIcon.Wpf": ("windows", "ui"),
+    "System.Windows.Forms": ("windows", "ui"), "PresentationFramework": ("windows", "ui"),
+    "PresentationCore": ("windows", "ui"), "WindowsBase": ("windows", "ui"),
+    "System.Management": ("windows", "wmi"), "System.Speech": ("windows", "speech"),
+    "Xamarin.Mac": ("mac", "cocoa"), "Microsoft.macOS": ("mac", "cocoa"),
+}
+# Overrides the "System." prefix above for the Windows-only ones it covers.
+for _n in ("System.Windows.Forms", "System.Management", "System.Speech"):
+    assert LIBRARIES[_n][0] == "windows"
+
+
+def library_of_namespace(ns):
+    """(name, (platform, area)) for code in a namespace that belongs to a
+    known library (merged into a plugin), or None. The catch-all "System."
+    does not count: plugins' own namespaces never start with it, and
+    framework code merged in is judged by what it calls."""
+    best = ""
+    for key in LIBRARIES:
+        k = key.rstrip(".")
+        if key == "System.":
+            continue
+        if (ns == k or ns.startswith(k + ".")) and len(k) > len(best):
+            best = key
+    return (best.rstrip("."), LIBRARIES[best]) if best else None
+
+
+def library(name):
+    """(platform, area) for an assembly name, or None when unknown."""
+    if name in LIBRARIES:
+        return LIBRARIES[name]
+    best = ""
+    for key in LIBRARIES:
+        if key.endswith(".") and name.startswith(key) and len(key) > len(best):
+            best = key
+    return LIBRARIES[best] if best else None
+
+
+# -- native calls ---------------------------------------------------------------------
+WINDOWS_MODULES = {
+    "user32", "kernel32", "ole32", "oleaut32", "shell32", "advapi32", "gdi32", "winmm",
+    "dwmapi", "psapi", "ntdll", "shcore", "setupapi", "hid", "winhttp", "wininet",
+    "iphlpapi", "powrprof", "uxtheme", "comctl32", "avrt", "mmdevapi", "dxva2", "wtsapi32",
+    "secur32", "crypt32", "bcrypt", "ws2_32", "version", "msvcrt", "shlwapi", "winspool.drv",
+    "comdlg32", "imm32", "netapi32", "userenv", "wlanapi", "kernelbase", "dbghelp",
+    "audioses", "propsys", "combase", "api-ms-win-core-winrt-l1-1-0",
+}
+# Native libraries the hosts already have on Linux. Mono maps gdiplus to
+# libgdiplus itself.
+PORTABLE_MODULES = {"libc", "libdl", "libskiasharp", "libharfbuzzsharp", "e_sqlite3", "libvlc",
+                    "gdiplus", "libgdiplus"}
+
+# A module's own area, for functions no pattern below names.
+MODULE_AREAS = {"gdi32": "drawing", "winspool.drv": "printing", "comdlg32": "ui", "comctl32": "ui",
+                "uxtheme": "ui", "dwmapi": "windows", "winmm": "audio", "avrt": "audio",
+                "mmdevapi": "audio", "audioses": "audio", "dxva2": "display", "shcore": "display",
+                "advapi32": "registry", "shell32": "shell", "powrprof": "power", "hid": "devices",
+                "setupapi": "devices", "wlanapi": "network", "iphlpapi": "network", "ws2_32": "network",
+                "winhttp": "network", "wininet": "network", "psapi": "processes", "imm32": "input"}
+
+# What a Linux stand-in for a function would do. First match wins.
+AREAS = [
+    ("input", r"^(SendInput|keybd_event|mouse_event|MapVirtualKey\w*|VkKeyScan\w*|GetAsyncKeyState|"
+              r"GetKeyState|GetKeyboardState|ToUnicode\w*|GetKeyboardLayout\w*|ActivateKeyboardLayout|"
+              r"RegisterHotKey|UnregisterHotKey|SetWindowsHookEx\w*|CallNextHookEx|UnhookWindowsHookEx|"
+              r"GetCursorPos|SetCursorPos|BlockInput)$"),
+    ("windows", r"^(GetForegroundWindow|SetForegroundWindow|FindWindow\w*|GetWindowText\w*|"
+                r"GetWindowThreadProcessId|ShowWindow\w*|EnumWindows|EnumChildWindows|IsWindow\w*|"
+                r"IsIconic|IsZoomed|SetWindowPos|GetWindowRect|MoveWindow|PostMessage\w*|"
+                r"SendMessage\w*|GetClassName\w*|GetWindowLong\w*|SetWindowLong\w*|BringWindowToTop|"
+                r"SetActiveWindow|GetActiveWindow|GetDesktopWindow|GetShellWindow|GetParent|GetWindow|"
+                r"AttachThreadInput|AllowSetForegroundWindow|SwitchToThisWindow|DwmGetWindowAttribute)$"),
+    ("clipboard", r"^(OpenClipboard|CloseClipboard|EmptyClipboard|GetClipboardData|"
+                  r"SetClipboardData|IsClipboardFormatAvailable|RegisterClipboardFormat\w*)$"),
+    ("audio", r"^(waveOut\w*|waveIn\w*|mixer\w*|PlaySound\w*|midiOut\w*|midiIn\w*|"
+              r"AvSetMmThreadCharacteristics\w*|PropVariantClear|timeBeginPeriod|timeEndPeriod)$"),
+    ("display", r"^(EnumDisplayMonitors|GetMonitorInfo\w*|MonitorFrom\w*|EnumDisplayDevices\w*|"
+                r"EnumDisplaySettings\w*|ChangeDisplaySettings\w*|\w*MonitorBrightness\w*|"
+                r"GetPhysicalMonitors\w*|\w*PhysicalMonitor\w*|GetDpiForMonitor|GetDeviceCaps|"
+                r"SystemParametersInfo\w*|GetSystemMetrics)$"),
+    ("processes", r"^(OpenProcess|CreateToolhelp32Snapshot|Process32\w*|QueryFullProcessImageName\w*|"
+                  r"GetModuleFileNameEx\w*|EnumProcesses|TerminateProcess|GetProcessImageFileName\w*|"
+                  r"NtQueryInformationProcess)$"),
+    ("power", r"^(SetSuspendState|LockWorkStation|ExitWindowsEx|SetThreadExecutionState|"
+              r"GetSystemPowerStatus|InitiateSystemShutdown\w*)$"),
+    ("shell", r"^(ShellExecute\w*|SHGetKnownFolderPath|SHGetFolderPath\w*|SHAppBarMessage|"
+              r"SHFileOperation\w*|ExtractIcon\w*|SHGetFileInfo\w*|DestroyIcon)$"),
+    ("registry", r"^Reg\w+$"),
+    ("loader", r"^(LoadLibrary\w*|GetProcAddress|FreeLibrary|GetModuleHandle\w*|SetDllDirectory\w*)$"),
+    ("plumbing", r"^(GetLastError|CloseHandle|GetCurrentProcess\w*|GetCurrentThread\w*|"
+                 r"CoInitialize\w*|CoUninitialize|CoCreateInstance|CoTaskMem\w*|"
+                 r"GlobalAlloc|GlobalFree|GlobalLock|GlobalUnlock|LocalFree|RtlMoveMemory|"
+                 r"FormatMessage\w*|Sleep|QueryPerformance\w*|GetTickCount\w*)$"),
+]
+_AREA_RES = [(a, re.compile(p, re.IGNORECASE)) for a, p in AREAS]
+
+# COM interfaces, by the name a library gives them.
+COM_AREAS = [
+    ("audio", r"Audio|MMDevice|Endpoint|Volume|Session|Topology|IPart$|IConnector|ISubunit|"
+              r"IControl|IPropertyStore|IKsControl|IPolicyConfig"),
+    ("shell", r"Shell|ITaskbar|IFileDialog|IKnownFolder|IVirtualDesktop|IApplicationView|IServiceProvider"),
+    ("ui", r"IAccessible|IUIAutomation"),
+]
+
+# Framework APIs, by namespace -> area.
+FRAMEWORK_AREAS = [
+    ("System.Windows.Forms.SendKeys", "input"), ("System.Windows.Forms.Clipboard", "clipboard"),
+    ("System.Windows.Clipboard", "clipboard"), ("System.Windows.Forms.Screen", "display"),
+    ("System.Windows.Forms", "ui"), ("System.Windows", "ui"), ("Microsoft.Win32.Registry", "registry"),
+    ("Microsoft.Win32", "registry"), ("System.Management", "wmi"), ("System.Speech", "speech"),
+    ("Microsoft.VisualBasic", "vb"), ("Windows.", "winrt"), ("AppKit", "cocoa"), ("Foundation", "cocoa"),
+    ("ObjCRuntime", "cocoa"), ("CoreGraphics", "cocoa"),
+    ("System.Type::GetTypeFrom", "com"), ("System.Runtime.InteropServices.Marshal::GetActiveObject", "com"),
+    ("System.Diagnostics.Process", "processes"), ("System.Environment", "paths"),
+]
+
+# A shell or a platform's own tool: an action that runs one does nothing here.
+SHELLS = re.compile(r"powershell|\bcmd(\.exe)?\b|osascript|AppleScript|tell application|"
+                    r"\bopen -a\b|\bwmic\b|\bnircmd|\breg(\.exe)? (add|query)|taskkill|\.bat\b|\.ps1\b|"
+                    r"\bsvcl\b|\bsoundvolumeview\b",
+                    re.IGNORECASE)
+# Any of those, or a bare program name, which plugins mostly use to find a
+# running application (GetProcessesByName("vlc")) rather than to start one.
+COMMANDS = re.compile(SHELLS.pattern + r"|\.exe\b", re.IGNORECASE)
+
+# What Mono provides itself, for .NET Framework plugins (which run on it):
+# a registry of its own (files under ~/.mono/registry), Windows Forms (shown
+# through XWayland) and WindowsBase. Not WPF, not System.Speech. A plugin
+# built for .NET 8/10 runs on dotnet, which has none of these off Windows.
+MONO_COVERS = [
+    (lambda f: f["area"] == "registry" and f["kind"] == "framework", "Mono keeps a registry of its own"),
+    (lambda f: f["what"].startswith("System.Windows.Forms") or f["what"].startswith("System.Windows.Threading"),
+     "Mono has Windows Forms; windows show through XWayland"),
+    (lambda f: f["kind"] == "library" and f["what"] in ("System.Windows.Forms", "WindowsBase"),
+     "Mono has this library"),
+]
+PATHS = re.compile(r"^[A-Za-z]:\\|%[A-Za-z_]+%|\\AppData\\|Program Files|HKEY_|SOFTWARE\\|"
+                   r"/Applications/|/Library/|~/Library|/System/Library", re.IGNORECASE)
+
+
+def _prose(text):
+    """A message to the user that mentions a tool ("Path to svcl.exe is not
+    set"), rather than a command line."""
+    return len(text.split()) > 6 and not SHELLS.match(text.strip())
+
+
+def _module(name):
+    n = name.lower().replace("\\", "/").rsplit("/", 1)[-1]
+    return n[:-4] if n.endswith(".dll") else n
+
+
+def _platform_of_module(name, natives):
+    """Which platform a native module belongs to: "windows", "mac", "linux"
+    (a native library the host has), "bundled" (shipped in the package) or
+    "unknown"."""
+    raw = name.lower()
+    m = _module(name)
+    if m in WINDOWS_MODULES or m.startswith("api-ms-win-"):
+        return "windows"
+    if raw.startswith("/system/library/") or raw.startswith("/usr/lib/") or m in ("libobjc", "__internal") \
+            or m.endswith(".dylib") or "framework" in raw:
+        return "mac"
+    if m in PORTABLE_MODULES:
+        return "linux"
+    if m in natives:
+        return "bundled"
+    return "unknown"
+
+
+def _area(function, module=""):
+    for area, rx in _AREA_RES:
+        if rx.match(function):
+            return area
+    return MODULE_AREAS.get(_module(module), "other")
+
+
+def _com_area(type_name):
+    short = type_name.rsplit(".", 1)[-1]
+    for area, rx in COM_AREAS:
+        if re.search(rx, short):
+            return area
+    return "other"
+
+
+def _framework_area(member):
+    for prefix, area in FRAMEWORK_AREAS:
+        if member.startswith(prefix):
+            return area
+    return "other"
+
+
+# -- reading a package --------------------------------------------------------------
+def _scanner():
+    """(mono, PortScan.exe, bin dir), or an error string."""
+    host, error = plugin_host.dotnet_host()
+    if error:
+        return error
+    mono = shutil.which("mono")
+    scan = os.path.join(os.path.dirname(host), "PortScan.exe")
+    if not mono or not os.path.isfile(scan):
+        return "the scanner needs Mono (mono-complete) and Mono.Cecil"
+    return mono, scan, os.path.dirname(host)
+
+
+def _scan_dotnet(folder):
+    """PortScan's records for a folder, as lists of fields."""
+    found = _scanner()
+    if isinstance(found, str):
+        raise RuntimeError(found)
+    mono, scan, bin_dir = found
+    out = subprocess.run([mono, scan, folder], capture_output=True, text=True, timeout=300,
+                         env=dict(os.environ, MONO_PATH=bin_dir))
+    if out.returncode != 0:
+        raise RuntimeError("PortScan failed: %s" % out.stderr.strip()[-500:])
+    rows = []
+    for line in out.stdout.splitlines():
+        rows.append([f.replace("\\t", "\t").replace("\\n", "\n").replace("\\r", "\r").replace("\\\\", "\\")
+                     for f in line.split("\t")])
+    return rows
+
+
+def _binary_kind(path):
+    """"pe", "elf", "macho" or "" from a file's first bytes."""
+    try:
+        with open(path, "rb") as f:
+            head = f.read(4)
+    except OSError:
+        return ""
+    if head[:2] == b"MZ":
+        return "pe"
+    if head == b"\x7fELF":
+        return "elf"
+    if head in (b"\xcf\xfa\xed\xfe", b"\xce\xfa\xed\xfe", b"\xca\xfe\xba\xbe", b"\xfe\xed\xfa\xcf"):
+        return "macho"
+    return ""
+
+
+def _finding(kind, area, what, platform, where="", count=1, detail=""):
+    return {"kind": kind, "area": area, "what": what, "platform": platform,
+            "where": where, "count": count, "detail": detail}
+
+
+def _analyze_dotnet(root, entry):
+    """Findings for a .NET package unpacked at root, whose plugin is entry
+    (a path inside it)."""
+    folder = os.path.dirname(os.path.join(root, entry))
+    rows = _scan_dotnet(folder)
+    entry_file = os.path.basename(entry)
+    managed = {r[1] for r in rows if r[0] == "asm"}
+    natives = set()
+    for dirpath, _dirs, files in os.walk(folder):
+        for f in files:
+            rel = os.path.relpath(os.path.join(dirpath, f), folder).replace(os.sep, "/")
+            if rel in managed or "__MACOSX" in rel:
+                continue
+            kind = _binary_kind(os.path.join(dirpath, f))
+            if kind:
+                natives.add(_module(f).rsplit(".", 1)[0] if kind != "pe" else _module(f))
+                natives.add(_module(f))
+
+    def lib_of(rel):
+        return os.path.splitext(os.path.basename(rel))[0]
+
+    def judged(rel):
+        """A bundled library judged as a whole (None for the plugin itself
+        and for libraries nobody has looked at yet)."""
+        if os.path.basename(rel) == entry_file:
+            return None
+        return library(lib_of(rel))
+
+    findings = []
+    framework = ""
+    referenced = set()
+    merged = {}           # library name -> (platform, area), merged into the plugin
+
+    def merged_into(rel, ns):
+        """A known library's code inside the plugin's own file: judged as
+        that library, once, instead of call by call."""
+        if os.path.basename(rel) != entry_file or not ns:
+            return False
+        found = library_of_namespace(ns)
+        if not found:
+            return False
+        merged[found[0]] = found[1]
+        return True
+
+    for r in rows:
+        kind, rel = r[0], r[1]
+        if kind == "asm" and os.path.basename(rel) == entry_file:
+            framework = r[2]
+        if kind == "ref":
+            referenced.add(r[2])
+        if kind == "bad" and os.path.basename(rel) == entry_file:
+            raise RuntimeError("%s could not be read (%s)" % (entry_file, r[2]))
+        known = judged(rel) if kind not in ("asm", "ref", "bad") else None
+        if known is not None:
+            continue          # judged below, as a library
+        if kind == "pinvoke":
+            module, function, calls = r[2], r[3], int(r[4])
+            if merged_into(rel, r[5] if len(r) > 5 else ""):
+                continue
+            platform = _platform_of_module(module, natives)
+            if platform == "linux":
+                continue
+            if platform in ("unknown", "bundled"):
+                # Someone else's library (a device driver, an app's remote
+                # control API): one finding for the library, not one per
+                # function. Whether it exists for Linux is that vendor's.
+                findings.append(_finding("vendor", "vendor", _module(module), platform, rel, calls,
+                                         detail="shipped in the package" if platform == "bundled"
+                                         else "expected to be installed on the machine"))
+                continue
+            findings.append(_finding("native", _area(function, module), "%s!%s" % (_module(module), function),
+                                     platform, rel, calls))
+        elif kind == "com":
+            if merged_into(rel, r[2].rsplit(".", 1)[0] if "." in r[2] else ""):
+                continue
+            findings.append(_finding("com", _com_area(r[2]), r[2].rsplit(".", 1)[-1], "windows", rel,
+                                     detail=r[3]))
+        elif kind == "api":
+            if merged_into(rel, r[4] if len(r) > 4 else ""):
+                continue
+            area = _framework_area(r[2])
+            if area in ("processes", "paths"):
+                continue      # portable by themselves; the strings say what they run
+            findings.append(_finding("framework", area, r[2], "windows" if area != "cocoa" else "mac",
+                                     rel, int(r[3])))
+        elif kind == "string":
+            if merged_into(rel, r[2].split("::")[0].rsplit(".", 1)[0]):
+                continue
+            text = r[3]
+            if SHELLS.search(text) and not _prose(text):
+                findings.append(_finding("command", "shell", text, "", rel, detail=r[2]))
+            elif COMMANDS.search(text):
+                findings.append(_finding("program", "processes", text, "", rel, detail=r[2]))
+            elif PATHS.search(text):
+                findings.append(_finding("path", "paths", text, "", rel, detail=r[2]))
+
+    # Bundled libraries that are known, and framework assemblies referenced.
+    bundled = {lib_of(r[1]) for r in rows if r[0] == "asm"} - {lib_of(entry_file)}
+    for name in sorted(bundled | referenced):
+        known = library(name)
+        if known and known[0] not in ("any",):
+            platform, area = known
+            if platform == "native":
+                continue      # the host supplies these (SkiaSharp and the like)
+            findings.append(_finding("library", area, name, platform,
+                                     "bundled" if name in bundled else "referenced"))
+
+    for name, (platform, area) in sorted(merged.items()):
+        if platform not in ("any", "native"):
+            findings.append(_finding("library", area, name, platform, "merged into " + entry_file))
+
+    if framework.startswith(".NETFramework"):
+        for f in findings:
+            for covered, why in MONO_COVERS:
+                if covered(f):
+                    f["platform"], f["detail"] = "check", why
+                    break
+
+    apps = sorted({r[3] for r in rows if r[0] == "app" and os.path.basename(r[1]) == entry_file})
+    unknown_libs = sorted(n for n in bundled if library(n) is None)
+    return findings, framework, apps, unknown_libs
+
+
+_NODE_HINTS = [
+    (re.compile(r"""require\(\s*['"](ffi-napi|ffi|ref-napi|edge-js|winax|node-windows|windows-registry|"""
+                r"""regedit|winreg|node-powershell|applescript|run-applescript|osascript|robotjs|"""
+                r"""@nut-tree/nut-js|node-window-manager|active-win|loudness|win-audio|"""
+                r"""node-audio-windows|macos-audio-devices)['"]"""), "library"),
+    (re.compile(r"process\.platform\s*===?\s*['\"](win32|darwin)['\"]"), "platform-check"),
+]
+
+
+def _analyze_node(root, entry):
+    """Findings for a Node plugin: platform-bound npm modules, native addons
+    built for another system, and the commands it runs."""
+    findings = []
+    for dirpath, _dirs, files in os.walk(root):
+        for f in files:
+            path = os.path.join(dirpath, f)
+            rel = os.path.relpath(path, root).replace(os.sep, "/")
+            if "__MACOSX" in rel:
+                continue
+            if f.endswith(".node"):
+                kind = _binary_kind(path)
+                if kind in ("pe", "macho"):
+                    findings.append(_finding("native", "addon", rel, "windows" if kind == "pe" else "mac", rel))
+                continue
+            if not f.endswith((".js", ".mjs", ".cjs")) or os.path.getsize(path) > 8 * 1024 * 1024:
+                continue
+            try:
+                text = open(path, encoding="utf-8", errors="replace").read()
+            except OSError:
+                continue
+            for rx, what in _NODE_HINTS:
+                for m in rx.finditer(text):
+                    if what == "library":
+                        mod = m.group(1)
+                        mac = mod in ("applescript", "run-applescript", "osascript", "macos-audio-devices")
+                        findings.append(_finding("library", "node", mod, "mac" if mac else "windows", rel))
+            for m in re.finditer(r"""['"`]([^'"`\n]{0,200})['"`]""", text):
+                s = m.group(1)
+                if s.startswith(("http", "./", "../")):
+                    continue
+                if SHELLS.search(s) and not _prose(s):
+                    findings.append(_finding("command", "shell", s, "", rel))
+                elif COMMANDS.search(s):
+                    findings.append(_finding("program", "processes", s, "", rel))
+    return findings
+
+
+def _merge(findings):
+    """One finding per distinct thing, counts summed and places listed."""
+    merged = {}
+    for f in findings:
+        key = (f["kind"], f["what"], f["platform"])
+        if key in merged:
+            m = merged[key]
+            m["count"] += f["count"]
+            if f["where"] and f["where"] not in m["where"].split(", "):
+                m["where"] += ", " + f["where"]
+        else:
+            merged[key] = dict(f)
+    return sorted(merged.values(), key=lambda f: (f["area"], f["kind"], f["what"]))
+
+
+def analyze(package):
+    """A report on one .lplug4: what it is, which builds it ships, what in the
+    build that would run here is bound to Windows or macOS, and a verdict."""
+    meta, error = plugin_host.inspect_package(package)
+    report = {"package": package, "name": "", "displayName": "", "runtime": "", "builds": [],
+              "framework": "", "apps": [], "unknownLibraries": [], "findings": [],
+              "verdict": "unreadable", "error": error}
+    if error:
+        return report
+    report.update(name=meta.get("name", ""), displayName=meta.get("displayName") or meta.get("name", ""),
+                  version=meta.get("version", ""),
+                  runtime=plugin_host.runtime_of(meta),
+                  builds=[k[len("pluginFolder"):].lower() for k in plugin_host._DOTNET_FOLDERS if meta.get(k)])
+    tmp = tempfile.mkdtemp(prefix="plugin-port-")
+    try:
+        with zipfile.ZipFile(package) as zf:
+            plugin_host.extract(zf, tmp)
+            names = set(plugin_host._members(zf))
+        entry = plugin_host.package_entry(meta, names)
+        if report["runtime"] == "dotnet":
+            findings, framework, apps, unknown = _analyze_dotnet(tmp, entry)
+            report.update(framework=framework, apps=apps, unknownLibraries=unknown)
+        else:
+            findings = _analyze_node(tmp, entry)
+        report["findings"] = _merge(findings)
+    except (RuntimeError, OSError, ValueError, zipfile.BadZipFile, subprocess.TimeoutExpired) as e:
+        report["error"] = str(e)
+        return report
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    report["verdict"] = verdict(report)
+    return report
+
+
+# Areas that need nothing: the hosts cover them, or they are how a library
+# loads its own native half.
+_HARMLESS = {"loader", "plumbing"}
+
+
+def blocking(report):
+    """The findings that would stop the plugin or one of its actions here."""
+    out = []
+    for f in report["findings"]:
+        if f["kind"] in ("native", "vendor", "com", "library", "framework", "command") and f["area"] not in _HARMLESS \
+                and f["platform"] != "check":
+            out.append(f)
+    return out
+
+
+def verdict(report):
+    """"runs" (nothing bound to another platform was found), "convertible"
+    (bound, in ways a Linux stand-in could cover) or "unreadable"."""
+    if report.get("error"):
+        return "unreadable"
+    return "convertible" if blocking(report) else "runs"
+
+
+# -- reporting ---------------------------------------------------------------------
+def describe(report):
+    """A report as text, for one plugin."""
+    lines = ["%s (%s)" % (report["displayName"] or os.path.basename(report["package"]), report["name"])]
+    if report["error"]:
+        return "\n".join(lines + ["  could not be read: %s" % report["error"]])
+    lines.append("  %s plugin%s; builds: %s" % (
+        report["runtime"], (", " + report["framework"]) if report["framework"] else "",
+        ", ".join(report["builds"]) or "one"))
+    if report["apps"]:
+        lines.append("  controls: %s (it only does something where that application runs)"
+                     % ", ".join(report["apps"]))
+    lines.append("  verdict: %s" % {"runs": "runs as it is",
+                                    "convertible": "needs Linux stand-ins for what is listed"}[report["verdict"]])
+    blocked = blocking(report)
+    for f in blocked:
+        lines.append("    %-10s %-9s %s%s" % (f["area"], f["kind"], f["what"][:100],
+                                              "  (x%d)" % f["count"] if f["count"] > 1 else ""))
+    other = [f for f in report["findings"] if f not in blocked]
+    if other:
+        lines.append("  also seen:")
+        for f in other[:15]:
+            why = ("  -- " + f["detail"]) if f["platform"] == "check" and f["detail"] else ""
+            lines.append("    %-10s %-9s %s%s" % (f["area"], f["kind"], f["what"][:100], why))
+        if len(other) > 15:
+            lines.append("    ... and %d more" % (len(other) - 15))
+    if report["unknownLibraries"]:
+        lines.append("  libraries not judged yet: %s" % ", ".join(report["unknownLibraries"]))
+    return "\n".join(lines)
+
+
+def summarize(reports):
+    """Across many plugins: how many each area, function and library would
+    unlock. The order to write stand-ins in."""
+    areas, things, verdicts = {}, {}, {}
+    for r in reports:
+        verdicts[r["verdict"]] = verdicts.get(r["verdict"], 0) + 1
+        seen_areas, seen_things = set(), set()
+        for f in blocking(r):
+            seen_areas.add(f["area"])
+            seen_things.add((f["area"], f["kind"], f["what"]))
+        for a in seen_areas:
+            areas.setdefault(a, []).append(r["name"])
+        for t in seen_things:
+            things.setdefault(t, []).append(r["name"])
+    return {
+        "plugins": len(reports),
+        "verdicts": verdicts,
+        "areas": sorted(([a, len(n), sorted(n)] for a, n in areas.items()), key=lambda x: -x[1]),
+        "things": sorted(([a, k, w, len(n), sorted(n)] for (a, k, w), n in things.items()),
+                         key=lambda x: (-x[3], x[0], x[2])),
+        # What each plugin still needs, by area: a plugin is unlocked when
+        # all of its areas are covered.
+        "needs": sorted(([r["name"], sorted({f["area"] for f in blocking(r)})] for r in reports
+                         if r["verdict"] == "convertible"), key=lambda x: (len(x[1]), x[0])),
+    }
+
+
+def describe_summary(s):
+    lines = ["%d plugins: %s" % (s["plugins"], ", ".join("%d %s" % (n, v) for v, n in sorted(s["verdicts"].items())))]
+    lines.append("")
+    lines.append("areas, by how many plugins need them:")
+    for area, n, names in s["areas"]:
+        lines.append("  %-12s %3d  %s" % (area, n, ", ".join(names)[:110]))
+    lines.append("")
+    lines.append("most needed:")
+    for area, kind, what, n, _names in s["things"][:40]:
+        lines.append("  %3d  %-10s %-9s %s" % (n, area, kind, what))
+    lines.append("")
+    lines.append("what each convertible plugin needs:")
+    for name, need in s["needs"]:
+        lines.append("  %-28s %s" % (name, ", ".join(need)))
+    return "\n".join(lines)
+
+
+def _packages(paths):
+    for p in paths:
+        if os.path.isdir(p):
+            for dirpath, _dirs, files in os.walk(p):
+                for f in sorted(files):
+                    if f.lower().endswith(".lplug4"):
+                        yield os.path.join(dirpath, f)
+        else:
+            yield p
+
+
+def _main(argv):
+    as_json = "--json" in argv
+    paths = [a for a in argv if not a.startswith("--")]
+    if not paths:
+        print(__doc__.strip().split("\n\n")[1])
+        return 2
+    reports, seen = [], set()
+    for p in _packages(paths):
+        r = analyze(p)
+        key = (r["name"], r.get("version", ""), r["framework"]) if r["name"] else p
+        if key in seen:
+            continue      # the same plugin twice (downloaded again, renamed)
+        seen.add(key)
+        reports.append(r)
+    if as_json:
+        print(json.dumps({"reports": reports, "summary": summarize(reports)}, indent=1))
+        return 0
+    for r in reports:
+        print(describe(r))
+        print()
+    if len(reports) > 1:
+        print(describe_summary(summarize(reports)))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(_main(sys.argv[1:]))

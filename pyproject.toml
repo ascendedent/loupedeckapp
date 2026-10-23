@@ -96,6 +96,7 @@ py-modules = [
     "setup_check",
     "virtual_keyboard",
     "plugin_host",
+    "plugin_port",
     "lp5_import",
 ]
 
@@ -163,7 +164,8 @@ py-modules = [
     "dotnet/core/Directory.Build.props",
 ]
 "share/loupedeckapp/dotnet/LoupedeckHost" = ["dotnet/LoupedeckHost/Program.cs"]
-"share/loupedeckapp/dotnet/tools" = ["dotnet/tools/ApiScan.cs"]
+"share/loupedeckapp/dotnet/tools" = ["dotnet/tools/ApiScan.cs",
+    "dotnet/tools/PortScan.cs"]
 # setup_check points at these by path, so an install that leaves them out
 # tells the user to copy a file that is not there.
 "share/loupedeckapp/packaging" = [

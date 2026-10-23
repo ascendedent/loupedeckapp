@@ -52,6 +52,7 @@ TARGETS = [
      ["System.Drawing", "System.Web.Extensions", "System.Net.Http"], "library"),
     ("LoupedeckHost.exe", ["LoupedeckHost/*.cs"], ["@PluginApi.dll"], "exe"),
     ("ApiScan.exe", ["tools/ApiScan.cs"], ["@cecil"], "exe"),
+    ("PortScan.exe", ["tools/PortScan.cs"], ["@cecil"], "exe"),
 ]
 
 # Libraries the Loupedeck software ships beside its plugins, so plugins use
@@ -205,8 +206,8 @@ def build_mono(quiet=True):
             if r == "@cecil":
                 cecil = _cecil()
                 if not cecil:
-                    if output == "ApiScan.exe":
-                        continue   # the scanner is a tool, not something plugins need
+                    if output in ("ApiScan.exe", "PortScan.exe"):
+                        continue   # the scanners are tools, not something plugins need
                     return "Mono.Cecil not found"
                 args.append("-r:" + cecil)
                 shutil.copy2(cecil, BIN)

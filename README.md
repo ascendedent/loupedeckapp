@@ -164,6 +164,17 @@ python3 dotnet/build.py
 MONO_PATH=dotnet/bin mono dotnet/bin/ApiScan.exe Some.dll dotnet/bin/PluginApi.dll
 ```
 
+`plugin_port.py` says what ties a Windows or macOS plugin to its platform, without running it:
+calls into Windows or macOS libraries, COM interfaces, Windows-only libraries it bundles or has
+merged into itself, the registry, shell commands, and the application it controls. Findings are
+grouped by what a Linux stand-in would have to do (input, windows, audio, clipboard...), and
+given a folder of packages it ranks those by how many plugins each would unlock:
+
+```bash
+python3 plugin_port.py Some.lplug4         # one plugin, in detail
+python3 plugin_port.py ~/Downloads         # every .lplug4 there, and what to write first
+```
+
 ### Loupedeck profiles (.lp5)
 
 Profiles exported from Loupedeck's own software, and the ones its marketplace offers for an
@@ -572,7 +583,7 @@ The core is Qt-free and layered, so the UI sits on top of reusable services:
 | `settings` | Small persistent app preferences (brightness), separate from profile data. |
 | `lp5_import` | Converts a Loupedeck 5 profile (`.lp5`) into an application here, reporting what has no equivalent. |
 | `plugin_host` | Installs Loupedeck plugins (`.lplug4`) and hosts them over the SDK's WebSocket protocol: one `node` process per Node.js plugin, one Mono process per .NET plugin. |
-| `dotnet/` | The .NET side: `PluginApi` (clean-room stand-in for Logitech's API, plus the host that serves one plugin), `LoupedeckHost.exe`, and `ApiScan` (what a plugin needs vs what we have). Built by `dotnet/build.py` with Mono's `mcs`. |
+| `dotnet/` | The .NET side: `PluginApi` (clean-room stand-in for Logitech's API, plus the host that serves one plugin), `LoupedeckHost.exe`, and `ApiScan` (what a plugin needs vs what we have), and `PortScan` (what ties a plugin to Windows or macOS, read by `plugin_port.py`). Built by `dotnet/build.py` with Mono's `mcs`. |
 | `virtual_keyboard` | Toggles the desktop's on-screen keyboard (KDE via DBus, else a keyboard binary). |
 | `qml_app.py` + `qml/` | The PySide6 / QML front-end. |
 

@@ -209,5 +209,63 @@ app, notes, error = lp5.import_lp5(path)
 c.eq("a second import leaves the app's own match alone",
      app_paths.app_matches("Chat App"), ["mine"])
 
+# Newer profiles spell the same things differently: "@generic", "@Macro
+# adjustment", "@Keyboard shortcut___arrow up", "@Change workspace".
+g = "$@generic___"
+NEWER = {
+    "macroCommands": [
+        {"name": "MIC", "displayName": "Mic", "actions": [g + "@KeyboardShortcut___ControlOrCommand+Shift+KeyA"]},
+        {"name": "CODE", "displayName": "Code", "actions": [g + "@TypeText___```"]},
+        {"name": "FIT", "displayName": "Fit", "actions": [g + "@KeyboardShortcut___ControlOrCommand+Oem2"]},
+        {"name": "MUTE", "displayName": "Mute", "actions": [g + "@KeyboardShortcut___VolumeMute"]},
+        {"name": "SKIP", "displayName": "Skip", "actions": [g + "@None", g + "@KeyboardShortcut___KeyS"]},
+    ],
+    "macroAdjustments": [
+        {"name": "MOVE", "displayName": "Move", "actionsLeft": [g + "@HorizontalArrows"],
+         "actionsRight": [g + "@HorizontalArrows"]},
+    ],
+    "layout": {
+        "roundPage": {"controls": [press(g + "@Change workspace___main|A"),
+                                   press(g + "@Change workspace___main|B"), press(g + "@None")]},
+        "squarePage": {"controls": []},
+        "layoutModes": [{
+            "workspaces": [{"name": "A", "displayName": "A", "touchPageNames": ["TA"],
+                            "encoderPageNames": ["EA"]},
+                           {"name": "B", "displayName": "B", "touchPageNames": [],
+                            "encoderPageNames": []}],
+            "touchPages": [{"name": "TA", "controls": [
+                press(g + "@Macro___MIC"), press(g + "@Macro___CODE"), press(g + "@Macro___FIT"),
+                press(g + "@Macro___MUTE"), press(g + "@Keyboard shortcut___arrow up"),
+                press(g + "@Change workspace___main|B"), press(g + "@None"), press(g + "@Macro___SKIP")]}],
+            "encoderPages": [{"name": "EA", "controls": [
+                {"rotateAction": g + "@Macro adjustment___MOVE"},
+                {"rotateAction": g + "@VerticalArrows"}]}],
+            "wheelPages": [],
+        }],
+    },
+}
+cfg, notes = lp5.convert(NEWER, {}, os.path.join(tmp, "img2"), "X/Z")
+ws_a = cfg.workspaces[0]
+
+
+def got(slot):
+    a = ws_a.actions.get(slot)
+    return (a.a_type, a.action) if a is not None else (None, None)
+
+
+c.eq("a macro written @generic is found", got("tb11"), ("hotkey", "ctrl+shift+a"))
+c.eq("typing text becomes a text action", got("tb12"), ("text", "```"))
+c.eq("Windows' OEM keys have their US meaning", got("tb13"), ("hotkey", "ctrl+slash"))
+c.eq("the mute key mutes", got("tb14"), ("hotkey", "mute"))
+c.eq("a shortcut written with spaces is read", got("tb21"), ("hotkey", "up"))
+c.eq("a key that switches workspace still does", got("tb22"), ("workspace", lp5.WS_KEYS[1]))
+c.eq("an empty step in a macro is skipped", got("tb24"), ("hotkey", "s"))
+c.eq("a knob macro written @Macro adjustment turns arrows",
+     (got("enc1L-l"), got("enc1L-r")), (("hotkey", "left"), ("hotkey", "right")))
+c.eq("so does the vertical arrows knob", (got("enc2L-l"), got("enc2L-r")), (("hotkey", "up"), ("hotkey", "down")))
+c.eq("and none of it is reported as unsupported",
+     [n for n in notes if "not something this app can do" in n or "did something other" in n], [])
+c.eq("the newer spellings validate", lp5.validate(cfg), [])
+
 shutil.rmtree(tmp, ignore_errors=True)
 raise SystemExit(c.done())

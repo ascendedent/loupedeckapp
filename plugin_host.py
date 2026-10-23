@@ -71,6 +71,8 @@ from PIL import Image
 import app_paths
 
 METADATA = "metadata/LoupedeckPackage.yaml"
+# Older packages keep it at the top instead.
+METADATA_TOP = "LoupedeckPackage.yaml"
 SUFFIX = ".lplug4"
 
 # Package names become directory names, so they are held to a safe set.
@@ -121,12 +123,13 @@ def inspect_package(path):
         return None, "%s is not a Loupedeck plugin package (%s)" % (
             os.path.basename(path), e)
     with zf:
-        try:
-            meta = parse_metadata(zf.read(METADATA).decode("utf-8", "replace"))
-        except KeyError:
+        members = _members(zf)
+        info = members.get(METADATA) or members.get(METADATA_TOP)
+        if info is None:
             return None, "%s has no %s, so it is not a Loupedeck plugin" % (
                 os.path.basename(path), METADATA)
-        names = set(zf.namelist())
+        meta = parse_metadata(zf.read(info).decode("utf-8", "replace"))
+        names = set(members)
     name = meta.get("name", "")
     if not _NAME_RE.match(name):
         return None, "the package's name %r is not one that can be installed" % name
@@ -180,14 +183,39 @@ def windows_only(meta):
             and not meta.get("pluginFolderMac") and not meta.get("pluginFolderLinux"))
 
 
-def _safe_members(zf, dest):
-    """Members whose path stays inside `dest`. A zip can name ../../anything."""
+def _member_name(info):
+    """A member's path with "/" between folders. Packages zipped on Windows
+    write "bin\\win\\Plugin.dll", which unpacked as it is would be one file
+    with backslashes in its name."""
+    return info.filename.replace("\\", "/")
+
+
+def _members(zf):
+    """{path: ZipInfo}, paths as _member_name gives them."""
+    return {_member_name(i): i for i in zf.infolist()}
+
+
+def extract(zf, dest):
+    """Unpack a package into dest, every path made to stay inside it (a zip
+    can name ../../anything) and written with "/" whichever way it was
+    zipped. Raises ValueError for a path that points outside."""
     root = os.path.realpath(dest)
-    for info in zf.infolist():
-        target = os.path.realpath(os.path.join(root, info.filename))
+    for name, info in _members(zf).items():
+        target = os.path.realpath(os.path.join(root, name))
         if target != root and not target.startswith(root + os.sep):
             raise ValueError("%r points outside the package" % info.filename)
-        yield info
+        if name.endswith("/"):
+            os.makedirs(target, exist_ok=True)
+            continue
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with zf.open(info) as src, open(target, "wb") as out:
+            shutil.copyfileobj(src, out)
+
+
+def metadata_path(folder):
+    """The metadata file of an unpacked package, wherever it keeps it."""
+    path = os.path.join(folder, METADATA)
+    return path if os.path.isfile(path) else os.path.join(folder, METADATA_TOP)
 
 
 def install(path):
@@ -206,7 +234,7 @@ def install(path):
     staging = tempfile.mkdtemp(prefix=".install-", dir=base)
     try:
         with zipfile.ZipFile(path) as zf:
-            zf.extractall(staging, members=list(_safe_members(zf, staging)))
+            extract(zf, staging)
         dest = os.path.join(base, name)
         if os.path.isdir(dest):
             shutil.rmtree(dest)
@@ -252,7 +280,7 @@ def installed():
         if name.startswith(".") or not os.path.isdir(d):
             continue
         try:
-            with open(os.path.join(d, METADATA), encoding="utf-8") as f:
+            with open(metadata_path(d), encoding="utf-8") as f:
                 meta = parse_metadata(f.read())
         except OSError:
             continue

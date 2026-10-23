@@ -173,6 +173,30 @@ c.eq("installing it again replaces it (an update)", (name, err), ("FakePlugin", 
 c.eq("no staging folders are left behind",
      [d for d in os.listdir(ph.plugins_dir()) if d.startswith(".")], [])
 
+# Zipped on Windows: "\" between folders, and (older packages) the metadata
+# at the top instead of in metadata/.
+winzip = os.path.join(pkgs, "winzip.lplug4")
+with zipfile.ZipFile(winzip, "w") as zf:
+    zf.writestr("LoupedeckPackage.yaml", META.format(name="WinZipped", runtime="nodejs")
+                .replace("entryPoint: index.mjs", "entryPoint: bin/index.mjs"))
+    zf.writestr("bin\\index.mjs", "// entry")
+    zf.writestr("actionicons\\ping.svg", ICON_SVG)
+c.eq("a package zipped on Windows is read", ph.inspect_package(winzip)[1], "")
+name, err = ph.install(winzip)
+c.eq("and installs", (name, err), ("WinZipped", ""))
+wdir = os.path.join(ph.plugins_dir(), "WinZipped")
+c.eq("into real folders, not files named with backslashes",
+     (os.path.isfile(os.path.join(wdir, "bin", "index.mjs")),
+      os.path.isfile(os.path.join(wdir, "actionicons", "ping.svg"))), (True, True))
+c.eq("and is listed from its top-level metadata",
+     [i["entry"].endswith("bin/index.mjs") for i in ph.installed() if i["name"] == "WinZipped"], [True])
+ph.uninstall("WinZipped")
+backslip = make_package(os.path.join(pkgs, "backslip.lplug4"), name="BackSlip",
+                        extra={"..\\..\\outside2.txt": "x"})
+c.eq("a backslashed path outside the package is refused too", ph.install(backslip)[0], "")
+c.eq("and writes nothing outside",
+     os.path.exists(os.path.join(os.environ["LOUPEDECKAPP_CONFIG_DIR"], "outside2.txt")), False)
+
 # -- no host -------------------------------------------------------------------
 c.eq("with no host, executing does nothing and says so",
      ph.execute("FakePlugin/ping"), False)

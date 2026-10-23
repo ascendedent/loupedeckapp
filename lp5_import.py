@@ -83,7 +83,11 @@ _KEYS = {
     "quote": "apostrophe", "backquote": "grave",
     "bracketleft": "bracketleft", "bracketright": "bracketright",
     "oemminus": "minus", "oemplus": "equal", "oemcomma": "comma",
-    "oemperiod": "period",
+    "oemperiod": "period", "equals": "equal",
+    # Windows' OEM keys, by their US-layout meaning (VK_OEM_1..7).
+    "oem1": "semicolon", "oem2": "slash", "oem3": "grave", "oem4": "bracketleft",
+    "oem5": "backslash", "oem6": "bracketright", "oem7": "apostrophe",
+    "volumemute": "mute", "volumeup": "volumeup", "volumedown": "volumedown",
 }
 
 # Built-in actions of the default Windows/macOS plugin that mean the same
@@ -95,6 +99,12 @@ _DEFAULT_COMMANDS = {
     "nexttrack": ("media", "next"),
     "previoustrack": ("media", "previous"),
     "stop": ("media", "stop"),
+}
+# Knobs that press arrow keys: turning left is left (or up), right is right
+# (or down), as the mouse wheel is.
+_ARROW_ADJUSTMENTS = {
+    "horizontalarrows": ("left", "right"),
+    "verticalarrows": ("up", "down"),
 }
 _DEFAULT_ADJUSTMENTS = {
     "volume": (("hotkey", "volumedown"), ("hotkey", "volumeup")),
@@ -109,6 +119,22 @@ _OFF_WINDOWS = {
 }
 
 _STEP_RE = re.compile(r"^\$([^_]+)___(.*)$")
+
+
+def parse_ref(ref):
+    """("generic", "macroadjustment", arg) from an action reference.
+
+    Profiles spell the same thing several ways: "$@Generic___@MacroAdjustment
+    ___id" from one version, "$@generic___@Macro adjustment___id" from
+    another, "@Keyboard shortcut" beside "@KeyboardShortcut". Source and
+    kind come back lower-cased, without "@" and spaces; arg as it was.
+    None when it is not a reference at all."""
+    m = _STEP_RE.match(ref or "")
+    if not m:
+        return None
+    kind, _, arg = m.group(2).partition("___")
+    norm = lambda t: t.lstrip("@").replace(" ", "").lower()
+    return norm(m.group(1)), norm(kind), arg
 
 
 # -- reading -------------------------------------------------------------------
@@ -145,7 +171,7 @@ def convert_combo(text):
     out = []
     for part in str(text or "").split("+"):
         p = part.strip()
-        low = p.lower()
+        low = p.lower().replace(" ", "")     # "arrow up" as well as "ArrowUp"
         if re.fullmatch(r"key[a-z]", low):
             name = low[3]
         elif re.fullmatch(r"(key|digit|numpad)[0-9]", low):
@@ -171,6 +197,9 @@ class _Converter:
         self.notes = []
         self.macros = {m.get("name"): m for m in profile.get("macroCommands") or []}
         self.adjusts = {m.get("name"): m for m in profile.get("macroAdjustments") or []}
+        # Workspace name -> the key that selects it here; set by convert()
+        # once workspaces have their buttons.
+        self.workspace_keys = {}
 
     def note(self, text):
         if text not in self.notes:
@@ -182,16 +211,19 @@ class _Converter:
         for step in steps or []:
             if not step:
                 continue
-            m = _STEP_RE.match(step)
-            kind, _, arg = (m.group(2).partition("___") if m else ("", "", ""))
-            kind = kind.lstrip("@").lower()
-            if m and m.group(1) == "@Generic" and kind == "keyboardshortcut":
+            source, kind, arg = parse_ref(step) or ("", "", "")
+            if source == "generic" and kind == "none":
+                continue
+            if source == "generic" and kind == "keyboardshortcut":
                 combo = convert_combo(arg)
                 if combo is None:
                     self.note("%s: the shortcut %s has no equivalent key here" % (label, arg))
                     return None
                 lines.append("hotkey %s" % combo)
-            elif m and m.group(1) == "@Generic" and kind in ("delay", "wait"):
+            elif source == "generic" and kind == "typetext":
+                if arg:
+                    lines.append("text %s" % arg)
+            elif source == "generic" and kind in ("delay", "wait"):
                 try:
                     lines.append("wait %d" % int(float(arg)))
                 except ValueError:
@@ -205,13 +237,22 @@ class _Converter:
         """A press action reference -> (a_type, value, label) or None."""
         if not ref:
             return None
-        m = _STEP_RE.match(ref)
-        if not m:
+        parsed = parse_ref(ref)
+        if not parsed:
             self.note("an action %r was not understood" % ref)
             return None
-        source, rest = m.group(1), m.group(2)
-        kind, _, arg = rest.partition("___")
-        if source == "@Generic" and kind == "@Macro":
+        source, kind, arg = parsed
+        m = _STEP_RE.match(ref)
+        rest, raw_source = m.group(2), m.group(1)
+        if source == "generic" and kind == "none":
+            return None                  # an empty slot
+        if source == "generic" and kind == "changeworkspace":
+            key = self.workspace_keys.get(arg.rsplit("|", 1)[-1])
+            if key:
+                return ("workspace", key, label_hint or "Workspace")
+            self.note("a key switches to a workspace that was not imported")
+            return None
+        if source == "generic" and kind == "macro":
             mac = self.macros.get(arg)
             if mac is None:
                 self.note("a key refers to a macro the profile does not have")
@@ -220,6 +261,8 @@ class _Converter:
             lines = self._steps(mac.get("actions"), label or "a macro")
             if not lines:
                 return None
+            if len(lines) == 1 and lines[0].startswith("text "):
+                return ("text", lines[0][len("text "):], label)
             if len(lines) == 1 and lines[0].startswith("hotkey "):
                 combo = lines[0][len("hotkey "):]
                 native = _OFF_WINDOWS.get((label.lower(), combo))
@@ -230,29 +273,37 @@ class _Converter:
                 return ("hotkey", combo, label)
             # Several keystrokes need the waits a person would leave.
             return ("macro", "\nwait 50\n".join(lines), label)
-        if source == "@Generic" and kind == "@KeyboardShortcut":
+        if source == "generic" and kind == "typetext" and arg:
+            return ("text", arg, label_hint or arg)
+        if source == "generic" and kind == "keyboardshortcut":
             combo = convert_combo(arg)
             if combo:
                 return ("hotkey", combo, label_hint or combo)
             self.note("the shortcut %s has no equivalent key here" % arg)
             return None
-        if source.lower().startswith("default"):
+        if source.startswith("default"):
             mapped = _DEFAULT_COMMANDS.get(rest.lower())
             if mapped:
                 return (mapped[0], mapped[1], _nice(rest))
-        self.note("%s (from %s) is not something this app can do" % (_nice(rest), source))
+        self.note("%s (from %s) is not something this app can do" % (_nice(rest), raw_source))
         return None
 
     def adjustment(self, ref):
         """A rotate action reference -> ((type, value), (type, value), label)."""
         if not ref:
             return None
-        m = _STEP_RE.match(ref)
-        if not m:
+        parsed = parse_ref(ref)
+        if not parsed:
             return None
-        source, rest = m.group(1), m.group(2)
-        kind, _, arg = rest.partition("___")
-        if source == "@Generic" and kind == "@MacroAdjustment":
+        source, kind, arg = parsed
+        m = _STEP_RE.match(ref)
+        rest, raw_source = m.group(2), m.group(1)
+        if source == "generic" and kind == "none":
+            return None
+        if source == "generic" and kind in _ARROW_ADJUSTMENTS:
+            left, right = _ARROW_ADJUSTMENTS[kind]
+            return ("hotkey", left), ("hotkey", right), _nice(rest.lstrip("@"))
+        if source == "generic" and kind == "macroadjustment":
             adj = self.adjusts.get(arg)
             if adj is None:
                 self.note("a knob refers to an adjustment the profile does not have")
@@ -263,12 +314,12 @@ class _Converter:
             if left is None or right is None:
                 return None
             return left, right, label
-        if source.lower().startswith("default"):
+        if source.startswith("default"):
             mapped = _DEFAULT_ADJUSTMENTS.get(rest.lower())
             if mapped:
                 return mapped[0], mapped[1], _nice(rest)
         self.note("the knob action %s (from %s) is not something this app can do"
-                  % (_nice(rest), source))
+                  % (_nice(rest), raw_source))
         return None
 
     def _side(self, steps, label, wheel_direction):
@@ -278,6 +329,10 @@ class _Converter:
         steps = [s for s in steps or [] if s]
         if len(steps) == 1 and steps[0].lower().endswith("@mousewheel"):
             return ("scroll", wheel_direction)
+        parsed = parse_ref(steps[0]) if len(steps) == 1 else None
+        if parsed and parsed[0] == "generic" and parsed[1] in _ARROW_ADJUSTMENTS:
+            back, forward = _ARROW_ADJUSTMENTS[parsed[1]]
+            return ("hotkey", back if wheel_direction == "up" else forward)
         lines = self._steps(steps, label)
         if not lines:
             return None
@@ -323,10 +378,13 @@ def convert(profile, images, image_dir, ref):
     round_controls = (layout.get("roundPage") or {}).get("controls") or []
     for i, control in enumerate(round_controls[:len(WS_KEYS)]):
         ref_ = (control or {}).get("pressAction") or ""
-        if "@ChangeWorkspace___" in ref_:
+        parsed = parse_ref(ref_)
+        if parsed and parsed[:2] == ("generic", "changeworkspace"):
             target = ref_.rsplit("|", 1)[-1]
             if target in by_name and target not in slot_of:
                 slot_of[target] = i
+        elif parsed and parsed[:2] == ("generic", "none"):
+            pass
         elif ref_:
             conv.note("round button %d did something other than switch workspace, "
                       "which those buttons always do here" % (i + 1))
@@ -340,6 +398,7 @@ def convert(profile, images, image_dir, ref):
                           % (w.get("displayName"), len(WS_KEYS)))
                 continue
             slot_of[w.get("name")] = free.pop(0)
+    conv.workspace_keys = {name: WS_KEYS[i] for name, i in slot_of.items()}
 
     square = (layout.get("squarePage") or {}).get("controls") or []
     os.makedirs(image_dir, exist_ok=True)
