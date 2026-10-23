@@ -57,6 +57,12 @@ namespace Loupedeck.Host
             Send(Event("SendText", new Dictionary<String, Object> { { "text", text } }));
         }
 
+        // One key held down ("ctrl", "a") or let go, as the app names keys.
+        internal static void SendKeyState(String key, Boolean down)
+        {
+            Send(Event("KeyState", new Dictionary<String, Object> { { "key", key }, { "down", down } }));
+        }
+
         // Positive clicks scroll up (or right), negative down (or left), as
         // Windows' wheels do.
         internal static void SendScroll(Int32 clicks, Boolean horizontal)

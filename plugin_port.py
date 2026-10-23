@@ -588,6 +588,13 @@ def blocking(report):
 # stand-in, as dotnet/build.py builds it (under dotnet/bin/).
 STAND_INS = {
     "WindowsInput": "shims/WindowsInput.dll",
+    "AudioSwitcher.AudioApi.CoreAudio": "shims/AudioSwitcher.AudioApi.CoreAudio.dll",
+    "AudioSwitcher.AudioApi": "shims/AudioSwitcher.AudioApi.dll",
+}
+# Stand-ins built on another stand-in: replacing the first replaces these
+# too (the stand-in CoreAudio derives from the stand-in AudioApi's types).
+COMPANIONS = {
+    "AudioSwitcher.AudioApi.CoreAudio": ["AudioSwitcher.AudioApi"],
 }
 
 # Commands that only open something (a page, a folder, a file), the Windows
@@ -642,8 +649,10 @@ def plan(report):
             for where in f["where"].split(", "):
                 if where and where not in out["process"]:
                     out["process"].append(where)
-        elif rule == "swap" and f["what"] not in out["swap"]:
-            out["swap"].append(f["what"])
+        elif rule == "swap":
+            for lib in [f["what"]] + COMPANIONS.get(f["what"], []):
+                if lib not in out["swap"]:
+                    out["swap"].append(lib)
     return out
 
 

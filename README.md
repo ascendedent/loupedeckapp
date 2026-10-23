@@ -181,8 +181,12 @@ says what was converted and what is still tied to Windows or macOS:
 - pages and files a plugin opens the Windows or macOS way (`cmd /c start`, `explorer`, `rundll32
   url.dll`, `open`, or a URL protocol the plugin registered itself, as the Weather plugin does)
   open with `xdg-open`;
-- bundled libraries with a stand-in are replaced by it: `WindowsInput` (InputSimulator) sends its
-  keys, text and wheel through the app's input backend.
+- bundled libraries with a stand-in are replaced by it:
+  - `WindowsInput` (InputSimulator) sends its keys, text and wheel through the app's input
+    backend, holding keys for real (Ctrl held while the wheel turns zooms, as on Windows; a plugin
+    that exits holding a key has it let go);
+  - `AudioSwitcher` (Windows' audio endpoints, as VolumeControl uses them) lists, sets and mutes
+    PipeWire's sinks and sources through `pactl`.
 
 `dotnet/tools/PortPatch.cs` does the editing; the originals are kept in the plugin's `.orig/`
 folder (`python3 plugin_port.py revert <name>` puts them back), and `.port.json` records what was

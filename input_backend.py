@@ -110,6 +110,15 @@ class InputBackend:
     def scroll(self, direction, amount=1):
         raise NotImplementedError
 
+    # Holding a key: pressed now, released by a later key_up. Backends that
+    # can only press whole combos leave these unimplemented, and callers
+    # fall back to pressing the combo (plugin_host's _Keyboard does).
+    def key_down(self, name):
+        raise NotImplementedError
+
+    def key_up(self, name):
+        raise NotImplementedError
+
 
 class NullBackend(InputBackend):
     """Used when no working backend exists; logs instead of crashing."""
@@ -130,6 +139,12 @@ class NullBackend(InputBackend):
 
     def type_text(self, text):
         print("[input] no working backend; would type: %r" % text)
+
+    def key_down(self, name):
+        print("[input] no working backend; would hold: %s" % name)
+
+    def key_up(self, name):
+        print("[input] no working backend; would release: %s" % name)
 
 
 class YdotoolBackend(InputBackend):
@@ -239,6 +254,12 @@ class YdotoolBackend(InputBackend):
     def type_text(self, text):
         self._run(["type", "--", text])
 
+    def key_down(self, name):
+        self._run(["key", "%d:1" % _parse_combo(name)[0]])
+
+    def key_up(self, name):
+        self._run(["key", "%d:0" % _parse_combo(name)[0]])
+
     def scroll(self, direction, amount=1):
         """One invocation carrying the whole magnitude, not `amount` clicks."""
         dx, dy = _parse_scroll(direction)
@@ -273,6 +294,12 @@ class XdotoolBackend(InputBackend):
 
     def type_text(self, text):
         subprocess.run([self.bin, "type", "--", text], check=True)
+
+    def key_down(self, name):
+        subprocess.run([self.bin, "keydown", name], check=True)
+
+    def key_up(self, name):
+        subprocess.run([self.bin, "keyup", name], check=True)
 
     def scroll(self, direction, amount=1):
         # X11 has no magnitude: wheel is buttons 4/5 (up/down), 6/7 (left/right).
@@ -309,6 +336,14 @@ class PyAutoGuiBackend(InputBackend):
     def type_text(self, text):
         import pyautogui
         pyautogui.typewrite(text)
+
+    def key_down(self, name):
+        import pyautogui
+        pyautogui.keyDown(name)
+
+    def key_up(self, name):
+        import pyautogui
+        pyautogui.keyUp(name)
 
     def scroll(self, direction, amount=1):
         import pyautogui
@@ -575,6 +610,16 @@ def health():
 def scroll(direction, amount=1):
     """Scroll `direction` ('up'/'down'/'left'/'right') by `amount` notches."""
     get_backend().scroll(direction, amount=amount)
+
+
+def key_down(name):
+    """Hold one key ('ctrl', 'a'...) until key_up. NotImplementedError where
+    the backend can only press whole combos."""
+    get_backend().key_down(name)
+
+
+def key_up(name):
+    get_backend().key_up(name)
 
 
 def launch_app(command):

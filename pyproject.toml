@@ -171,6 +171,10 @@ py-modules = [
     "dotnet/shims/WindowsInput/VirtualKeyCode.cs",
     "dotnet/shims/WindowsInput/WindowsInput.cs",
 ]
+"share/loupedeckapp/dotnet/shims/AudioSwitcher.AudioApi" = ["dotnet/shims/AudioSwitcher.AudioApi/AudioApi.cs"]
+"share/loupedeckapp/dotnet/shims/AudioSwitcher.AudioApi.CoreAudio" = [
+    "dotnet/shims/AudioSwitcher.AudioApi.CoreAudio/CoreAudio.cs",
+]
 # setup_check points at these by path, so an install that leaves them out
 # tells the user to copy a file that is not there.
 "share/loupedeckapp/packaging" = [

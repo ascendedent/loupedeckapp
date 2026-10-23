@@ -55,6 +55,7 @@ import io
 import json
 import os
 import posixpath
+import queue
 import re
 import secrets
 import shutil
@@ -706,6 +707,8 @@ class _Plugin:
         self.texts = {}
         # when it exited on its own, for the restart backoff
         self.crashes = []
+        # keys, text and the wheel it sends, in order (see _Keyboard)
+        self.keyboard = _Keyboard(self.name)
 
     def action(self, name):
         for a in self.commands + self.adjustments:
@@ -914,6 +917,11 @@ class PluginHost:
             plugins = list(self._plugins.values())
         for p in plugins:
             self._stop_plugin(p)
+        # Keys a plugin still holds are let go before the app goes, while
+        # there is still a thread to do it.
+        for p in plugins:
+            p.keyboard.post(p.keyboard.release)
+            p.keyboard.wait(2.0)
         if self._server is not None:
             # close() alone does not wake a thread blocked in accept() on
             # Linux; shutdown() does, so the accept thread ends here too.
@@ -1358,6 +1366,9 @@ class PluginHost:
     def _watch(self, p):
         code = p.proc.wait()
         p.conn = None
+        # A plugin that exits holding a key (between its KeyDown and KeyUp)
+        # must not leave it held down on the desktop.
+        p.keyboard.post(p.keyboard.release)
         if p.stopping or self._closing:
             p.state, p.detail = "stopped", ""
             self._changed()
@@ -1571,10 +1582,11 @@ class PluginHost:
         elif name == "SendKeyboardShortcut":
             combo = str(params.get("combo") or "")
             if combo:
-                # Off the socket thread: ydotool takes a moment, and the
-                # plugin's other messages should not wait behind it.
-                threading.Thread(target=_send_keys, args=(p.name, combo),
-                                 name="plugin-keys", daemon=True).start()
+                p.keyboard.post(p.keyboard.keys, combo)
+        elif name == "KeyState":
+            key = str(params.get("key") or "")
+            if key:
+                p.keyboard.post(p.keyboard.down if params.get("down") else p.keyboard.up, key)
         elif name == "Scroll":
             try:
                 clicks = int(params.get("clicks") or 0)
@@ -1583,13 +1595,11 @@ class PluginHost:
             if clicks:
                 horizontal = bool(params.get("horizontal"))
                 direction = ("right" if clicks > 0 else "left") if horizontal else ("up" if clicks > 0 else "down")
-                threading.Thread(target=_scroll, args=(p.name, direction, abs(clicks)),
-                                 name="plugin-keys", daemon=True).start()
+                p.keyboard.post(p.keyboard.scroll, direction, abs(clicks))
         elif name == "SendText":
             text = str(params.get("text") or "")
             if text:
-                threading.Thread(target=_send_text, args=(p.name, text),
-                                 name="plugin-keys", daemon=True).start()
+                p.keyboard.post(p.keyboard.text, text)
 
     def _on_text_changed(self, p, conn, msg):
         """A plugin announcing new text itself. The SDK this was written
@@ -1678,28 +1688,96 @@ class PluginHost:
         self._changed()
 
 
-def _send_keys(plugin, combo):
-    try:
+class _Keyboard:
+    """What one plugin types: keys, text, the wheel and held keys, sent
+    through the app's input backend in the order the plugin sent them, on a
+    thread of its own (ydotool takes a moment, and the plugin's other
+    messages should not wait behind it). One thread, so a key held down is
+    never overtaken by the scroll meant to happen while it is held.
+
+    Keys held with down() are remembered and let go by release() when the
+    plugin exits. Where the backend cannot hold a key, held modifiers are
+    remembered here instead and pressed with the next key, as a combo."""
+
+    MODIFIERS = ("ctrl", "alt", "shift", "super")
+
+    def __init__(self, plugin):
+        self.plugin = plugin
+        self._queue = queue.Queue()
+        self._thread = None
+        self._lock = threading.Lock()
+        self.held = []           # held on the desktop, in order
+        self.emulated = []       # modifiers the backend could not hold
+
+    def post(self, fn, *args):
+        with self._lock:
+            if self._thread is None or not self._thread.is_alive():
+                self._thread = threading.Thread(target=self._run, name="plugin-keys-" + self.plugin,
+                                                daemon=True)
+                self._thread.start()
+        self._queue.put((fn, args))
+
+    def _run(self):
+        while True:
+            fn, args = self._queue.get()
+            try:
+                fn(*args)
+            except Exception as e:                   # noqa: BLE001
+                print("plugin %s: input failed: %s" % (self.plugin, e))
+
+    def wait(self, timeout=5.0):
+        """Until everything posted so far has been sent (for tests)."""
+        done = threading.Event()
+        self.post(done.set)
+        return done.wait(timeout)
+
+    def _with_emulated(self, combo):
+        parts = [k for k in combo.split("+") if k]
+        mods = [m for m in self.MODIFIERS if m in self.emulated and m not in parts]
+        return "+".join(mods + parts)
+
+    def keys(self, combo):
         import input_backend
-        input_backend.send_hotkey(combo)
-    except Exception as e:
-        print("plugin %s: could not send %s: %s" % (plugin, combo, e))
+        input_backend.send_hotkey(self._with_emulated(combo))
 
-
-def _scroll(plugin, direction, clicks):
-    try:
-        import input_backend
-        input_backend.scroll(direction, amount=clicks)
-    except Exception as e:
-        print("plugin %s: could not scroll: %s" % (plugin, e))
-
-
-def _send_text(plugin, text):
-    try:
+    def text(self, text):
         import input_backend
         input_backend.type_text(text)
-    except Exception as e:
-        print("plugin %s: could not type text: %s" % (plugin, e))
+
+    def scroll(self, direction, clicks):
+        import input_backend
+        input_backend.scroll(direction, amount=clicks)
+
+    def down(self, key):
+        import input_backend
+        if key in self.held or key in self.emulated:
+            return
+        try:
+            input_backend.key_down(key)
+            self.held.append(key)
+        except NotImplementedError:
+            if key in self.MODIFIERS:
+                self.emulated.append(key)
+            else:
+                input_backend.send_hotkey(self._with_emulated(key))
+
+    def up(self, key):
+        import input_backend
+        if key in self.held:
+            self.held.remove(key)
+            input_backend.key_up(key)
+        elif key in self.emulated:
+            self.emulated.remove(key)
+
+    def release(self):
+        import input_backend
+        while self.held:
+            key = self.held.pop()
+            try:
+                input_backend.key_up(key)
+            except Exception as e:                   # noqa: BLE001
+                print("plugin %s: could not release %s: %s" % (self.plugin, key, e))
+        del self.emulated[:]
 
 
 # -- the one the app uses ------------------------------------------------------

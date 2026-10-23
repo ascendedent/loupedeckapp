@@ -457,7 +457,8 @@ namespace Loupedeck
                     && Enum.TryParse("Key" + Char.ToUpperInvariant(part[0]), out parsed)) { code = parsed; continue; }
                 return false;
             }
-            if (code == VirtualKeyCode.None) return false;
+            // Modifiers alone are a key too: a wheel action holds just Ctrl.
+            if (code == VirtualKeyCode.None && modifiers == ModifierKey.None) return false;
             key = new KeyboardKey(code, modifiers);
             return true;
         }

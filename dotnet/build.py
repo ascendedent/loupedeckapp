@@ -58,6 +58,9 @@ TARGETS = [
     # puts them in place of the originals). Built for .NET Framework; the
     # .NET 10 host loads them too.
     ("shims/WindowsInput.dll", ["shims/WindowsInput/*.cs"], ["@PluginApi.dll"], "library"),
+    ("shims/AudioSwitcher.AudioApi.dll", ["shims/AudioSwitcher.AudioApi/*.cs"], [], "library"),
+    ("shims/AudioSwitcher.AudioApi.CoreAudio.dll", ["shims/AudioSwitcher.AudioApi.CoreAudio/*.cs"],
+     ["@PluginApi.dll", "@shims/AudioSwitcher.AudioApi.dll"], "library"),
 ]
 
 # Libraries the Loupedeck software ships beside its plugins, so plugins use

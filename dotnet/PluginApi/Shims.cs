@@ -27,6 +27,18 @@ namespace Loupedeck.LinuxHost
             if (!String.IsNullOrEmpty(combo)) Host.Service.SendKeys(combo);
         }
 
+        // Holds a key ("ctrl", "a") until KeyUp. The app lets go of whatever a
+        // plugin still holds when it exits.
+        public static void KeyDown(String key)
+        {
+            if (!String.IsNullOrEmpty(key)) Host.Service.SendKeyState(key, true);
+        }
+
+        public static void KeyUp(String key)
+        {
+            if (!String.IsNullOrEmpty(key)) Host.Service.SendKeyState(key, false);
+        }
+
         public static void SendText(String text)
         {
             if (!String.IsNullOrEmpty(text)) Host.Service.SendText(text);

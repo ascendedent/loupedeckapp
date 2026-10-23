@@ -4,10 +4,10 @@
 // the same types and members, the keys going through the app's input
 // backend instead (Loupedeck.LinuxHost.Input in our PluginApi).
 //
-// The backend presses whole combos rather than holding keys, so modifiers
-// held with KeyDown are remembered here and pressed with the next key, which
-// is what plugins use KeyDown/KeyUp for. Mouse buttons and moves are not
-// supported yet; they are logged.
+// KeyDown and KeyUp hold and release keys on the desktop, so a modifier held
+// while the wheel turns (Ctrl+scroll to zoom) works as it does on Windows;
+// the app lets go of anything still held if the plugin exits. Mouse buttons
+// and moves are not supported yet; they are logged.
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -120,8 +120,8 @@ namespace WindowsInput
 
     public class KeyboardSimulator : IKeyboardSimulator
     {
-        // Modifiers held with KeyDown, shared by every simulator: the
-        // keyboard is one keyboard.
+        // Keys held with KeyDown, shared by every simulator (the keyboard is
+        // one keyboard), for IsKeyDown and so a key is not held twice.
         internal static readonly HashSet<String> Held = new HashSet<String>();
         private static readonly String[] ModifierOrder = { "ctrl", "alt", "shift", "super" };
 
@@ -131,8 +131,6 @@ namespace WindowsInput
 
         public IMouseSimulator Mouse { get { return this._parent.Mouse; } }
 
-        private static Boolean IsModifier(String name) { return ModifierOrder.Contains(name); }
-
         private static String Name(VirtualKeyCode key)
         {
             var name = Input.KeyName((Int32)key);
@@ -140,12 +138,11 @@ namespace WindowsInput
             return name;
         }
 
-        // Presses key with the held modifiers and the given ones.
+        // Presses key with the given modifiers (held keys are held already).
         private void Press(IEnumerable<String> modifiers, String key)
         {
             if (key == null) return;
-            var mods = new HashSet<String>(Held);
-            foreach (var m in modifiers) if (m != null) mods.Add(m);
+            var mods = new HashSet<String>(modifiers.Where(m => m != null));
             var parts = ModifierOrder.Where(mods.Contains).ToList();
             if (!parts.Contains(key)) parts.Add(key);
             Input.SendKeys(String.Join("+", parts));
@@ -156,23 +153,22 @@ namespace WindowsInput
             var name = Name(keyCode);
             if (name == null) return this;
             lock (Held)
-            {
-                if (IsModifier(name)) Held.Add(name);
-                else this.Press(new String[0], name);
-            }
+                if (Held.Add(name)) Input.KeyDown(name);
             return this;
         }
 
         public IKeyboardSimulator KeyUp(VirtualKeyCode keyCode)
         {
             var name = Name(keyCode);
-            if (name != null && IsModifier(name)) lock (Held) Held.Remove(name);
+            if (name == null) return this;
+            lock (Held)
+                if (Held.Remove(name)) Input.KeyUp(name);
             return this;
         }
 
         public IKeyboardSimulator KeyPress(VirtualKeyCode keyCode)
         {
-            lock (Held) this.Press(new String[0], Name(keyCode));
+            this.Press(new String[0], Name(keyCode));
             return this;
         }
 
@@ -185,8 +181,7 @@ namespace WindowsInput
         public IKeyboardSimulator ModifiedKeyStroke(IEnumerable<VirtualKeyCode> modifierKeyCodes, IEnumerable<VirtualKeyCode> keyCodes)
         {
             var mods = (modifierKeyCodes ?? new VirtualKeyCode[0]).Select(Name).ToList();
-            lock (Held)
-                foreach (var k in keyCodes ?? new VirtualKeyCode[0]) this.Press(mods, Name(k));
+            foreach (var k in keyCodes ?? new VirtualKeyCode[0]) this.Press(mods, Name(k));
             return this;
         }
 

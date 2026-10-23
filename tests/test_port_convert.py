@@ -41,6 +41,8 @@ sent = []
 input_backend.send_hotkey = lambda combo, repeat=1: sent.append(("keys", combo))
 input_backend.type_text = lambda text: sent.append(("text", text))
 input_backend.scroll = lambda direction, amount=1: sent.append(("scroll", direction, amount))
+input_backend.key_down = lambda key: sent.append(("down", key))
+input_backend.key_up = lambda key: sent.append(("up", key))
 
 import plugin_host as ph                                          # noqa: E402
 import plugin_port as pp                                          # noqa: E402
@@ -71,6 +73,8 @@ namespace WindowsInput
     {
         IKeyboardSimulator ModifiedKeyStroke(VirtualKeyCode modifierKeyCode, VirtualKeyCode keyCode);
         IKeyboardSimulator TextEntry(string text);
+        IKeyboardSimulator KeyDown(VirtualKeyCode keyCode);
+        IKeyboardSimulator KeyUp(VirtualKeyCode keyCode);
     }
     public interface IMouseSimulator { IMouseSimulator VerticalScroll(int clicks); }
     class Recorder : IKeyboardSimulator, IMouseSimulator
@@ -78,6 +82,8 @@ namespace WindowsInput
         static void Out() { System.IO.File.AppendAllText(Environment.GetEnvironmentVariable("TEST_OUT"), "original\n"); }
         public IKeyboardSimulator ModifiedKeyStroke(VirtualKeyCode m, VirtualKeyCode k) { Out(); return this; }
         public IKeyboardSimulator TextEntry(string text) { Out(); return this; }
+        public IKeyboardSimulator KeyDown(VirtualKeyCode k) { Out(); return this; }
+        public IKeyboardSimulator KeyUp(VirtualKeyCode k) { Out(); return this; }
         public IMouseSimulator VerticalScroll(int clicks) { Out(); return this; }
     }
     public class InputSimulator
@@ -142,6 +148,31 @@ namespace Loupedeck.WinPlugin
             sim.Keyboard.ModifiedKeyStroke(WindowsInput.Native.VirtualKeyCode.CONTROL, WindowsInput.Native.VirtualKeyCode.VK_K);
             sim.Keyboard.TextEntry("hi");
             sim.Mouse.VerticalScroll(-2);
+        }
+    }
+
+    // Ctrl held while the wheel turns, as AdvancedCommands' wheel does.
+    public class Zoom : PluginDynamicCommand
+    {
+        public Zoom() : base("Zoom", "", "Win") { }
+        protected override void RunCommand(string p)
+        {
+            var sim = new InputSimulator();
+            sim.Keyboard.KeyDown(WindowsInput.Native.VirtualKeyCode.CONTROL);
+            sim.Mouse.VerticalScroll(3);
+            sim.Keyboard.KeyUp(WindowsInput.Native.VirtualKeyCode.CONTROL);
+        }
+    }
+
+    // Holds Shift and dies: the app must let go of it.
+    public class HoldAndDie : PluginDynamicCommand
+    {
+        public HoldAndDie() : base("Hold and die", "", "Win") { }
+        protected override void RunCommand(string p)
+        {
+            new InputSimulator().Keyboard.KeyDown(WindowsInput.Native.VirtualKeyCode.SHIFT);
+            System.Threading.Thread.Sleep(300);
+            Environment.Exit(3);
         }
     }
 }
@@ -243,8 +274,30 @@ try:
     c.eq("WindowsInput's keys, text and wheel go through the input backend",
          wait_for(lambda: sent == [("keys", "ctrl+k"), ("text", "hi"), ("scroll", "down", 2)]), True)
     c.eq("and the original library was never used", os.path.exists(out), False)
+    del sent[:]
+    ph.execute(values["Zoom"])
+    c.eq("a key held while the wheel turns is held, in order",
+         wait_for(lambda: sent == [("down", "ctrl"), ("scroll", "up", 3), ("up", "ctrl")]), True)
+    del sent[:]
+    ph.execute(values["Hold and die"])
+    c.eq("a plugin that exits holding a key has it let go",
+         wait_for(lambda: sent == [("down", "shift"), ("up", "shift")]), True)
 finally:
     host_.stop()
+
+# -- a backend that cannot hold keys ---------------------------------------------------
+def cannot(_key):
+    raise NotImplementedError
+
+
+input_backend.key_down = input_backend.key_up = cannot
+del sent[:]
+kb = ph._Keyboard("fallback")
+for step in ((kb.down, "ctrl"), (kb.down, "z"), (kb.keys, "a"), (kb.up, "ctrl"), (kb.keys, "b")):
+    kb.post(*step)
+kb.wait()
+c.eq("where keys cannot be held, held modifiers go with the next keys",
+     sent, [("keys", "ctrl+z"), ("keys", "ctrl+a"), ("keys", "b")])
 
 # -- reverting ----------------------------------------------------------------------
 before = sha(os.path.join(tmp, "WindowsInput.dll")), sha(plugin_dll)
