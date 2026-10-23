@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls.Basic
 // OpacityMask rather than QtQuick.Effects' MultiEffect: that module arrived in
 // Qt 6.5, and the oldest macOS this supports (10.14) tops out at PySide6 6.2.
 // Qt5Compat ships in both, so this is one path rather than two.
@@ -477,6 +478,57 @@ Item {
                 color: theme.accent; font.pixelSize: 11; font.bold: true }
             HoverHandler { id: bcHover; cursorShape: Qt.PointingHandCursor }
             TapHandler { onTapped: backend.goBack() }
+        }
+
+        // pages of keys: swipe on the device, or turn them here
+        Rectangle {
+            anchors.top: parent.top; anchors.right: parent.right
+            anchors.margins: 12
+            width: pageRow.width + 16; height: 24; radius: 12
+            color: theme.panel2
+            border.color: backend.pageCount > 1 ? theme.accent : theme.line
+            RowLayout {
+                id: pageRow
+                anchors.centerIn: parent
+                spacing: 8
+                Text {
+                    visible: backend.pageCount > 1
+                    text: "◀"; font.pixelSize: 11
+                    color: backend.pageShown > 1 ? theme.accent : theme.muted
+                    HoverHandler { cursorShape: Qt.PointingHandCursor }
+                    TapHandler { onTapped: backend.turnPage("previous") }
+                }
+                Text {
+                    text: backend.pageCount > 1
+                          ? "page " + backend.pageShown + " of " + backend.pageCount : "1 page"
+                    color: backend.pageCount > 1 ? theme.accent : theme.muted
+                    font.pixelSize: 11; font.bold: backend.pageCount > 1
+                }
+                Text {
+                    visible: backend.pageCount > 1
+                    text: "▶"; font.pixelSize: 11
+                    color: backend.pageShown < backend.pageCount ? theme.accent : theme.muted
+                    HoverHandler { cursorShape: Qt.PointingHandCursor }
+                    TapHandler { onTapped: backend.turnPage("next") }
+                }
+                Text {
+                    text: "+"; font.pixelSize: 12; font.bold: true
+                    color: addPageHover.hovered ? theme.ok : theme.muted
+                    HoverHandler { id: addPageHover; cursorShape: Qt.PointingHandCursor }
+                    TapHandler { onTapped: backend.addPage() }
+                    ToolTip.visible: addPageHover.hovered
+                    ToolTip.text: "Add a page of keys (swipe the screen to turn pages)"
+                }
+                Text {
+                    visible: backend.pageShown > 1
+                    text: "−"; font.pixelSize: 12; font.bold: true
+                    color: removePageHover.hovered ? theme.warn : theme.muted
+                    HoverHandler { id: removePageHover; cursorShape: Qt.PointingHandCursor }
+                    TapHandler { onTapped: backend.removePage() }
+                    ToolTip.visible: removePageHover.hovered
+                    ToolTip.text: "Remove this page"
+                }
+            }
         }
 
         ColumnLayout {

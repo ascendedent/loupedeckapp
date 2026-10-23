@@ -1,6 +1,6 @@
 {
  "profile": "Default/Starter",
- "schema_version": 8,
+ "schema_version": 9,
  "workspaces": {
   "1": {
    "actions": {

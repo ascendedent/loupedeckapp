@@ -630,7 +630,7 @@ class Backend(QObject):
 
     # -- control selection + action editing (inspector) --------------------
     ACTION_TYPES = ["none", "command", "hotkey", "text", "scroll", "mouse", "media",
-                    "keyboard", "workspace", "profile", "macro"]
+                    "keyboard", "workspace", "page", "profile", "macro"]
 
     # Per-platform, from action_library: the applications differ by desktop.
     ACTION_LIBRARY = action_library.default_library()
@@ -818,7 +818,33 @@ class Backend(QObject):
 
     @Property(int, notify=stateChanged)
     def menuDepth(self):
-        return len(self._ctl.submenu_stack)
+        """Submenus open, not counting a page of keys being shown."""
+        return len([s for s in self._ctl.submenu_stack if getattr(s, "page_of", None) is None])
+
+    @Property(int, notify=stateChanged)
+    def pageShown(self):
+        """The page of keys shown, from 1 (LdWorkspace.pages)."""
+        return self._ctl.page_info()[1]
+
+    @Property(int, notify=stateChanged)
+    def pageCount(self):
+        return self._ctl.page_info()[2]
+
+    @Slot(str)
+    def turnPage(self, to):
+        """"next", "previous" or a page number."""
+        if self._ctl.turn_page(to):
+            self.stateChanged.emit()
+
+    @Slot()
+    def addPage(self):
+        self._ctl.add_page()
+        self.stateChanged.emit()
+
+    @Slot()
+    def removePage(self):
+        if self._ctl.remove_page():
+            self.stateChanged.emit()
 
     def _slot_defs(self, key):
         """(slot-key, label) pairs a control exposes. Encoders and the dial
@@ -1209,6 +1235,11 @@ class Backend(QObject):
     # Action types whose value is a fixed set rather than free text. Typing
     # 'up' by hand is a needless way to get 'sideways' wrong.
     VALUE_OPTIONS = {
+        # Pages of keys (LdWorkspace.pages); a swipe across the screen does
+        # the same as next and previous.
+        "page": [{"label": "Next page", "value": "next"},
+                 {"label": "Previous page", "value": "previous"}]
+                + [{"label": "Page %d" % n, "value": str(n)} for n in range(1, 11)],
         # Keys before "+" are held around it; a knob's notches are how far a
         # move or drag goes (input_backend.mouse).
         "mouse": [

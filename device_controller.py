@@ -49,6 +49,8 @@ class DeviceController:
         self.config = LdConfiguration()
         self.selected_ws = WS_KEYS[0]
         self.submenu_stack = []
+        # touches in progress on a screen with pages: id -> (x, y, key)
+        self._touches = {}
         self.connected = False
         self.on_state = on_state
         # Device brightness (0-100), re-applied on every connect.
@@ -597,6 +599,91 @@ class DeviceController:
     # Keys left to right, then down; knobs down the left, then the right.
     _FOLDER_ENCODERS = ("enc1L", "enc2L", "enc3L", "enc1R", "enc2R", "enc3R")
 
+    # -- pages of keys (LdWorkspace.pages) ------------------------------------
+    # A page beyond the first is shown the way a submenu is, on top of the
+    # submenu stack, marked with the menu it belongs to; turning replaces it.
+    SWIPE_PX = 90          # one key's width, across the screen
+
+    class _Page:
+        def __init__(self, ws, owner, index):
+            self.action = ws
+            self.a_type = "submenu"
+            self.page_of = owner
+            self.page_index = index
+
+    def page_info(self):
+        """(menu whose pages are shown, page shown counting from 1, pages)."""
+        top = self.submenu_stack[-1] if self.submenu_stack else None
+        if top is not None and getattr(top, "page_of", None) is not None:
+            return top.page_of, top.page_index + 1, len(top.page_of.pages) + 1
+        menu = self.current_menu()
+        return menu, 1, len(getattr(menu, "pages", [])) + 1
+
+    def turn_page(self, to):
+        """To "next", "previous" or page number `to` (from 1). Stays put at
+        either end. Returns whether the page changed."""
+        owner, shown, count = self.page_info()
+        if count < 2:
+            return False
+        if to == "next":
+            target = shown + 1
+        elif to == "previous":
+            target = shown - 1
+        else:
+            try:
+                target = int(to)
+            except (TypeError, ValueError):
+                return False
+        target = max(1, min(count, target))
+        if target == shown:
+            return False
+        if shown > 1:
+            self.submenu_stack.pop()
+        if target > 1:
+            self.submenu_stack.append(self._Page(owner.pages[target - 2], owner, target - 1))
+        self.render_workspace(self.current_menu())
+        self._emit("workspace")
+        return True
+
+    def add_page(self):
+        """A new last page for the menu shown (its knobs and buttons, keys
+        empty), turned to."""
+        owner, _shown, count = self.page_info()
+        owner.pages.append(owner.new_page())
+        self.dirty = True
+        return self.turn_page(count + 1)
+
+    def remove_page(self):
+        """Remove the page shown (not the first), showing the one before."""
+        owner, shown, _count = self.page_info()
+        if shown < 2:
+            return False
+        self.turn_page(shown - 1)
+        del owner.pages[shown - 2]
+        self.dirty = True
+        self._emit("workspace")
+        return True
+
+    def _swipe_or_tap(self, message):
+        """On a screen whose menu has pages: a swipe across turns the page,
+        anything else presses the key it started on, when the finger lifts
+        (a press on touch could not be told from the start of a swipe)."""
+        ident = message.get(CBC.IDENTIFIER.value)
+        action = message[CBC.ACTION.value]
+        x, y = message.get(CBC.X.value, 0), message.get(CBC.Y.value, 0)
+        if "touchstart" in action:
+            self._touches[ident] = (x, y, message.get(CBC.KEY.value))
+        elif action == "touchend":
+            start = self._touches.pop(ident, None)
+            if start is None:
+                return
+            x0, y0, key = start
+            dx, dy = x - x0, y - y0
+            if abs(dx) >= self.SWIPE_PX and abs(dx) > abs(dy):
+                self.turn_page("next" if dx < 0 else "previous")
+            elif key is not None:
+                self.on_touchkey_press(key)
+
     def _pop_submenu(self):
         """Leave the innermost submenu, telling a plugin its folder closed."""
         page = self.submenu_stack.pop()
@@ -937,6 +1024,10 @@ class DeviceController:
     # -- event routing -----------------------------------------------------
     def device_callback(self, ld, message):
         if CBC.SCREEN.value in message:
+            if (message[CBC.SCREEN.value] == "center"
+                    and (self._touches or self.page_info()[2] > 1)):
+                self._swipe_or_tap(message)
+                return
             if "touchstart" in message[CBC.ACTION.value]:
                 if message[CBC.SCREEN.value] == WHEEL_DISPLAY:
                     self.run_bound_action(WHEEL_DISPLAY)
@@ -1052,6 +1143,9 @@ class DeviceController:
             return
         if action.a_type == "profile":
             self.switch_profile(action.action)
+            return
+        if action.a_type == "page":
+            self.turn_page(action.action)
             return
         if action.a_type == "submenu":
             self.submenu_stack.append(action)

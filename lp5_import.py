@@ -150,6 +150,9 @@ _OFF_WINDOWS = {
 
 _STEP_RE = re.compile(r"^\$([^_]+)___(.*)$")
 
+# An empty slot: "@None", and "@None2" on a knob.
+_EMPTY = re.compile(r"^none\d*$")
+
 
 def parse_ref(ref):
     """("generic", "macroadjustment", arg) from an action reference.
@@ -230,19 +233,31 @@ class _Converter:
         # Workspace name -> the key that selects it here; set by convert()
         # once workspaces have their buttons.
         self.workspace_keys = {}
+        # Workspace name -> its pages of keys, in order, and the workspace
+        # being converted, for keys that turn to a page.
+        self.page_names = {}
+        self.current_ws = None
 
     def note(self, text):
         if text not in self.notes:
             self.notes.append(text)
 
-    def _steps(self, steps, label):
-        """Generic steps -> list of macro lines, or None if any is unknown."""
+    def _steps(self, steps, label, depth=0):
+        """Generic steps -> list of macro lines, or None if any is unknown.
+        A step may run another of the profile's macros; its steps are put
+        in its place (a few levels deep, so a macro that runs itself ends)."""
         lines = []
         for step in steps or []:
             if not step:
                 continue
             source, kind, arg = parse_ref(step) or ("", "", "")
-            if source == "generic" and kind == "none":
+            if source == "generic" and _EMPTY.match(kind):
+                continue
+            if source == "generic" and kind == "macro" and arg in self.macros and depth < 4:
+                inner = self._steps(self.macros[arg].get("actions"), label, depth + 1)
+                if inner is None:
+                    return None
+                lines += inner
                 continue
             if source == "generic" and kind == "keyboardshortcut":
                 combo = convert_combo(arg)
@@ -276,8 +291,25 @@ class _Converter:
         source, kind, arg = parsed
         m = _STEP_RE.match(ref)
         rest, raw_source = m.group(2), m.group(1)
-        if source == "generic" and kind == "none":
+        if source == "generic" and _EMPTY.match(kind):
             return None                  # an empty slot
+        if source == "generic" and kind == "goback":
+            return ("back", "", label_hint or "Back")
+        if source == "generic" and kind == "changetouchpage":
+            parts = arg.split("|")
+            ws_name, page_name = (parts[-2], parts[-1]) if len(parts) >= 2 else ("", "")
+            names = self.page_names.get(ws_name) or []
+            if page_name in names:
+                number = names.index(page_name) + 1
+                if ws_name == self.current_ws:
+                    return ("page", str(number), label_hint or "Page %d" % number)
+                key = self.workspace_keys.get(ws_name)
+                if key:
+                    self.note("a key turns to page %d of another workspace; it switches to "
+                              "that workspace" % number)
+                    return ("workspace", key, label_hint or "Workspace")
+            self.note("a key turns to a page that was not imported")
+            return None
         if source == "generic" and kind == "changeworkspace":
             key = self.workspace_keys.get(arg.rsplit("|", 1)[-1])
             if key:
@@ -335,7 +367,7 @@ class _Converter:
         source, kind, arg = parsed
         m = _STEP_RE.match(ref)
         rest, raw_source = m.group(2), m.group(1)
-        if source == "generic" and kind == "none":
+        if source == "generic" and _EMPTY.match(kind):
             return None
         if source == "generic" and kind in _ARROW_ADJUSTMENTS:
             left, right = _ARROW_ADJUSTMENTS[kind]
@@ -451,6 +483,7 @@ def convert(profile, images, image_dir, ref):
                 continue
             slot_of[w.get("name")] = free.pop(0)
     conv.workspace_keys = {name: WS_KEYS[i] for name, i in slot_of.items()}
+    conv.page_names = {w.get("name"): list(w.get("touchPageNames") or []) for w in workspaces}
 
     square = (layout.get("squarePage") or {}).get("controls") or []
     os.makedirs(image_dir, exist_ok=True)
@@ -477,12 +510,14 @@ def convert(profile, images, image_dir, ref):
         ws = cfg.workspaces[slot_of[w["name"]]]
         ws.name = (w.get("displayName") or "").strip()
         where = ws.name or "a workspace"
-        for kind in ("touchPageNames", "encoderPageNames", "wheelPageNames"):
+        conv.current_ws = w.get("name")
+        # Pages of keys come across as pages (made below); knobs and the
+        # wheel have one page here.
+        for kind in ("encoderPageNames", "wheelPageNames"):
             if len(w.get(kind) or []) > 1:
                 conv.note("%s has %d %s; only the first was imported" % (
                     where, len(w[kind]),
-                    {"touchPageNames": "pages of keys",
-                     "encoderPageNames": "pages of knobs",
+                    {"encoderPageNames": "pages of knobs",
                      "wheelPageNames": "wheel pages"}[kind]))
 
         touch = pages.get((w.get("touchPageNames") or [None])[0]) or {}
@@ -529,6 +564,16 @@ def convert(profile, images, image_dir, ref):
         for i, control in enumerate(square[:len(SQUARE)]):
             _bind_press(conv, ws, SQUARE[i], control or {}, "the square buttons",
                         image_for, with_image=False)
+
+        # Further pages of keys, turned by swiping as in the official
+        # software; each has this workspace's knobs and buttons.
+        for page_name in (w.get("touchPageNames") or [])[1:]:
+            page = ws.new_page()
+            for i, control in enumerate((pages.get(page_name) or {}).get("controls") or []):
+                row, col = divmod(i, TOUCH_COLUMNS)
+                _bind_press(conv, page, "tb%d%d" % (row + 1, col + 1), control or {}, where,
+                            image_for, with_image=True)
+            ws.pages.append(page)
 
     for slot in ("fnL", "fnR"):
         for ws in cfg.workspaces:

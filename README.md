@@ -57,9 +57,13 @@ so a file written on one model opens on another.
 - Everything renders both in the on-screen mirror and on the physical device.
 
 ### Actions
-- `command`/launch, `hotkey`, `text`, `scroll`, `media` (MPRIS), `macro` (a sequence),
-  `keyboard` (the desktop's on-screen keyboard), `workspace` (jump to a workspace),
-  `plugin` (an action of an installed Loupedeck plugin, below), and `submenu` / `back` navigation.
+- `command`/launch, `hotkey`, `text`, `scroll`, `mouse`, `media` (MPRIS), `macro` (a sequence),
+  `keyboard` (the desktop's on-screen keyboard), `workspace` (jump to a workspace), `page` (turn
+  a page of keys), `plugin` (an action of an installed Loupedeck plugin, below), and `submenu` /
+  `back` navigation.
+- `mouse` clicks (left, right, middle, double), scrolls, moves the pointer or drags, with keys held
+  around it when it says so (`ctrl+click`, `ctrl+scroll-up`). On a knob, each notch moves, scrolls
+  or drags a step further; a click happens once.
 - **Hotkey recorder** that captures a key combination when you press it, plus a **presets** picker
   that includes your machine's configured KDE global shortcuts.
 - A searchable **action library** you drag onto controls, including scroll and volume. Search
@@ -78,8 +82,8 @@ hotkey alt+tab
 text hello world
 ```
 
-Steps are `hotkey`, `text`, `wait <ms>`, `scroll <direction> [count]`, `media`, `keyboard` and
-`command`. Lines starting with `#` are comments.
+Steps are `hotkey`, `text`, `wait <ms>`, `scroll <direction> [count]`, `mouse` (as the action:
+`mouse ctrl+click`), `media`, `keyboard` and `command`. Lines starting with `#` are comments.
 
 The inspector offers **both** a step list (add, reorder, delete, with a dropdown per step) and the
 raw text, switchable with one button. They edit the same value, so use whichever suits: the list
@@ -208,10 +212,22 @@ this app's own `.json`, or from a terminal:
 It becomes an application here, set to switch on that application's window, with its workspaces
 on the round buttons that chose them, its keys, knobs, square buttons, fn presses and key images
 where they were, and each knob's name on the side strip beside it. Keyboard shortcuts, macros of
-them, the mouse wheel and the default plugin's volume and media actions come across. What does not
-(long and double presses, extra pages, the wheel's clock and other tools, other plugins' actions)
-is listed when the import finishes rather than dropped silently. A profile made on Windows has
+them (including macros that run other macros), typed text, mouse clicks, drags and the wheel (with
+keys held), the default plugin's volume and media actions, and further **pages of keys** come
+across; keys that turn to a page or switch workspace keep doing so. What does not (long and double
+presses, pages of knobs, the wheel's clock and other tools, other plugins' actions such as
+Loupedeck's own Premiere or Photoshop integrations) is listed when the import finishes rather than
+dropped silently. A profile made on Windows has
 Windows' Ctrl+Y redo turned into Ctrl+Shift+Z, which is what Chromium-based apps use elsewhere.
+
+### Pages of keys
+
+A workspace can have more than one **page of keys**: swipe across the screen to turn them, as on
+Loupedeck's own software, or bind the `page` action (next, previous, or a page number) to any
+control. Pages share the workspace's knobs and buttons; only the keys differ. In the editor the
+corner of the device view shows "page 2 of 3" with arrows to turn, `+` to add a page and `−` to
+remove the one shown. On a workspace with pages a key fires when your finger lifts rather than on
+touch, which is how a tap is told from the start of a swipe; workspaces without pages are as before.
 
 ### The fn layer
 

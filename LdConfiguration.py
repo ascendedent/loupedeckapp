@@ -8,7 +8,7 @@ import plugin_host
 import virtual_keyboard
 from DeviceProfile import CT_EXTRA_BUTTONS, WHEEL_DISPLAY, WS_KEYS
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 # Profile locations come from app_paths: reads prefer the user's copy and fall
 # back to the bundled one, writes always go to the user directory. This was once
@@ -291,6 +291,12 @@ class LdWorkspace:
     # the per-cell data stays in place either way, so switching back and forth
     # loses nothing.
     self.side_layout = dict(DEFAULT_SIDE_LAYOUT)
+
+    # schema v9: further pages of keys, turned by swiping the screen or by a
+    # "page" action. Each is a whole workspace (the controller shows it the
+    # way it shows a submenu), made with this one's knobs and buttons
+    # (new_page), so only the keys differ.
+    self.pages = []
     action_keys = ["enc1L" , "enc1L-l", "enc1L-r",
                    "enc2L", "enc2L-l", "enc2L-r",
                    "enc3L", "enc3L-l", "enc3L-r",
@@ -400,7 +406,22 @@ class LdWorkspace:
           "bg_colors": dict(self.bg_colors),
           "tuning": {key: dict(v) for key, v in self.tuning.items()},
           "fn_actions": {key: a.to_JSON() for key, a in self.fn_actions.items()}}
+    if self.pages:
+      s["pages"] = [page.to_JSON() for page in self.pages]   # v9
     return s
+
+  def new_page(self):
+    """A further page of keys for this workspace: its knobs, buttons and
+    side strips as they are now, its keys empty."""
+    data = self.to_JSON()
+    data.pop("pages", None)
+    page = LdWorkspace.from_JSON(json.loads(json.dumps(data)))
+    for key in TOUCH_KEYS:
+      page.actions[key] = LdAction()
+      page.images[key] = ""
+      for attr in (page.labels, page.bg_colors, page.fn_actions):
+        attr.pop(key, None)
+    return page
 
   def from_JSON(json_data):
     ldw = LdWorkspace(ws_profile=json_data["profile"])
@@ -423,6 +444,7 @@ class LdWorkspace:
     # v6; absent in older profiles, which simply have no fn layer.
     for key, action in json_data.get("fn_actions", {}).items():
         ldw.fn_actions[key] = LdAction.from_JSON(action)
+    ldw.pages = [LdWorkspace.from_JSON(page) for page in json_data.get("pages", [])]   # v9
     return ldw
 
 

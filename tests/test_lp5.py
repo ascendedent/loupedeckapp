@@ -195,10 +195,15 @@ joined = "\n".join(notes)
 for what, needle in (("the unknown shortcut", "Hyper+KeyQ"),
                      ("the other plugin's action", "Spotify"),
                      ("the long press", "long press"),
-                     ("the second page of keys", "only the first"),
                      ("the clock", "analog clock"),
                      ("the redo translation", "Redo")):
     c.eq("the notes mention %s" % what, needle in joined, True)
+
+c.eq("a second page of keys comes across as a page", len(second.get("pages") or []), 1)
+c.eq("with the workspace's knobs on it",
+     (second["pages"][0]["actions"]["enc1L-l"]["a_type"], second["pages"][0]["actions"]["enc1L-l"]["action"]),
+     ("hotkey", "volumedown"))
+c.eq("and the notes no longer say pages were left behind", "pages of keys" in joined, False)
 
 cfg, _ = lp5.convert(PROFILE, {}, os.path.join(tmp, "img"), "X/Y")
 c.eq("everything bound is something the app accepts", lp5.validate(cfg), [])
@@ -219,6 +224,7 @@ NEWER = {
         {"name": "FIT", "displayName": "Fit", "actions": [g + "@KeyboardShortcut___ControlOrCommand+Oem2"]},
         {"name": "MUTE", "displayName": "Mute", "actions": [g + "@KeyboardShortcut___VolumeMute"]},
         {"name": "SKIP", "displayName": "Skip", "actions": [g + "@None", g + "@KeyboardShortcut___KeyS"]},
+        {"name": "NEST", "displayName": "Nested", "actions": [g + "@Macro___MIC", g + "@KeyboardShortcut___KeyS"]},
     ],
     "macroAdjustments": [
         {"name": "MOVE", "displayName": "Move", "actionsLeft": [g + "@HorizontalArrows"],
@@ -229,14 +235,17 @@ NEWER = {
                                    press(g + "@Change workspace___main|B"), press(g + "@None")]},
         "squarePage": {"controls": []},
         "layoutModes": [{
-            "workspaces": [{"name": "A", "displayName": "A", "touchPageNames": ["TA"],
+            "workspaces": [{"name": "A", "displayName": "A", "touchPageNames": ["TA", "TA2"],
                             "encoderPageNames": ["EA"]},
                            {"name": "B", "displayName": "B", "touchPageNames": [],
                             "encoderPageNames": []}],
             "touchPages": [{"name": "TA", "controls": [
                 press(g + "@Macro___MIC"), press(g + "@Macro___CODE"), press(g + "@Macro___FIT"),
                 press(g + "@Macro___MUTE"), press(g + "@Keyboard shortcut___arrow up"),
-                press(g + "@Change workspace___main|B"), press(g + "@None"), press(g + "@Macro___SKIP")]}],
+                press(g + "@Change workspace___main|B"), press(g + "@None"), press(g + "@Macro___SKIP"),
+                press(g + "@Macro___NEST"), press(g + "@Go back")]},
+                           {"name": "TA2", "controls": [press(g + "@ChangeTouchPage___main|A|TA"),
+                                                        press(g + "@Keyboard shortcut___arrow down")]}],
             "encoderPages": [{"name": "EA", "controls": [
                 {"rotateAction": g + "@Macro adjustment___MOVE"},
                 {"rotateAction": g + "@VerticalArrows"}]}],
@@ -266,6 +275,14 @@ c.eq("so does the vertical arrows knob", (got("enc2L-l"), got("enc2L-r")), (("ho
 c.eq("and none of it is reported as unsupported",
      [n for n in notes if "not something this app can do" in n or "did something other" in n], [])
 c.eq("the newer spellings validate", lp5.validate(cfg), [])
+c.eq("a macro that runs another runs its steps", got("tb31"),
+     ("macro", "hotkey ctrl+shift+a\nwait 50\nhotkey s"))
+c.eq("Go back goes back", got("tb32"), ("back", ""))
+page2 = ws_a.pages[0] if ws_a.pages else None
+c.eq("a key that turns to a page turns to it here",
+     (page2.actions["tb11"].a_type, page2.actions["tb11"].action) if page2 else None, ("page", "1"))
+c.eq("and the page's own keys come with it",
+     (page2.actions["tb12"].a_type, page2.actions["tb12"].action) if page2 else None, ("hotkey", "down"))
 
 shutil.rmtree(tmp, ignore_errors=True)
 raise SystemExit(c.done())
