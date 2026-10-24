@@ -199,10 +199,15 @@ tools read plugins with Mono's Mono.Cecil and the stand-ins are built for .NET F
 runtimes load); with only the .NET SDK the same tools and stand-ins are built with it
 (`dotnet/core/Linux.slnx`, Mono.Cecil from NuGet). Without Mono, plugins that use the Windows
 registry (Weather registers itself there) do not convert: .NET on Linux has no registry, Mono keeps
-one. When those change (the app was updated), plugins
-converted before are converted again when the app starts, before they run; so are plugins
-installed before conversion existed. Mono's machine registry is per plugin (`MONO_REGISTRY_PATH` in the plugin's data folder),
+one. When the rules or stand-ins change (the app was updated), plugins converted before are
+converted again when the app starts, before they run; so are plugins installed before conversion
+existed. Mono's machine registry is per plugin (`MONO_REGISTRY_PATH` in the plugin's data folder),
 so plugins that register things at load work.
+
+What no rule covers yet is listed when the plugin is installed. `python3 plugin_port.py brief
+<name>` turns that into a brief for Claude Code (or anyone working on this source): what is left,
+where the rules and stand-ins live, and how to test them. Nothing is run for you; paste it into a
+session of your own, on a branch, and review what comes back.
 
 ### Loupedeck profiles (.lp5)
 

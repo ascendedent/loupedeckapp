@@ -1338,7 +1338,9 @@ class Backend(QObject):
                              "\n".join("• " + c for c in port["converted"]))
             if port and port.get("remaining"):
                 parts.append("Still tied to Windows or macOS, so some of its actions "
-                             "may do nothing:\n" + "\n".join("• " + r for r in port["remaining"]))
+                             "may do nothing:\n" + "\n".join("• " + r for r in port["remaining"])
+                             + "\n\n`python3 plugin_port.py brief %s` writes a brief for Claude Code "
+                               "on making them work." % name)
             if port and port.get("settings"):
                 parts.append("It needs settings before it can work: "
                              + ", ".join(s["label"] for s in port["settings"])

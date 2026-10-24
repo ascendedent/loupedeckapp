@@ -13,6 +13,7 @@ the volume...), which is what decides which stand-ins to write first:
     python3 plugin_port.py convert <name>         convert an installed plugin
     python3 plugin_port.py revert <name>          put it back as installed
     python3 plugin_port.py refresh <name>         convert again if the rules or stand-ins changed
+    python3 plugin_port.py brief <name>           a brief for Claude Code on what no rule covers yet
 
 A plugin's own code is reported in full. Libraries it bundles are judged as a
 whole when they are known (Newtonsoft.Json runs anywhere; AudioSwitcher's
@@ -1033,6 +1034,52 @@ def write_setting(name, key, value):
     return ""
 
 
+# -- a brief for what no rule covers -----------------------------------------------
+def brief(name):
+    """A brief to give Claude Code (or anyone) for the parts of an installed
+    plugin no conversion rule covers yet: what is left, where the rules and
+    stand-ins live, and what not to do. Nothing is run; paste it into a
+    session of your own in this source. Returns (brief, error)."""
+    state = conversion(name)
+    if not state or not state.get("remaining"):
+        return "", "%s has nothing left to convert" % name
+    folder = os.path.join(plugin_host.plugins_dir(), name)
+    with open(plugin_host.metadata_path(folder), encoding="utf-8") as f:
+        meta = plugin_host.parse_metadata(f.read())
+    report = analyze_folder(folder, meta, name)
+    lines = ["- %s %s: %s (in %s%s)" % (f["area"], f["kind"], f["what"], f["where"],
+                                       ", %d call sites" % f["count"] if f["count"] > 1 else "")
+             for f in remaining(report)]
+    return """Read CLAUDE.md first and follow it, including its rule that no AI is credited anywhere.
+Work on a new branch.
+
+The Loupedeck plugin "{name}" ({display}, {framework}) is installed and converted to run on
+Linux, but these parts of it are still tied to Windows or macOS, and no conversion rule covers them:
+
+{findings}
+
+The installed plugin is at {folder}; files the conversion changed are there as they came in
+.orig/. Read its metadata; do not run it, and do not change it.
+
+Write what makes them work here, the way the existing rules do, so every later plugin that needs
+the same thing is converted too:
+- plugin_port.py decides which rules apply (_rule, plan, STAND_INS, COMPANIONS, OPENERS) and
+  dotnet/tools/PortPatch.cs edits the plugin (--process, --swap, --value);
+- stand-in libraries live in dotnet/shims/<Name>/ (see WindowsInput and AudioSwitcher.*), are
+  built by dotnet/build.py (TARGETS) and dotnet/core/Linux.slnx, and reach the app's input
+  backend and the desktop through Loupedeck.LinuxHost in dotnet/PluginApi/Shims.cs;
+- `mono dotnet/bin/ApiScan.exe Plugin.dll dotnet/bin/shims/X.dll --assembly X` shows what a
+  plugin uses of a library and what a stand-in lacks.
+Add a test in the style of tests/test_port_convert.py and tests/test_audio_standin.py (fakes, not
+the real desktop or audio), and run it and tests/test_port_scan.py.
+
+If something cannot be done on Linux (the application the plugin controls does not exist here,
+say), stop and say so instead of writing a stand-in that pretends. Finish with a short summary:
+what you added, which findings it covers, and what you could not do.
+""".format(name=name, display=report.get("displayName") or name, framework=report.get("framework") or "",
+           findings="\n".join(lines), folder=folder), ""
+
+
 def revert(name):
     """Put a converted plugin back as it was installed. Returns an error, or ""."""
     folder = os.path.join(plugin_host.plugins_dir(), name)
@@ -1062,6 +1109,10 @@ def _packages(paths):
 
 
 def _main(argv):
+    if argv[:1] == ["brief"] and len(argv) == 2:
+        text, error = brief(argv[1])
+        print(text or error, file=sys.stdout if text else sys.stderr)
+        return 1 if error else 0
     if argv[:1] in (["convert"], ["revert"], ["refresh"]) and len(argv) == 2:
         if argv[0] == "revert":
             return 1 if revert(argv[1]) else 0
